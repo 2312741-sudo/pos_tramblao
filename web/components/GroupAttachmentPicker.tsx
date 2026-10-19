@@ -23,7 +23,7 @@ export default function GroupAttachmentPicker({ title, options, value, onChange,
     <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px", background: "var(--surface)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{title}</span>
-        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: custom ? "rgba(126,41,48,0.12)" : "var(--surface-muted)", color: custom ? "var(--primary)" : "var(--subtext)" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: custom ? "rgba(27,77,62,0.12)" : "var(--surface-muted)", color: custom ? "var(--primary)" : "var(--subtext)" }}>
           {custom ? "Tùy chỉnh" : isProduct ? "Kế thừa" : "Chưa gắn"}
         </span>
       </div>
@@ -50,7 +50,7 @@ export default function GroupAttachmentPicker({ title, options, value, onChange,
                 style={{
                   padding: "5px 12px", borderRadius: 16, fontSize: 12, fontWeight: 600, cursor: "pointer",
                   border: on ? "2px solid var(--primary)" : "1px solid var(--border)",
-                  background: on ? "rgba(126,41,48,0.12)" : "var(--surface)", color: on ? "var(--primary)" : "var(--subtext)",
+                  background: on ? "rgba(27,77,62,0.12)" : "var(--surface)", color: on ? "var(--primary)" : "var(--subtext)",
                 }}
               >
                 {on ? "✓ " : "+ "}{o.name}{o.active ? "" : " (đã tắt)"}

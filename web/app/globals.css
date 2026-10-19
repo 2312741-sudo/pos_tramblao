@@ -73,10 +73,10 @@
     --card-warm: #221F28;
     --surface-muted: #26222C;
     --surface-sunken: #2B2631;
-    --primary: #C9505B;
-    --primary-dark: #E07A84;
-    --primary-hover: #D8646E;
-    --primary-light: #3A1D22;
+    --primary: #95E4D1;
+    --primary-dark: #1B4D3E;
+    --primary-hover: #7BDBC3;
+    --primary-light: #16362C;
     --text: #F1EEF4;
     --subtext: #C6C2CE;
     --muted: #A29FAE;
@@ -94,7 +94,7 @@
     --info-bg: #15293A;
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
     --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
-    --focus-ring: 0 0 0 3px rgba(224, 122, 132, 0.45);
+    --focus-ring: 0 0 0 3px rgba(149, 228, 209, 0.45);
     --overlay: rgba(0, 0, 0, 0.7);
     --table-awaiting: #B39DF2;
     --table-awaiting-bg: #2A2240;
@@ -109,10 +109,10 @@
   --card-warm: #221F28;
   --surface-muted: #26222C;
   --surface-sunken: #2B2631;
-  --primary: #C9505B;
-  --primary-dark: #E07A84;
-  --primary-hover: #D8646E;
-  --primary-light: #3A1D22;
+  --primary: #95E4D1;
+  --primary-dark: #1B4D3E;
+  --primary-hover: #7BDBC3;
+  --primary-light: #16362C;
   --text: #F1EEF4;
   --subtext: #C6C2CE;
   --muted: #A29FAE;
@@ -130,7 +130,7 @@
   --info-bg: #15293A;
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
-  --focus-ring: 0 0 0 3px rgba(224, 122, 132, 0.45);
+  --focus-ring: 0 0 0 3px rgba(149, 228, 209, 0.45);
   --overlay: rgba(0, 0, 0, 0.7);
   --table-awaiting: #B39DF2;
   --table-awaiting-bg: #2A2240;
@@ -232,25 +232,36 @@ button:not(:disabled), [role="button"] {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  color: var(--on-primary);
+  background: #1B4D3E;
+  color: #FFFFFF;
   border: none;
   box-shadow: 0 2px 8px rgba(27, 77, 62, 0.25);
 }
 
 :root[data-theme="dark"] .btn-primary {
-  background: var(--primary);
+  background: #1B4D3E;
+  color: #FFFFFF;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .btn-primary {
-    background: var(--primary);
+    background: #1B4D3E;
+    color: #FFFFFF;
   }
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--primary-hover), var(--primary));
+  background: #143A2F;
   box-shadow: 0 4px 14px rgba(27, 77, 62, 0.35);
   transform: translateY(-1px);
+}
+
+:root[data-theme="dark"] .btn-primary:hover:not(:disabled) {
+  background: #143A2F;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn-primary:hover:not(:disabled) {
+    background: #143A2F;
+  }
 }
 
 .btn-secondary {

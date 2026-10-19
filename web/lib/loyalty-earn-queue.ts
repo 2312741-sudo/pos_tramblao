@@ -107,7 +107,7 @@ export async function earnWithRetry(
   }
 }
 
-const KEY_PREFIX = "loyalty_earn_retry:";
+const KEY_PREFIX = "blao_pos_loyalty_earn_retry:";
 
 /** Mọi hàng đợi của một người dùng (mỗi chi nhánh một khóa) → [{ key, storeCode }] */
 export function listEarnQueueKeys(storage: { length: number; key(i: number): string | null } | null, username: string): { key: string; storeCode: string }[] {

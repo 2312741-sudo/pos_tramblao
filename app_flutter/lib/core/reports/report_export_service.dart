@@ -35,7 +35,7 @@ class ReportExportService {
     }
   }
 
-  static const String brandPrimaryHex = '#7E2930';
+  static const String brandPrimaryHex = '#1B4D3E';
   static final PdfColor brandPrimaryColor = PdfColor.fromHex(brandPrimaryHex);
   static final PdfColor tableHeaderBg = PdfColor.fromHex('#F8F4EE');
 

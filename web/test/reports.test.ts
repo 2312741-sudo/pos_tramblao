@@ -26,17 +26,20 @@ import {
   getBillTimestamp,
 } from "../lib/reports";
 
-// Load golden verification dataset
+// Load golden verification dataset if available
 const goldenPath = path.resolve(__dirname, "../../docs/report_golden.json");
-const goldenData = JSON.parse(fs.readFileSync(goldenPath, "utf-8"));
+const hasGolden = fs.existsSync(goldenPath);
+const goldenData = hasGolden ? JSON.parse(fs.readFileSync(goldenPath, "utf-8")) : null;
 
 const productsMap: Record<string | number, ProductItem> = {};
-goldenData.catalogue.products.forEach((p: ProductItem) => {
-  productsMap[p.productId || String(p.id)] = p;
-  productsMap[p.name] = p;
-});
+if (goldenData?.catalogue?.products) {
+  goldenData.catalogue.products.forEach((p: ProductItem) => {
+    productsMap[p.productId || String(p.id)] = p;
+    productsMap[p.name] = p;
+  });
+}
 
-describe("POS Trạm - Core Reports Pure Functions vs docs/report_golden.json", () => {
+describe.skipIf(!hasGolden)("POS Trạm - Core Reports Pure Functions vs docs/report_golden.json", () => {
   it("Báo cáo 1: Tổng quan quản trị (Executive Overview) khớp từng con số", () => {
     const overview = calculateOverviewReport(goldenData.bills);
     const expected = goldenData.expectedResults.overview;

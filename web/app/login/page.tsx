@@ -14,7 +14,7 @@ export default function LoginPage() {
   const { login, signInWithChamCong, user, loading, storeCode: defaultStoreCode } = useAuth();
   const router = useRouter();
 
-  const [storeCode, setStoreCode] = useState(defaultStoreCode || "TRAM01");
+  const [storeCode, setStoreCode] = useState(defaultStoreCode || "");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -120,7 +120,7 @@ export default function LoginPage() {
           width: "500px",
           height: "500px",
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(126,41,48,0.08) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(27, 77, 62, 0.08) 0%, transparent 70%)",
           pointerEvents: "none",
         }}
       />
@@ -187,7 +187,7 @@ export default function LoginPage() {
               marginBottom: "4px",
             }}
           >
-            POS TRẠM
+            POS TRẠM BLAO
           </h1>
           <p style={{ color: "var(--subtext)", fontSize: "14px", fontWeight: "500" }}>
             Hệ thống Quản lý Vận hành & Bán hàng

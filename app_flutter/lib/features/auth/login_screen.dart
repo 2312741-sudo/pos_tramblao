@@ -4,12 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/services/auth_service.dart';
-import '../../core/services/chamcong_auth_service.dart';
-import '../chamcong/chamcong_sign_in_sheet.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/theme_mode_selector.dart';
-import '../../data/services/firebase_service.dart';
-import '../../data/models/app_models.dart';
 import 'change_password_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -21,70 +17,32 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _auth = AuthService();
-  final _fb = FirebaseService();
   // Để trống lần đầu; mã chi nhánh dùng lần trước được nạp lại trong _initSavedStoreCode()
   final _storeCodeCtrl = TextEditingController();
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
 
-  List<StoreInfoModel> _availableStores = [];
   bool _obscurePassword = true;
   bool _isLoading = false;
   bool _rememberStore = true;
   String? _errorMessage;
   int? _lockoutSecondsRemaining;
   Timer? _lockoutTimer;
-  // Chỉ hiện nút "Đăng nhập bằng Chấm Công Trạm" khi đã có cấu hình Firebase chamcongtram
-  bool _chamCongAvailable = false;
 
   @override
   void initState() {
     super.initState();
-    // Cập nhật lại chip chi nhánh đang chọn khi nhân viên tự gõ mã
-    _storeCodeCtrl.addListener(_onStoreCodeChanged);
     _initSavedStoreCode();
     _checkAutoLogin();
-    _loadStores();
-    _checkChamCongConfig();
-  }
-
-  Future<void> _checkChamCongConfig() async {
-    final ok = await ChamCongAuthService().isConfigured();
-    if (mounted && ok) setState(() => _chamCongAvailable = true);
-  }
-
-  Future<void> _handleChamCongLogin() async {
-    if (_isLoading) return;
-    setState(() => _errorMessage = null);
-    final user = await showChamCongSignInSheet<UserModel>(
-      context,
-      title: 'Đăng nhập bằng Chấm Công Trạm',
-      subtitle: 'Dùng tài khoản ứng dụng Chấm Công Trạm của bạn. Lần đầu đăng nhập, tài khoản POS sẽ được tạo tự động.',
-      onSubmit: (req) => ChamCongAuthService().signInToPos(
-        req,
-        pickStore: (stores) => pickPosStore(context, stores),
-      ),
-    );
-    if (user == null || !mounted) return;
-    if (user.mustChangePassword) {
-      _showMandatoryChangePassword();
-    } else {
-      _navigateAfterLogin();
-    }
   }
 
   @override
   void dispose() {
     _lockoutTimer?.cancel();
-    _storeCodeCtrl.removeListener(_onStoreCodeChanged);
     _storeCodeCtrl.dispose();
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
-  }
-
-  void _onStoreCodeChanged() {
-    if (mounted && _availableStores.isNotEmpty) setState(() {});
   }
 
   String _formatLockout(int seconds) {
@@ -103,13 +61,6 @@ class _LoginScreenState extends State<LoginScreen> {
           _storeCodeCtrl.text = savedCode;
         }
       });
-    }
-  }
-
-  Future<void> _loadStores() async {
-    final stores = await _fb.getAllStores();
-    if (mounted && stores.isNotEmpty) {
-      setState(() => _availableStores = stores);
     }
   }
 
@@ -282,7 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'POS TRẠM',
+                            'POS TRẠM BLAO',
                             style: GoogleFonts.beVietnamPro(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
@@ -369,41 +320,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               hintText: 'VD: TRAM01, TRAM02',
                             ),
                           ),
-                          if (_availableStores.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: _availableStores.map((s) {
-                                final isSelected =
-                                    _storeCodeCtrl.text.trim().toUpperCase() ==
-                                        s.storeCode;
-                                return ChoiceChip(
-                                  showCheckmark: false,
-                                  visualDensity: VisualDensity.compact,
-                                  label: Text(
-                                    '${s.storeCode} (${s.storeName.split("-").last.trim()})',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : context.tc.textPrimary,
-                                    ),
-                                  ),
-                                  selected: isSelected,
-                                  selectedColor: context.tc.primary,
-                                  onSelected: (_) {
-                                    setState(() {
-                                      _storeCodeCtrl.text = s.storeCode;
-                                    });
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                          ],
                           const SizedBox(height: 14),
 
                           // Username Input (gói trong AutofillGroup để trình quản lý mật khẩu gợi ý)
@@ -477,7 +393,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Login Button (Red Gradient)
+                          // Login Button
                           Container(
                             width: double.infinity,
                             height: 52,
@@ -504,6 +420,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 backgroundColor: Colors.transparent,
                                 disabledBackgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
+                                overlayColor: TramColors.mintAccent.withValues(alpha: 0.3),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12)),
                               ),
@@ -529,44 +446,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                             ),
                           ),
-
-                          // Đăng nhập bằng tài khoản Chấm Công Trạm (ẩn nếu chưa cấu hình)
-                          if (_chamCongAvailable) ...[
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(child: Divider(color: context.tc.border)),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                                  child: Text('hoặc',
-                                      style: GoogleFonts.beVietnamPro(
-                                          fontSize: 12, color: context.tc.textSecondary)),
-                                ),
-                                Expanded(child: Divider(color: context.tc.border)),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: context.tc.primary,
-                                  backgroundColor: context.tc.primaryLight.withValues(alpha: 0.35),
-                                  side: BorderSide(color: context.tc.primary, width: 1.2),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
-                                ),
-                                onPressed: _isLoading ? null : _handleChamCongLogin,
-                                icon: const Icon(Icons.badge_outlined),
-                                label: Text(
-                                  'Đăng nhập bằng Chấm Công Trạm',
-                                  style: GoogleFonts.beVietnamPro(
-                                      fontSize: 14, fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),

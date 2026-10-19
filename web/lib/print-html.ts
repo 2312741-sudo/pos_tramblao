@@ -224,8 +224,8 @@ export function buildOrderReceiptHtml(order: ReceiptOrder, timeStr: string): str
           <title>Hóa đơn ${e(order.billCode || order.orderCode || order.id)}</title>
           <style>
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; max-width: 400px; margin: 0 auto; color: #333; }
-            .header { text-align: center; border-bottom: 2px dashed #7E2930; padding-bottom: 12px; margin-bottom: 12px; }
-            .title { font-size: 20px; font-weight: 800; color: #7E2930; margin: 0; }
+            .header { text-align: center; border-bottom: 2px dashed #1B4D3E; padding-bottom: 12px; margin-bottom: 12px; }
+            .title { font-size: 20px; font-weight: 800; color: #1B4D3E; margin: 0; }
             .meta { font-size: 12px; color: #666; margin: 4px 0; }
             table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
             .total-row { font-size: 15px; font-weight: bold; border-top: 2px solid #333; padding-top: 8px; }
@@ -267,7 +267,7 @@ export function buildOrderReceiptHtml(order: ReceiptOrder, timeStr: string): str
           ${loyalty.points}
           <div style="display: flex; justify-content: space-between; margin-top: 8px;" class="total-row">
             <span>TỔNG CỘNG:</span>
-            <span style="color: #7E2930;">${e(formatVND(order.totalAmount || 0))}</span>
+            <span style="color: #1B4D3E;">${e(formatVND(order.totalAmount || 0))}</span>
           </div>
           <div style="font-size: 12px; margin-top: 4px; text-align: right; color: #555;">
             Phương thức: ${e(order.paymentMethod || "Tiền mặt")}

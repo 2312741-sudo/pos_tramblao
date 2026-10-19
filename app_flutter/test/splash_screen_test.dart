@@ -27,7 +27,7 @@ void main() {
       await tester.pumpWidget(buildTestWidget());
 
       // Tên ứng dụng
-      expect(find.text('POS Trạm'), findsOneWidget);
+      expect(find.text('POS Trạm Blao'), findsOneWidget);
 
       // Khẩu hiệu thương hiệu
       expect(find.text('Luôn tươi ngon vì sức khỏe'), findsOneWidget);

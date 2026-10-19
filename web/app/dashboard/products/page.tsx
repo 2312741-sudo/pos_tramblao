@@ -611,7 +611,7 @@ export default function ProductsPage() {
               padding: "2px 8px",
               borderRadius: "12px",
               fontSize: "12px",
-              background: activeTab === "products" ? "rgba(126,41,48,0.12)" : "var(--surface-muted)",
+              background: activeTab === "products" ? "rgba(27,77,62,0.12)" : "var(--surface-muted)",
               color: activeTab === "products" ? "var(--primary)" : "var(--muted)",
               fontWeight: "700",
             }}
@@ -644,7 +644,7 @@ export default function ProductsPage() {
               padding: "2px 8px",
               borderRadius: "12px",
               fontSize: "12px",
-              background: activeTab === "categories" ? "rgba(126,41,48,0.12)" : "var(--surface-muted)",
+              background: activeTab === "categories" ? "rgba(27,77,62,0.12)" : "var(--surface-muted)",
               color: activeTab === "categories" ? "var(--primary)" : "var(--muted)",
               fontWeight: "700",
             }}
@@ -677,7 +677,7 @@ export default function ProductsPage() {
               padding: "2px 8px",
               borderRadius: "12px",
               fontSize: "12px",
-              background: activeTab === "notes" ? "rgba(126,41,48,0.12)" : "var(--surface-muted)",
+              background: activeTab === "notes" ? "rgba(27,77,62,0.12)" : "var(--surface-muted)",
               color: activeTab === "notes" ? "var(--primary)" : "var(--muted)",
               fontWeight: "700",
             }}
@@ -771,7 +771,7 @@ export default function ProductsPage() {
                   cursor: "pointer",
                   border: "1px solid",
                   borderColor: filterCategory === "" ? "var(--primary)" : "var(--border)",
-                  background: filterCategory === "" ? "rgba(126,41,48,0.1)" : "var(--surface)",
+                  background: filterCategory === "" ? "rgba(27,77,62,0.1)" : "var(--surface)",
                   color: filterCategory === "" ? "var(--primary)" : "var(--subtext)",
                   whiteSpace: "nowrap",
                 }}
@@ -793,7 +793,7 @@ export default function ProductsPage() {
                       cursor: "pointer",
                       border: "1px solid",
                       borderColor: isSelected ? "var(--primary)" : "var(--border)",
-                      background: isSelected ? "rgba(126,41,48,0.1)" : "var(--surface)",
+                      background: isSelected ? "rgba(27,77,62,0.1)" : "var(--surface)",
                       color: isSelected ? "var(--primary)" : "var(--subtext)",
                       whiteSpace: "nowrap",
                     }}
@@ -939,7 +939,7 @@ export default function ProductsPage() {
                             fontSize: "12px",
                             fontWeight: "700",
                             color: "var(--primary)",
-                            background: "rgba(126,41,48,0.06)",
+                            background: "rgba(27,77,62,0.06)",
                             padding: "3px 8px",
                             borderRadius: "6px",
                           }}
@@ -1022,7 +1022,7 @@ export default function ProductsPage() {
                             style={{
                               padding: "4px 10px",
                               borderRadius: "8px",
-                              background: "rgba(126,41,48,0.08)",
+                              background: "rgba(27,77,62,0.08)",
                               color: "var(--primary)",
                               fontSize: "12px",
                               fontWeight: "600",
@@ -1139,7 +1139,7 @@ export default function ProductsPage() {
             <div className="card" style={{ padding: "18px 20px" }}>
               <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                 <span style={{ fontSize: "13px", color: "var(--muted)", fontWeight: "600" }}>Tổng danh mục</span>
-                <span style={{ padding: "6px", borderRadius: "8px", background: "rgba(126,41,48,0.1)", color: "var(--primary)" }}>
+                <span style={{ padding: "6px", borderRadius: "8px", background: "rgba(27,77,62,0.1)", color: "var(--primary)" }}>
                   <Layers size={18} />
                 </span>
               </div>
@@ -1254,7 +1254,7 @@ export default function ProductsPage() {
                                 width: "36px",
                                 height: "36px",
                                 borderRadius: "10px",
-                                background: "rgba(126,41,48,0.08)",
+                                background: "rgba(27,77,62,0.08)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -1365,8 +1365,8 @@ export default function ProductsPage() {
                                 gap: "4px",
                                 padding: "6px 10px",
                                 borderRadius: "8px",
-                                background: "rgba(126,41,48,0.08)",
-                                border: "1px solid rgba(126,41,48,0.2)",
+                                background: "rgba(27,77,62,0.08)",
+                                border: "1px solid rgba(27,77,62,0.2)",
                                 color: "var(--primary)",
                                 fontSize: "12px",
                                 fontWeight: "600",
@@ -1483,7 +1483,7 @@ export default function ProductsPage() {
                         cursor: alreadyExists ? "default" : "pointer",
                         border: "1px dashed",
                         borderColor: alreadyExists ? "var(--border)" : "var(--primary)",
-                        background: alreadyExists ? "var(--surface-muted)" : "rgba(126,41,48,0.06)",
+                        background: alreadyExists ? "var(--surface-muted)" : "rgba(27,77,62,0.06)",
                         color: alreadyExists ? "var(--muted)" : "var(--primary)",
                         transition: "all 0.15s ease",
                       }}
@@ -1950,7 +1950,7 @@ export default function ProductsPage() {
                             fontWeight: "600",
                             cursor: "pointer",
                             border: isChecked ? "2px solid var(--primary)" : "1px solid var(--border)",
-                            background: isChecked ? "rgba(126,41,48,0.12)" : "var(--surface)",
+                            background: isChecked ? "rgba(27,77,62,0.12)" : "var(--surface)",
                             color: isChecked ? "var(--primary)" : "var(--subtext)",
                             display: "flex",
                             alignItems: "center",

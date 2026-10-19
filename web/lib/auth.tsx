@@ -322,7 +322,7 @@ export function mapStaffSignInError(err: unknown): string {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
-  storeCode: "TRAM01",
+  storeCode: "",
   setStoreCode: () => {},
   login: async () => ({ success: false }),
   signInWithChamCong: async () => ({ success: false, error: "Chưa sẵn sàng" }),
@@ -354,14 +354,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (stored) return stored.trim().toUpperCase();
       } catch {}
     }
-    return "TRAM01";
+    return "";
   });
 
   const setStoreCode = useCallback((code: string) => {
-    const clean = code.trim().toUpperCase() || "TRAM01";
+    const clean = code.trim().toUpperCase();
     setStoreCodeState(clean);
     try {
-      localStorage.setItem("blao_pos_store_code", clean);
+      if (clean) {
+        localStorage.setItem("blao_pos_store_code", clean);
+      } else {
+        localStorage.removeItem("blao_pos_store_code");
+      }
     } catch {}
   }, []);
 

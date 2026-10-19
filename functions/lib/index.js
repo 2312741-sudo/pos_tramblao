@@ -44,7 +44,7 @@ const customerSync_1 = require("./customerSync");
 const loginLockout_1 = require("./loginLockout");
 if (!admin.apps.length) {
     admin.initializeApp({
-        databaseURL: process.env.DATABASE_URL || "https://tramapp-36f53-default-rtdb.asia-southeast1.firebasedatabase.app",
+        databaseURL: process.env.DATABASE_URL || "https://postramblao-default-rtdb.asia-southeast1.firebasedatabase.app",
     });
 }
 const db = admin.database();

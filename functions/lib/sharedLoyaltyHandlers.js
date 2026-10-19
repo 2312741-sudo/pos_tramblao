@@ -62,7 +62,7 @@ const sharedLoyalty_1 = require("./sharedLoyalty");
 const loyaltyLedgerQuery_1 = require("./loyaltyLedgerQuery");
 if (!admin.apps.length) {
     admin.initializeApp({
-        databaseURL: process.env.DATABASE_URL || "https://tramapp-36f53-default-rtdb.asia-southeast1.firebasedatabase.app",
+        databaseURL: process.env.DATABASE_URL || "https://postramblao-default-rtdb.asia-southeast1.firebasedatabase.app",
     });
 }
 const db = admin.database();

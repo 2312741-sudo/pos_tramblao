@@ -850,7 +850,7 @@ export default function UsersPage() {
                         color: "var(--primary)",
                         fontWeight: "700",
                         fontSize: "13px",
-                        background: "rgba(126,41,48,0.06)",
+                        background: "rgba(27,77,62,0.06)",
                         padding: "2px 8px",
                         borderRadius: "6px",
                       }}
@@ -896,7 +896,7 @@ export default function UsersPage() {
                               fontSize: "10px",
                               padding: "2px 6px",
                               borderRadius: "4px",
-                              background: "rgba(126,41,48,0.08)",
+                              background: "rgba(27,77,62,0.08)",
                               color: "var(--primary)",
                               fontWeight: "600",
                             }}
@@ -1231,7 +1231,7 @@ export default function UsersPage() {
                           padding: "10px 14px",
                           borderRadius: "10px",
                           border: `1.5px solid ${isSelected ? "#1B4D3E" : "#E6DEC8"}`,
-                          background: isSelected ? "rgba(126,41,48,0.04)" : "var(--surface)",
+                          background: isSelected ? "rgba(27,77,62,0.04)" : "var(--surface)",
                           cursor: isRoot ? "not-allowed" : "pointer",
                           display: "flex", flexWrap: "wrap", rowGap: "8px",
                           alignItems: "center",

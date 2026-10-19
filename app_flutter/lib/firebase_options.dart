@@ -47,6 +47,7 @@ class DefaultFirebaseOptions {
     projectId: 'postramblao',
     databaseURL: 'https://postramblao-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'postramblao.firebasestorage.app',
+    iosClientId: '351954155486-b39rgcl6tmfk3vv2q99qt5ho6lsrngnk.apps.googleusercontent.com',
     iosBundleId: 'com.tramblao.pos',
   );
 }
