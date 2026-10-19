@@ -67,7 +67,7 @@ const ACTION_CONFIGS: Record<string, ActionConfig> = {
     label: "Thanh toán hóa đơn",
     shortLabel: "💳 Thanh toán",
     icon: CreditCard,
-    color: "#7E2930",
+    color: "#1B4D3E",
     bg: "#FBECEE",
     border: "#E8A2A8",
     category: "PAYMENT",
@@ -76,7 +76,7 @@ const ACTION_CONFIGS: Record<string, ActionConfig> = {
     label: "Thanh toán hóa đơn",
     shortLabel: "💳 Thanh toán",
     icon: CreditCard,
-    color: "#7E2930",
+    color: "#1B4D3E",
     bg: "#FBECEE",
     border: "#E8A2A8",
     category: "PAYMENT",
@@ -252,7 +252,7 @@ export default function AuditPage() {
     if (currentStoreCode === "ALL") return { storeName: "Tất cả chi nhánh", storeCode: "ALL" };
     return (
       stores.find((s) => s.storeCode === currentStoreCode) || {
-        storeName: "POS Trạm",
+        storeName: "POS Trạm Blao",
         storeCode: currentStoreCode,
       }
     );

@@ -111,7 +111,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
                 // Tên ứng dụng
                 Text(
-                  'POS Trạm',
+                  'POS Trạm Blao',
                   style: GoogleFonts.beVietnamPro(
                     fontSize: 32,
                     fontWeight: FontWeight.w800,

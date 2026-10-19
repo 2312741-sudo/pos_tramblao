@@ -350,7 +350,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [storeCode, setStoreCodeState] = useState<string>(() => {
     if (typeof window !== "undefined") {
       try {
-        const stored = localStorage.getItem("tram_store_code");
+        const stored = localStorage.getItem("blao_pos_store_code");
         if (stored) return stored.trim().toUpperCase();
       } catch {}
     }
@@ -361,7 +361,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const clean = code.trim().toUpperCase() || "TRAM01";
     setStoreCodeState(clean);
     try {
-      localStorage.setItem("tram_store_code", clean);
+      localStorage.setItem("blao_pos_store_code", clean);
     } catch {}
   }, []);
 
@@ -428,7 +428,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Đọc mã chi nhánh tại thời điểm sự kiện để khớp với lần đăng nhập vừa thực hiện.
       let savedStore = "TRAM01";
       try {
-        const stored = localStorage.getItem("tram_store_code");
+        const stored = localStorage.getItem("blao_pos_store_code");
         if (stored) {
           savedStore = stored.trim().toUpperCase();
         }
@@ -467,7 +467,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ): Promise<{ success: boolean; error?: string; mustChangePassword?: boolean }> => {
       // Ghi trước để onAuthStateChanged nạp hồ sơ đúng chi nhánh.
       try {
-        localStorage.setItem("tram_store_code", cleanStore);
+        localStorage.setItem("blao_pos_store_code", cleanStore);
       } catch {}
 
       let cred;

@@ -1,9 +1,9 @@
 {
-  "name": "tram_web_admin",
+  "name": "web_pos_blao",
   "version": "1.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3020",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",

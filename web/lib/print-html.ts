@@ -152,7 +152,7 @@ export function buildTableBillHtml({ tableName, zone, items, total, promotions, 
         </div>
         <div class="footer">
           <div>Cảm ơn Quý khách! Hẹn gặp lại.</div>
-          <div style="font-size: 10px; margin-top: 4px;">Hệ thống Quản lý Vận hành POS Trạm</div>
+          <div style="font-size: 10px; margin-top: 4px;">Hệ thống Quản lý Vận hành POS Trạm Blao</div>
         </div>
         <script>
           window.onload = function() { window.print(); }

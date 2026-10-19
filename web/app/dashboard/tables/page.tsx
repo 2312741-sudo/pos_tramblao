@@ -232,7 +232,7 @@ function TablesPageContent() {
   const [orderModeOverride, setOrderModeOverride] = useState<boolean | null>(null);
   const orderModeStored = (() => {
     try {
-      return typeof window !== "undefined" && window.localStorage.getItem("tram_order_mode") === "1";
+      return typeof window !== "undefined" && window.localStorage.getItem("blao_pos_order_mode") === "1";
     } catch {
       return false;
     }
@@ -242,7 +242,7 @@ function TablesPageContent() {
     const next = !orderMode;
     setOrderModeOverride(next);
     try {
-      window.localStorage.setItem("tram_order_mode", next ? "1" : "0");
+      window.localStorage.setItem("blao_pos_order_mode", next ? "1" : "0");
     } catch {
       // trình duyệt chặn lưu — vẫn đổi chế độ trong phiên này
     }
@@ -1043,7 +1043,7 @@ function TablesPageContent() {
         <div>
           <h1 className="section-title">Sơ đồ Phòng / Bàn 🪑</h1>
           <p className="section-subtitle">
-            Hệ sinh thái POS Trạm • Đồng bộ trực tiếp với ứng dụng phục vụ
+            Hệ sinh thái POS Trạm Blao • Đồng bộ trực tiếp với ứng dụng phục vụ
           </p>
         </div>
         <div style={{ display: "flex", gap: "10px" }}>
@@ -1404,7 +1404,7 @@ function TablesPageContent() {
                       background: "var(--surface)",
                       borderRadius: "16px",
                       border: `2px solid ${accent}`,
-                      boxShadow: "0 6px 18px rgba(126, 41, 48, 0.15)",
+                      boxShadow: "0 6px 18px rgba(27, 77, 62, 0.15)",
                       overflow: "hidden",
                       cursor: "pointer",
                       display: "flex",
@@ -1414,11 +1414,11 @@ function TablesPageContent() {
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-4px)";
-                      e.currentTarget.style.boxShadow = "0 10px 24px rgba(126, 41, 48, 0.25)";
+                      e.currentTarget.style.boxShadow = "0 10px 24px rgba(27, 77, 62, 0.25)";
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 6px 18px rgba(126, 41, 48, 0.15)";
+                      e.currentTarget.style.boxShadow = "0 6px 18px rgba(27, 77, 62, 0.15)";
                     }}
                   >
                     {/* Header bàn */}
@@ -1483,11 +1483,11 @@ function TablesPageContent() {
                         )}
                         <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "12px", color: "var(--subtext)" }}>
                           <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <Users size={14} color="#7E2930" />
+                            <Users size={14} color="#1B4D3E" />
                             <strong>{t.guestCount || 1} khách</strong>
                           </span>
                           <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <Clock size={14} color="#7E2930" />
+                            <Clock size={14} color="#1B4D3E" />
                             <strong>{elapsedMinutes} ph</strong>
                           </span>
                         </div>
@@ -1505,7 +1505,7 @@ function TablesPageContent() {
                                 background: "var(--primary-light)",
                                 padding: "2px 8px",
                                 borderRadius: "4px",
-                                border: "1px solid rgba(126, 41, 48, 0.2)",
+                                border: "1px solid rgba(27, 77, 62, 0.2)",
                                 letterSpacing: "0.02em",
                               }}
                             >
@@ -1537,7 +1537,7 @@ function TablesPageContent() {
                           background: "var(--primary-light)",
                           borderRadius: "10px",
                           padding: "10px 12px",
-                          border: "1px dashed rgba(126, 41, 48, 0.25)",
+                          border: "1px dashed rgba(27, 77, 62, 0.25)",
                           minHeight: "70px",
                           display: "flex",
                           flexDirection: "column",
@@ -2020,7 +2020,7 @@ function TablesPageContent() {
                                 padding: "6px 10px",
                                 borderRadius: "8px",
                                 background: "var(--primary-light)",
-                                border: "1px solid rgba(126, 41, 48, 0.3)",
+                                border: "1px solid rgba(27, 77, 62, 0.3)",
                                 color: "var(--primary)",
                                 cursor: "pointer",
                                 fontSize: "12px",
@@ -2421,7 +2421,7 @@ function TablesPageContent() {
                   background: "var(--primary-light)",
                   borderRadius: "12px",
                   padding: "16px 20px",
-                  border: "1.5px solid rgba(126, 41, 48, 0.2)",
+                  border: "1.5px solid rgba(27, 77, 62, 0.2)",
                   display: "flex", flexWrap: "wrap", rowGap: "8px",
                   alignItems: "center",
                   justifyContent: "space-between",

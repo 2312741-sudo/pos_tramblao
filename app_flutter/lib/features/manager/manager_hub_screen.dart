@@ -158,7 +158,7 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> {
       listenable: _auth,
       builder: (context, _) {
         final currentStore = _auth.currentStoreInfo;
-        final storeName = currentStore?.storeName ?? 'POS Trạm';
+        final storeName = currentStore?.storeName ?? 'POS Trạm Blao';
         final storeCode = _auth.currentStoreCode;
         // Tab "Giám sát" (nhật ký thao tác) chỉ hiện khi có VIEW_AUDIT_LOGS — Quản lý mặc định KHÔNG có.
         final canAudit = _auth.isRootOwner || _auth.can(AppPermissions.viewAuditLogs);

@@ -2725,7 +2725,7 @@ const btnPrimary: React.CSSProperties = {
   alignItems: "center",
   gap: "6px",
   padding: "9px 16px",
-  background: "#7E2930",
+  background: "#1B4D3E",
   color: "#fff",
   border: "none",
   borderRadius: "10px",

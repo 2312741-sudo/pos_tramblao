@@ -189,7 +189,7 @@ export default function DashboardPage() {
           Tổng quan Hoạt động 📊
         </h1>
         <p className="section-subtitle">
-          {format(today, "EEEE, dd MMMM yyyy", { locale: vi })} • Hệ thống POS Trạm
+          {format(today, "EEEE, dd MMMM yyyy", { locale: vi })} • Hệ thống POS Trạm Blao
         </p>
       </div>
 
@@ -240,7 +240,7 @@ export default function DashboardPage() {
                 fontWeight: "700",
                 color: "var(--primary)",
                 background: "var(--primary-light)",
-                border: "1px solid rgba(126, 41, 48, 0.2)",
+                border: "1px solid rgba(27, 77, 62, 0.2)",
                 borderRadius: "6px",
                 padding: "4px 10px",
               }}
@@ -262,9 +262,9 @@ export default function DashboardPage() {
                 <Line
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#7E2930"
+                  stroke="#1B4D3E"
                   strokeWidth={3}
-                  dot={{ fill: "#7E2930", strokeWidth: 2, r: 4 }}
+                  dot={{ fill: "#1B4D3E", strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, fill: "#D97706" }}
                 />
               </LineChart>
@@ -387,7 +387,7 @@ export default function DashboardPage() {
                   border: table.inUse ? "2px solid var(--primary)" : "1px solid var(--border)",
                   background: table.inUse ? "var(--primary-light)" : "var(--surface)",
                   textAlign: "center",
-                  boxShadow: table.inUse ? "0 4px 12px rgba(126, 41, 48, 0.15)" : "none",
+                  boxShadow: table.inUse ? "0 4px 12px rgba(27, 77, 62, 0.15)" : "none",
                   display: "block",
                   transition: "transform 0.15s",
                 }}

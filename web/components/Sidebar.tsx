@@ -174,7 +174,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
               lineHeight: 1.2,
             }}
           >
-            POS TRẠM
+            POS TRẠM BLAO
           </div>
           <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.7)", fontWeight: "500", marginTop: "2px" }}>
             Hệ thống Quản lý Vận hành

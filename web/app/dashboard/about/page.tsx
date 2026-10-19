@@ -81,7 +81,7 @@ export default function DashboardAboutPage() {
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              boxShadow: "0 6px 16px rgba(126, 41, 48, 0.15)",
+              boxShadow: "0 6px 16px rgba(27, 77, 62, 0.15)",
               border: "1px solid var(--border)",
               position: "relative",
               overflow: "hidden",
@@ -89,7 +89,7 @@ export default function DashboardAboutPage() {
           >
             <Image
               src="/logo.jpg"
-              alt="Logo POS Trạm"
+              alt="Logo POS Trạm Blao"
               width={56}
               height={56}
               style={{ objectFit: "cover", borderRadius: "12px" }}
@@ -107,7 +107,7 @@ export default function DashboardAboutPage() {
                   margin: 0,
                 }}
               >
-                POS Trạm F&B System
+                POS Trạm Blao F&B System
               </h1>
               <span
                 style={{

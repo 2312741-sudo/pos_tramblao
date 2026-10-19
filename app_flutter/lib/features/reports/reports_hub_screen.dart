@@ -1,5 +1,5 @@
 // lib/features/reports/reports_hub_screen.dart
-// Trung tâm Báo cáo Tài chính & Vận hành Chuẩn mực POS Trạm
+// Trung tâm Báo cáo Tài chính & Vận hành Chuẩn mực POS Trạm Blao
 // Tuân thủ 100% đặc tả REPORT_SPEC.md (12 Báo cáo, lọc đa chiều, biểu đồ fl_chart, xuất Excel/PDF)
 
 import 'package:flutter/material.dart';
@@ -239,7 +239,7 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
       (s) => s.storeCode == _selectedStoreCode,
       orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(
         storeCode: _selectedStoreCode,
-        storeName: 'POS Trạm',
+        storeName: 'POS Trạm Blao',
       ),
     );
   }

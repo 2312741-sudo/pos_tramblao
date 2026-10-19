@@ -211,7 +211,7 @@ export default function StoresManagementPage() {
             Hệ thống Multi-Store & Quản lý Chi nhánh 🏪
           </h1>
           <p className="section-subtitle">
-            Mở rộng và kiểm soát chuỗi nhiều cửa hàng trên một nền tảng vận hành đồng bộ theo hệ sinh thái POS Trạm.
+            Mở rộng và kiểm soát chuỗi nhiều cửa hàng trên một nền tảng vận hành đồng bộ theo hệ sinh thái POS Trạm Blao.
           </p>
         </div>
 
@@ -360,7 +360,7 @@ export default function StoresManagementPage() {
                 border: isSelected ? "2px solid var(--primary)" : "1px solid var(--border)",
                 position: "relative",
                 background: isSelected ? "#FFFEFB" : "var(--surface)",
-                boxShadow: isSelected ? "0 8px 24px rgba(126, 41, 48, 0.12)" : "0 2px 8px rgba(0, 0, 0, 0.04)",
+                boxShadow: isSelected ? "0 8px 24px rgba(27, 77, 62, 0.12)" : "0 2px 8px rgba(0, 0, 0, 0.04)",
               }}
             >
               {/* Card Header */}

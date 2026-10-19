@@ -110,7 +110,7 @@ function ShiftsContent() {
       currentStoreCode === "ALL"
         ? { storeName: "Tất cả chi nhánh", storeCode: "ALL" }
         : stores.find((s) => s.storeCode === currentStoreCode) || {
-            storeName: "POS Trạm",
+            storeName: "POS Trạm Blao",
             storeCode: currentStoreCode,
           };
     exportCashShiftReport(filteredShifts, storeInfo).toExcel();
@@ -121,7 +121,7 @@ function ShiftsContent() {
       currentStoreCode === "ALL"
         ? { storeName: "Tất cả chi nhánh", storeCode: "ALL" }
         : stores.find((s) => s.storeCode === currentStoreCode) || {
-            storeName: "POS Trạm",
+            storeName: "POS Trạm Blao",
             storeCode: currentStoreCode,
           };
     exportCashShiftReport(filteredShifts, storeInfo).toPDF();
@@ -188,7 +188,7 @@ function ShiftsContent() {
     if (!selectedShift) return;
     const storeInfo =
       targetStore || {
-        storeName: "POS Trạm",
+        storeName: "POS Trạm Blao",
         storeCode: selectedShift.storeCode || currentStoreCode || "",
       };
     exportShiftPromotionsExcel(selectedShift, selectedShiftBills, storeInfo).toExcel();
@@ -243,7 +243,7 @@ function ShiftsContent() {
               padding: "6px 12px",
             }}
           >
-            <Store size={16} color="#7E2930" />
+            <Store size={16} color="#1B4D3E" />
             <select
               value={currentStoreCode}
               onChange={(e) => setCurrentStoreCode(e.target.value)}
@@ -298,7 +298,7 @@ function ShiftsContent() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px", padding: "16px 20px" }}>
           <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", justifyContent: "space-between", alignItems: "center", color: "var(--subtext)", fontSize: "13px" }}>
             <span>Tổng số ca giao két</span>
-            <History size={18} color="#7E2930" />
+            <History size={18} color="#1B4D3E" />
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--text)", marginTop: "8px" }}>
             {formatNumber(summaryKpi.totalShifts)}
@@ -635,7 +635,7 @@ function ShiftsContent() {
               <div style={{ borderBottom: "1px dashed #CCC", margin: "6px 0" }} />
               <SlipLine label="TỔNG DOANH THU CA:" value={formatVND(selectedShift.totalSales || 0)} isBold />
               <div style={{ borderBottom: "1px dashed #CCC", margin: "6px 0" }} />
-              <SlipLine label="TIỀN KÉT KỲ VỌNG (Lý thuyết):" value={formatVND(selectedShift.expectedCash || 0)} isBold color="#7E2930" />
+              <SlipLine label="TIỀN KÉT KỲ VỌNG (Lý thuyết):" value={formatVND(selectedShift.expectedCash || 0)} isBold color="#1B4D3E" />
               <SlipLine label="TIỀN KIỂM ĐẾM THỰC TẾ:" value={formatVND(selectedShift.actualCash || 0)} isBold />
               <SlipLine
                 label="CHÊNH LỆCH KÉT:"
@@ -671,7 +671,7 @@ function ShiftsContent() {
                   label="TỔNG CHI PHÍ GIẢM GIÁ CA:"
                   value={`-${formatVND(shiftPromoStats.totalPromoDiscount)}`}
                   isBold
-                  color="#7E2930"
+                  color="#1B4D3E"
                 />
               </div>
             </div>

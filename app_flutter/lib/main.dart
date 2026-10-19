@@ -126,7 +126,7 @@ class TramApp extends ConsumerWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeModeController.instance,
       builder: (context, mode, _) => MaterialApp.router(
-        title: 'POS Trạm',
+        title: 'POS Trạm Blao',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.appDarkTheme,

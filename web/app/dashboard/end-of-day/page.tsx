@@ -253,7 +253,7 @@ export default function EndOfDayReportPage() {
   // Handle Export Excel & PDF
   const handleExportExcel = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm",
+      storeName: currentStore?.storeName || "POS Trạm Blao",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -263,7 +263,7 @@ export default function EndOfDayReportPage() {
 
   const handlePrintPDF = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm",
+      storeName: currentStore?.storeName || "POS Trạm Blao",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -273,7 +273,7 @@ export default function EndOfDayReportPage() {
 
   const handleExportProductSales = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm",
+      storeName: currentStore?.storeName || "POS Trạm Blao",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -370,7 +370,7 @@ export default function EndOfDayReportPage() {
                 padding: "6px 12px",
               }}
             >
-              <Calendar size={16} color="#7E2930" />
+              <Calendar size={16} color="#1B4D3E" />
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value as typeof dateRange)}
@@ -433,7 +433,7 @@ export default function EndOfDayReportPage() {
                 padding: "6px 12px",
               }}
             >
-              <Store size={16} color="#7E2930" />
+              <Store size={16} color="#1B4D3E" />
               <select
                 value={currentStoreCode}
                 onChange={(e) => setCurrentStoreCode(e.target.value)}
@@ -502,7 +502,7 @@ export default function EndOfDayReportPage() {
               borderRadius: "16px",
               border: "2px solid var(--primary)",
               padding: "20px 24px",
-              boxShadow: "0 4px 16px rgba(126, 41, 48, 0.08)",
+              boxShadow: "0 4px 16px rgba(27, 77, 62, 0.08)",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -567,7 +567,7 @@ export default function EndOfDayReportPage() {
                   label="Doanh thu (Đã thu)"
                   value={formatVND(zReport.tab1_tongHop.netRevenue)}
                   subtitle={`Bao gồm ${formatVND(zReport.tab1_tongHop.vatTotal)} tiền thuế VAT`}
-                  valueColor="#7E2930"
+                  valueColor="#1B4D3E"
                   isBold
                 />
                 <ReportRow
@@ -707,7 +707,7 @@ export default function EndOfDayReportPage() {
               label="TỔNG THỰC THU BÁN HÀNG"
               value={formatVND(zReport.tab2_thuChi.totalRevenue)}
               isBold
-              valueColor="#7E2930"
+              valueColor="#1B4D3E"
             />
           </div>
 
@@ -832,7 +832,7 @@ export default function EndOfDayReportPage() {
                   padding: "6px 10px",
                 }}
               >
-                <User size={15} color="#7E2930" />
+                <User size={15} color="#1B4D3E" />
                 <select
                   value={productStaffFilter}
                   onChange={(e) => setProductStaffFilter(e.target.value)}

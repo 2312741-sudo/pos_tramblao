@@ -136,7 +136,7 @@ export default function RevenuePage() {
   // Export handlers
   const handleExportExcel = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm",
+      storeName: currentStore?.storeName || "POS Trạm Blao",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -146,7 +146,7 @@ export default function RevenuePage() {
 
   const handlePrintPDF = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm",
+      storeName: currentStore?.storeName || "POS Trạm Blao",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -156,7 +156,7 @@ export default function RevenuePage() {
 
   const handleExportPaymentMethods = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm",
+      storeName: currentStore?.storeName || "POS Trạm Blao",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -204,7 +204,7 @@ export default function RevenuePage() {
               padding: "6px 12px",
             }}
           >
-            <Store size={16} color="#7E2930" />
+            <Store size={16} color="#1B4D3E" />
             <select
               value={currentStoreCode}
               onChange={(e) => setCurrentStoreCode(e.target.value)}
@@ -266,7 +266,7 @@ export default function RevenuePage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: "16px" }}>
         <div className="stat-card">
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#7E293018", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)", flexShrink: 0 }}>
+            <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#1B4D3E18", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)", flexShrink: 0 }}>
               <DollarSign size={20} />
             </div>
             <div>
@@ -365,7 +365,7 @@ export default function RevenuePage() {
               <XAxis dataKey="label" tick={{ fill: "#5D5B63", fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "#5D5B63", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="netRevenue" fill="#7E2930" radius={[6, 6, 0, 0]} maxBarSize={40} />
+              <Bar dataKey="netRevenue" fill="#1B4D3E" radius={[6, 6, 0, 0]} maxBarSize={40} />
             </BarChart>
           </ResponsiveContainer>
         )}

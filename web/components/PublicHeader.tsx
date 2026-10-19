@@ -58,14 +58,14 @@ export function PublicHeader() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(126, 41, 48, 0.25)",
+              boxShadow: "0 2px 8px rgba(27, 77, 62, 0.25)",
             }}
           >
             <Coffee size={20} strokeWidth={2.5} />
           </div>
           <div>
             <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--primary)" }}>
-              POS Trạm
+              POS Trạm Blao
             </div>
             <div style={{ fontSize: 11, color: "var(--subtext)", fontWeight: 500 }}>
               Hệ thống Quản lý F&B
@@ -125,7 +125,7 @@ export function PublicHeader() {
               fontSize: 13,
               fontWeight: 600,
               textDecoration: "none",
-              boxShadow: "0 2px 6px rgba(126, 41, 48, 0.2)",
+              boxShadow: "0 2px 6px rgba(27, 77, 62, 0.2)",
               transition: "background 0.15s ease",
             }}
           >

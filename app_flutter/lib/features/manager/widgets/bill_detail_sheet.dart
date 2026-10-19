@@ -372,7 +372,7 @@ class BillDetailSheet extends StatelessWidget {
                     ),
                     onPressed: () async {
                       final storeInfo = auth.currentStoreInfo ??
-                          StoreInfoModel(storeCode: auth.currentStoreCode, storeName: 'POS Trạm');
+                          StoreInfoModel(storeCode: auth.currentStoreCode, storeName: 'POS Trạm Blao');
                       await ReceiptPrinter.printBill(store: storeInfo, bill: bill);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(

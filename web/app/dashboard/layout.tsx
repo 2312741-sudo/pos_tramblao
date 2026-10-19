@@ -30,7 +30,7 @@ function ThemeToggle() {
     const next: ThemeMode = mode === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     try {
-      localStorage.setItem("tram-theme", next);
+      localStorage.setItem("blao-pos-theme", next);
     } catch {
       /* bỏ qua khi trình duyệt chặn localStorage */
     }
@@ -90,7 +90,7 @@ function HeaderBar({ onOpenMenu }: { onOpenMenu: () => void }) {
           }}
         />
         <span style={{ fontSize: "13px", fontWeight: "600", color: "var(--success)" }}>
-          Hệ thống Realtime POS Trạm
+          Hệ thống Realtime POS Trạm Blao
         </span>
       </div>
 
@@ -177,7 +177,7 @@ function HeaderBar({ onOpenMenu }: { onOpenMenu: () => void }) {
             fontSize: "14px",
             fontWeight: "700",
             color: "white",
-            boxShadow: "0 2px 6px rgba(126, 41, 48, 0.25)",
+            boxShadow: "0 2px 6px rgba(27, 77, 62, 0.25)",
           }}
         >
           {user?.fullName?.[0]?.toUpperCase() || "M"}

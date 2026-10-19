@@ -1,6 +1,6 @@
 // lib/widgets/common_widgets.dart
 //
-// Bộ widget dùng chung của POS Trạm. Mọi màu/khoảng cách lấy từ
+// Bộ widget dùng chung của POS Trạm Blao. Mọi màu/khoảng cách lấy từ
 // core/theme/app_theme.dart (TramColors, AppSpacing, AppRadius) để giữ
 // giao diện nhất quán giữa các màn hình.
 import 'package:flutter/material.dart';

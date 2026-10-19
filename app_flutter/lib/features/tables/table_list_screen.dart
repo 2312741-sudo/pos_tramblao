@@ -324,7 +324,7 @@ class _TableListScreenState extends State<TableListScreen> {
                     children: [
                       Flexible(
                         child: Text(
-                          _auth.currentStoreInfo?.storeName ?? 'POS Trạm',
+                          _auth.currentStoreInfo?.storeName ?? 'POS Trạm Blao',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.beVietnamPro(fontSize: 16, fontWeight: FontWeight.bold),

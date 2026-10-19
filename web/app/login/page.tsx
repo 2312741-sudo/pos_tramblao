@@ -145,7 +145,7 @@ export default function LoginPage() {
           padding: "clamp(24px, 6vw, 40px)",
           background: "var(--surface)",
           border: "1.5px solid var(--border)",
-          boxShadow: "0 16px 40px rgba(126, 41, 48, 0.08)",
+          boxShadow: "0 16px 40px rgba(27, 77, 62, 0.08)",
           position: "relative",
           zIndex: 1,
         }}
@@ -164,14 +164,14 @@ export default function LoginPage() {
               alignItems: "center",
               justifyContent: "center",
               margin: "0 auto 16px",
-              boxShadow: "0 6px 16px rgba(126, 41, 48, 0.15)",
+              boxShadow: "0 6px 16px rgba(27, 77, 62, 0.15)",
               overflow: "hidden",
               position: "relative",
             }}
           >
             <Image
               src="/logo.jpg"
-              alt="Logo POS Trạm"
+              alt="Logo POS Trạm Blao"
               width={60}
               height={60}
               style={{ objectFit: "cover", borderRadius: "14px" }}

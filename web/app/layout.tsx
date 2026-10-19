@@ -8,21 +8,21 @@ import { AuthProvider } from "@/lib/auth";
 const inter = Inter({ subsets: ["latin", "vietnamese"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "POS Trạm • Quản Trị Hệ Thống",
-  description: "Hệ thống Quản lý Vận hành & Bán hàng POS Trạm",
+  title: "POS Trạm Blao Blao • Quản Trị Hệ Thống",
+  description: "Hệ thống Quản lý Vận hành & Bán hàng POS Trạm Blao Blao",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#7E2930" },
+    { media: "(prefers-color-scheme: light)", color: "#1B4D3E" },
     { media: "(prefers-color-scheme: dark)", color: "#141218" },
   ],
 };
 
 // Áp dụng chế độ sáng/tối đã lưu trước khi vẽ trang (tránh nháy màu)
-const themeInit = `try{var t=localStorage.getItem('tram-theme');if(t==='dark'||t==='light'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}`;
+const themeInit = `try{var t=localStorage.getItem('blao-pos-theme');if(t==='dark'||t==='light'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}`;
 
 export default function RootLayout({
   children,
@@ -32,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="vi" className={inter.variable} suppressHydrationWarning>
       <body style={{ background: "var(--bg)", minHeight: "100vh" }}>
-        <Script id="tram-theme-init" strategy="beforeInteractive">
+        <Script id="blao-pos-theme-init" strategy="beforeInteractive">
           {themeInit}
         </Script>
         <AuthProvider>{children}</AuthProvider>

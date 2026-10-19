@@ -23,7 +23,7 @@ import { PublicFooter } from "@/components/PublicFooter";
 import { LEGAL } from "@/lib/legal-config";
 
 export const metadata: Metadata = {
-  title: "POS Trạm • Phần Mềm Quản Lý Bán Hàng & Chuỗi F&B Toàn Diện",
+  title: "POS Trạm Blao • Phần Mềm Quản Lý Bán Hàng & Chuỗi F&B Toàn Diện",
   description:
     "Hệ thống bán hàng POS chuyên nghiệp thế hệ mới cho Quán Cà phê, Trà sữa, Nhà hàng và Chuỗi F&B. Đồng bộ thời gian thực, sơ đồ phòng bàn, tự động in bếp, thanh toán VietQR và kiểm soát ca két chống thất thoát.",
 };
@@ -163,7 +163,7 @@ export default function MarketingPage() {
                 fontSize: 15,
                 fontWeight: 700,
                 textDecoration: "none",
-                boxShadow: "0 6px 20px rgba(126, 41, 48, 0.3)",
+                boxShadow: "0 6px 20px rgba(27, 77, 62, 0.3)",
               }}
             >
               <span>Trải Nghiệm Web Admin</span>
@@ -396,7 +396,7 @@ export default function MarketingPage() {
               padding: "44px 28px",
               color: "#FFFFFF",
               textAlign: "center",
-              boxShadow: "0 12px 36px rgba(126, 41, 48, 0.35)",
+              boxShadow: "0 12px 36px rgba(27, 77, 62, 0.35)",
             }}
           >
             <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", fontWeight: 800, margin: "0 0 12px" }}>
@@ -411,7 +411,7 @@ export default function MarketingPage() {
                 lineHeight: 1.6,
               }}
             >
-              Khám phá sức mạnh quản lý bán hàng chuẩn chuỗi với POS Trạm ngay hôm nay. Hỗ trợ đầy đủ trên ứng dụng iPad, iPhone và hệ thống Quản trị Web.
+              Khám phá sức mạnh quản lý bán hàng chuẩn chuỗi với POS Trạm Blao ngay hôm nay. Hỗ trợ đầy đủ trên ứng dụng iPad, iPhone và hệ thống Quản trị Web.
             </p>
             <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap" }}>
               <Link

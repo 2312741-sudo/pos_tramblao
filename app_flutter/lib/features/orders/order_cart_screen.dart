@@ -106,7 +106,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       _customerPointsUnknown = true;
       unawaited(_refreshCustomerPoints());
     }
-    _storeInfo = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _fb.currentStoreCode, storeName: 'POS Trạm');
+    _storeInfo = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _fb.currentStoreCode, storeName: 'POS Trạm Blao');
     _loadStoreAndPromotions();
     _loadAutoPrintSetting();
 
@@ -2792,7 +2792,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                               _buildCurrentBillAsync(status: 'OPEN', method: paymentMethod).then((bill) {
                                 _markTablePrePrinted();
                                 final bytes = ReceiptPrinter.buildBillReceiptBytes(
-                                  store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm'),
+                                  store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm Blao'),
                                   bill: bill,
                                   isPrePrint: true,
                                 );
@@ -2901,7 +2901,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
 
     // 3. In hóa đơn ra máy in nhiệt LAN (nếu bật in bill và có cấu hình IP máy in)
     if (shouldPrint) {
-      final store = _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm');
+      final store = _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm Blao');
       if (store.billPrinterIp.isNotEmpty) {
         try {
           final bytes = ReceiptPrinter.buildBillReceiptBytes(store: store, bill: bill, isPrePrint: false);
@@ -3378,7 +3378,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     _buildCurrentBillAsync(status: 'PRE_PRINT', method: 'PRE_PRINT').then((bill) {
       _markTablePrePrinted();
       final bytes = ReceiptPrinter.buildBillReceiptBytes(
-        store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm'),
+        store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm Blao'),
         bill: bill,
         isPrePrint: true,
       );

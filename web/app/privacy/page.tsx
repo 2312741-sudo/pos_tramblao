@@ -4,12 +4,12 @@ import { Bullets, LegalPage, Section } from "@/components/LegalPage";
 import { LEGAL, privacyMailto } from "@/lib/legal-config";
 
 export const metadata: Metadata = {
-  title: "Chính sách quyền riêng tư • POS Trạm",
-  description: "Cách POS Trạm thu thập, sử dụng, lưu trữ và bảo vệ dữ liệu cá nhân.",
+  title: "Chính sách quyền riêng tư • POS Trạm Blao",
+  description: "Cách POS Trạm Blao thu thập, sử dụng, lưu trữ và bảo vệ dữ liệu cá nhân.",
 };
 
 export default function PrivacyPolicyPage() {
-  const mail = privacyMailto("Yêu cầu về dữ liệu cá nhân - POS Trạm");
+  const mail = privacyMailto("Yêu cầu về dữ liệu cá nhân - POS Trạm Blao");
   return (
     <LegalPage title="Chính sách quyền riêng tư" updated={LEGAL.effectiveDate}>
       <p>

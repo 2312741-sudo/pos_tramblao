@@ -692,7 +692,7 @@ export default function UsersPage() {
               gap: "6px",
             }}
           >
-            <Users size={16} color="#7E2930" /> Tổng nhân viên
+            <Users size={16} color="#1B4D3E" /> Tổng nhân viên
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--text)", marginTop: "8px" }}>
             {stats.totalStaff}
@@ -1230,7 +1230,7 @@ export default function UsersPage() {
                         style={{
                           padding: "10px 14px",
                           borderRadius: "10px",
-                          border: `1.5px solid ${isSelected ? "#7E2930" : "#E6DEC8"}`,
+                          border: `1.5px solid ${isSelected ? "#1B4D3E" : "#E6DEC8"}`,
                           background: isSelected ? "rgba(126,41,48,0.04)" : "var(--surface)",
                           cursor: isRoot ? "not-allowed" : "pointer",
                           display: "flex", flexWrap: "wrap", rowGap: "8px",
@@ -1263,7 +1263,7 @@ export default function UsersPage() {
                           onChange={() => {
                             if (!isRoot) setForm((f) => ({ ...f, role: r.id }));
                           }}
-                          style={{ accentColor: "#7E2930", cursor: "pointer" }}
+                          style={{ accentColor: "#1B4D3E", cursor: "pointer" }}
                         />
                       </div>
                     );
@@ -1309,7 +1309,7 @@ export default function UsersPage() {
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleCustomPermission(perm.id)}
-                          style={{ marginTop: "2px", accentColor: "#7E2930" }}
+                          style={{ marginTop: "2px", accentColor: "#1B4D3E" }}
                         />
                         <div>
                           <div style={{ fontWeight: "600", color: "var(--text)" }}>{perm.label}</div>
@@ -1329,7 +1329,7 @@ export default function UsersPage() {
                   checked={form.isActive}
                   disabled={editUser?.isRootOwner === true}
                   onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-                  style={{ width: "18px", height: "18px", accentColor: "#7E2930", cursor: "pointer" }}
+                  style={{ width: "18px", height: "18px", accentColor: "#1B4D3E", cursor: "pointer" }}
                 />
                 <label
                   htmlFor="user_is_active_form"

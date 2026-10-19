@@ -193,7 +193,7 @@ export default function InventoryReportPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: "16px", marginBottom: "32px" }}>
         <div style={{ background: "var(--surface)", padding: "20px", borderRadius: "12px", border: "1px solid #eee", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-            <div style={{ padding: "8px", background: "#7E293015", borderRadius: "8px", color: "var(--primary)" }}><Box size={20} /></div>
+            <div style={{ padding: "8px", background: "#1B4D3E15", borderRadius: "8px", color: "var(--primary)" }}><Box size={20} /></div>
             <div style={{ fontSize: "13px", color: "var(--subtext)", fontWeight: "600" }}>Tổng giá trị tồn</div>
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--text)" }}>{formatVND(totalValue)}</div>

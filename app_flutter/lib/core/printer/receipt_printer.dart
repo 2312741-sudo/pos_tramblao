@@ -375,7 +375,7 @@ class ReceiptPrinter {
   }) {
     final store = StoreInfoModel(
       storeCode: 'TEST',
-      storeName: storeName.isNotEmpty ? storeName : 'POS Trạm',
+      storeName: storeName.isNotEmpty ? storeName : 'POS Trạm Blao',
       address: 'Đà Lạt - Lâm Đồng',
       phone: '0901234567',
       wifiName: 'Tram_Coffee_5G',

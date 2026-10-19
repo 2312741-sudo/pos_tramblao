@@ -167,7 +167,7 @@ export default function OrdersPage() {
     if (currentStoreCode === "ALL") return { storeName: "Tất cả chi nhánh", storeCode: "ALL" };
     return (
       stores.find((s) => s.storeCode === currentStoreCode) || {
-        storeName: "POS Trạm",
+        storeName: "POS Trạm Blao",
         storeCode: currentStoreCode,
       }
     );
@@ -292,7 +292,7 @@ export default function OrdersPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: "16px" }}>
         <div className="stat-card">
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#7E293018", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)", flexShrink: 0 }}>
+            <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#1B4D3E18", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)", flexShrink: 0 }}>
               <DollarSign size={20} />
             </div>
             <div>

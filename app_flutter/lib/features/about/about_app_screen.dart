@@ -9,7 +9,7 @@ import '../../core/utils/share_utils.dart';
 import '../../data/models/user_model.dart';
 import '../auth/delete_account_dialog.dart';
 
-/// Màn hình Thông tin ứng dụng POS Trạm (About App Screen)
+/// Màn hình Thông tin ứng dụng POS Trạm Blao (About App Screen)
 /// Cung cấp thông tin phiên bản, bản quyền, kênh hỗ trợ, pháp lý và tuân thủ Apple App Store Review.
 class AboutAppScreen extends StatelessWidget {
   const AboutAppScreen({super.key});
@@ -69,10 +69,10 @@ class AboutAppScreen extends StatelessWidget {
             icon: const Icon(Icons.share_outlined),
             onPressed: () {
               shareTextSafe(
-                'POS Trạm - Hệ thống Quản lý Bán hàng & Vận hành F&B (v$appVersion+$appBuild)\n'
+                'POS Trạm Blao - Hệ thống Quản lý Bán hàng & Vận hành F&B (v$appVersion+$appBuild)\n'
                 'Website: $websiteUrl\n'
                 'Hotline hỗ trợ: $hotline',
-                subject: 'Thông tin ứng dụng POS Trạm',
+                subject: 'Thông tin ứng dụng POS Trạm Blao',
                 context: context,
               );
             },
@@ -111,7 +111,7 @@ class AboutAppScreen extends StatelessWidget {
             // Footer Copyright
             Center(
               child: Text(
-                '$copyright • POS Trạm\nBảo lưu mọi quyền',
+                '$copyright • POS Trạm Blao\nBảo lưu mọi quyền',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.beVietnamPro(
                   fontSize: 12,
@@ -609,7 +609,7 @@ class AboutAppScreen extends StatelessWidget {
                 Icon(Icons.auto_awesome, size: 20, color: context.tc.primary),
                 const SizedBox(width: 8),
                 Text(
-                  'Hệ Sinh Thái Tính Năng POS Trạm',
+                  'Hệ Sinh Thái Tính Năng POS Trạm Blao',
                   style: GoogleFonts.beVietnamPro(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,

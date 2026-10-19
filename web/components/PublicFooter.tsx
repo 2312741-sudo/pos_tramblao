@@ -42,7 +42,7 @@ export function PublicFooter() {
             >
               <Coffee size={18} />
             </div>
-            <span style={{ fontSize: 16, fontWeight: 800, color: "var(--primary)" }}>POS Trạm</span>
+            <span style={{ fontSize: 16, fontWeight: 800, color: "var(--primary)" }}>POS Trạm Blao</span>
           </div>
           <p style={{ lineHeight: 1.6, margin: "0 0 16px", color: "var(--subtext)" }}>
             Giải pháp phần mềm quản lý vận hành bán hàng F&B chuyên nghiệp cho Quán Cà phê, Trà sữa, Nhà hàng và Chuỗi F&B đa chi nhánh.

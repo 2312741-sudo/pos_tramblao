@@ -93,7 +93,7 @@ export default function ChangePasswordPage() {
           padding: "36px 32px",
           background: "var(--surface)",
           border: "1.5px solid var(--border)",
-          boxShadow: "0 16px 40px rgba(126, 41, 48, 0.08)",
+          boxShadow: "0 16px 40px rgba(27, 77, 62, 0.08)",
           position: "relative",
           zIndex: 1,
         }}
@@ -105,14 +105,14 @@ export default function ChangePasswordPage() {
               width: "60px",
               height: "60px",
               borderRadius: "16px",
-              background: "rgba(126, 41, 48, 0.08)",
+              background: "rgba(27, 77, 62, 0.08)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               margin: "0 auto 14px",
             }}
           >
-            <KeyRound size={28} color="#7E2930" />
+            <KeyRound size={28} color="#1B4D3E" />
           </div>
           <h1
             style={{

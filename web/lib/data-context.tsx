@@ -702,7 +702,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
               {
                 id: "TRAM01",
                 storeCode: "TRAM01",
-                storeName: "POS Trạm - Trụ sở 01 (Đà Lạt)",
+                storeName: "POS Trạm Blao - Trụ sở 01 (Đà Lạt)",
                 address: "Số 123 Đường Ba Tháng Tư, Phường 3, TP. Đà Lạt",
                 phone: "0987654321",
                 bankId: "MB",
@@ -744,7 +744,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
       list.push({
         id: code,
         storeCode: code,
-        storeName: info.storeName || `POS Trạm (${code})`,
+        storeName: info.storeName || `POS Trạm Blao (${code})`,
         address: info.address || "",
         phone: info.phone || "",
         wifiName: info.wifiName || "",
@@ -1057,7 +1057,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
             const extra: StoreItem[] = missing.map((c) => ({
               id: c,
               storeCode: c,
-              storeName: `POS Trạm (${c})`,
+              storeName: `POS Trạm Blao (${c})`,
               address: "",
               phone: "",
               bankId: "MB",
@@ -1452,7 +1452,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const targetStore = stores.find((s) => s.storeCode === targetStoreCode) || currentStore;
         const storeName =
           targetStore?.storeName ||
-          `POS Trạm - Chi nhánh ${targetStoreCode}`;
+          `POS Trạm Blao - Chi nhánh ${targetStoreCode}`;
 
         const items = parseOrderJson(table.currentOrderJson);
         if (items.length === 0) {
@@ -1638,7 +1638,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const targetStoreCode =
           table.storeCode || resolveWriteStoreCode(currentStoreCode);
         const storeObj = stores.find((s) => s.storeCode === targetStoreCode) || currentStore;
-        const storeName = storeObj ? storeObj.storeName : "POS Trạm - Chi nhánh " + targetStoreCode;
+        const storeName = storeObj ? storeObj.storeName : "POS Trạm Blao - Chi nhánh " + targetStoreCode;
 
         const items = parseOrderJson(table.currentOrderJson);
         const { subTotal: totalAmount } = summarizeOrderLines(items);

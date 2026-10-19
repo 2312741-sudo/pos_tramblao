@@ -1400,7 +1400,7 @@ function FormField({ label, value, onChange, type = "text", placeholder = "", di
 // Styles
 const btnPrimary: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: "6px", padding: "10px 18px",
-  background: "#7E2930", color: "#fff", border: "none", borderRadius: "10px",
+  background: "#1B4D3E", color: "#fff", border: "none", borderRadius: "10px",
   fontSize: "13px", fontWeight: "700", cursor: "pointer",
 };
 const btnSecondary: React.CSSProperties = {

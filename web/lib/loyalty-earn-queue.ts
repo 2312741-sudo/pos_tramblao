@@ -18,7 +18,7 @@ export interface KeyValueStorage {
 
 export const EARN_QUEUE_MAX = 200;
 
-export const earnQueueKey = (username: string, storeCode: string) => `loyalty_earn_retry:${username || "anon"}:${storeCode}`;
+export const earnQueueKey = (username: string, storeCode: string) => `blao_pos_loyalty_earn_retry:${username || "anon"}:${storeCode}`;
 
 export function readEarnQueue(storage: KeyValueStorage | null, key: string): EarnQueueEntry[] {
   if (!storage) return [];

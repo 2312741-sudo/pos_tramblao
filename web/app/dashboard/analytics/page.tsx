@@ -191,7 +191,7 @@ export default function AnalyticsPage() {
     }
     return (
       stores.find((s) => s.storeCode === currentStoreCode) || {
-        storeName: "POS Trạm",
+        storeName: "POS Trạm Blao",
         storeCode: currentStoreCode,
       }
     );
@@ -276,7 +276,7 @@ export default function AnalyticsPage() {
                 padding: "6px 12px",
               }}
             >
-              <Store size={16} color="#7E2930" />
+              <Store size={16} color="#1B4D3E" />
               <select
                 value={currentStoreCode}
                 onChange={(e) => setCurrentStoreCode(e.target.value)}
@@ -385,7 +385,7 @@ export default function AnalyticsPage() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px", padding: "16px 20px" }}>
           <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", justifyContent: "space-between", alignItems: "center", color: "var(--subtext)", fontSize: "13px" }}>
             <span>Doanh thu thuần</span>
-            <DollarSign size={18} color="#7E2930" />
+            <DollarSign size={18} color="#1B4D3E" />
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--primary)", marginTop: "8px" }}>
             {formatVND(overviewReport.netRevenue)}
@@ -568,7 +568,7 @@ export default function AnalyticsPage() {
                   formatter={(value) => [formatVND(Number(value)), "Doanh thu thuần"]}
                   labelFormatter={(label) => `Khung giờ: ${label}`}
                 />
-                <Bar dataKey="netRevenue" fill="#7E2930" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="netRevenue" fill="#1B4D3E" radius={[4, 4, 0, 0]} maxBarSize={28} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -683,7 +683,7 @@ export default function AnalyticsPage() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-              <Receipt size={18} color="#7E2930" />
+              <Receipt size={18} color="#1B4D3E" />
               <h2 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text)", margin: 0 }}>
                 Năng suất Thu ngân chốt Bill ({staffReport.cashierStaff.length} thu ngân)
               </h2>
@@ -739,7 +739,7 @@ export default function AnalyticsPage() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-              <PieIcon size={18} color="#7E2930" />
+              <PieIcon size={18} color="#1B4D3E" />
               <h2 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text)", margin: 0 }}>
                 Tỷ trọng Hình thức Thanh toán
               </h2>

@@ -1,11 +1,11 @@
 {
-    "name": "POS Trạm",
-    "short_name": "POS Trạm",
+    "name": "POS Trạm Blao",
+    "short_name": "POS Blao",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F4E9D5",
+    "theme_color": "#1B4D3E",
+    "description": "Hệ thống Quản lý Bán hàng POS Trạm Blao",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

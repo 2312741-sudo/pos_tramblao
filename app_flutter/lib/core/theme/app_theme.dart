@@ -7,13 +7,14 @@ import 'package:google_fonts/google_fonts.dart';
 class TramColors {
   TramColors._();
 
-  // 1. Nhận diện thương hiệu Trạm (Brand & Signature)
-  static const Color logoRed = Color(0xFFCB2D2E); // Đỏ cờ nhận diện logo, không tự ý nhuộm toàn UI
-  static const Color brandPrimary = Color(0xFF7E2930); // Đỏ mận giao diện chính, đăng nhập, nút chung
-  static const Color brandDark = Color(0xFF5C1F24); // Đỏ mận đậm
-  static const Color brandSurface = Color(0xFFF6EFDF); // Nền kem ấm đặc trưng Trạm
+  // 1. Nhận diện thương hiệu Trạm Blao (Brand & Signature)
+  static const Color logoRed = Color(0xFFC91506); // Đỏ thương hiệu logo Trạm
+  static const Color brandPrimary = Color(0xFF1B4D3E); // Xanh thông Trạm Blao
+  static const Color brandDark = Color(0xFF13382D);
+  static const Color brandSurface = Color(0xFFF4E9D5); // Nền kem ấm theo logo Trạm Blao
   static const Color cardSurface = Color(0xFFFFFEF9); // Mặt nền thẻ trắng ngà sáng rõ
-  static const Color background = Color(0xFFF8F4EE); // Nền ấm dịu mắt
+  static const Color background = Color(0xFFF4E9D5); // Nền ấm dịu mắt
+  static const Color mintAccent = Color(0xFF95E4D1); // Tone màu tươi mát
 
   // 2. Màu vai trò phân quyền (Role Accents & Surfaces)
   // Chủ Quán (Owner)
@@ -29,8 +30,8 @@ class TramColors {
   static const Color managerTint = Color(0xFFE8F3FE);
 
   // Nhân Viên (Employee)
-  static const Color employeeAccent = Color(0xFF7E2930);
-  static const Color employeeSurface = Color(0xFFFFF9F9);
+  static const Color employeeAccent = Color(0xFF1B4D3E);
+  static const Color employeeSurface = Color(0xFFF4F9F6);
 
   // 3. Màu trạng thái nghiệp vụ chuẩn (Semantic Status Colors)
   static const Color success = Color(0xFF146A65); // Xanh ngọc đậm (thành công, hoàn tất, bàn trống)
@@ -46,8 +47,8 @@ class TramColors {
   // 4. Trạng thái phòng bàn KiotViet FnB
   static const Color tableEmpty = Color(0xFF146A65); // Bàn trống: Xanh ngọc
   static const Color tableEmptyBg = Color(0xFFE6F4F2);
-  static const Color tableInUse = Color(0xFF7E2930); // Bàn có khách: Đỏ mận
-  static const Color tableInUseBg = Color(0xFFFFF0F2);
+  static const Color tableInUse = Color(0xFF1B4D3E); // Bàn có khách: Xanh Trạm Blao
+  static const Color tableInUseBg = Color(0xFFE4F4EF);
   static const Color tableReserved = Color(0xFFD97706); // Bàn đặt trước: Vàng hổ phách
   static const Color tableReservedBg = Color(0xFFFBEFD4);
 

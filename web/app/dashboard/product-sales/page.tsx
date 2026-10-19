@@ -175,7 +175,7 @@ export default function ProductSalesReportPage() {
   // Export Handlers
   const handleExportExcel = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm",
+      storeName: currentStore?.storeName || "POS Trạm Blao",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -192,7 +192,7 @@ export default function ProductSalesReportPage() {
 
   const handlePrintPDF = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm",
+      storeName: currentStore?.storeName || "POS Trạm Blao",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -296,7 +296,7 @@ export default function ProductSalesReportPage() {
                 padding: "6px 12px",
               }}
             >
-              <Calendar size={16} color="#7E2930" />
+              <Calendar size={16} color="#1B4D3E" />
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value as typeof dateRange)}
@@ -359,7 +359,7 @@ export default function ProductSalesReportPage() {
                 padding: "6px 12px",
               }}
             >
-              <Store size={16} color="#7E2930" />
+              <Store size={16} color="#1B4D3E" />
               <select
                 value={currentStoreCode}
                 onChange={(e) => setCurrentStoreCode(e.target.value)}

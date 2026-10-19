@@ -8,20 +8,20 @@
 :root {
   color-scheme: light;
   /* Nền & bề mặt */
-  --bg: #F8F4EE;
+  --bg: #F4E9D5;
   --surface: #FFFFFF;
   --card: #FFFFFF;
   --card-warm: #FFFEF9;
-  --surface-muted: #FAF7F2;
-  --surface-sunken: #F6EFDF;
-  /* Thương hiệu */
-  --primary: #7E2930;
-  --primary-dark: #5C1F24;
-  --primary-hover: #94343C;
-  --primary-light: #FBECEE;
+  --surface-muted: #FAF5EA;
+  --surface-sunken: #EDE1CB;
+  /* Thương hiệu Trạm Blao */
+  --primary: #1B4D3E;
+  --primary-dark: #13382D;
+  --primary-hover: #235F4D;
+  --primary-light: #E4F4EF;
   --on-primary: #FFFFFF;
-  --logo-red: #CB2D2E;
-  --secondary: #D97706;
+  --logo-red: #C91506;
+  --secondary: #95E4D1;
   /* Chữ */
   --text: #1C1A2D;
   --subtext: #5D5B63;
@@ -42,9 +42,9 @@
   --info-bg: #E3EFF7;
   /* Hiệu ứng */
   --shadow-sm: 0 2px 8px rgba(28, 26, 45, 0.04);
-  --shadow-md: 0 6px 20px rgba(126, 41, 48, 0.08);
+  --shadow-md: 0 6px 20px rgba(27, 77, 62, 0.08);
   --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.2);
-  --focus-ring: 0 0 0 3px rgba(126, 41, 48, 0.28);
+  --focus-ring: 0 0 0 3px rgba(27, 77, 62, 0.28);
   --overlay: rgba(28, 26, 45, 0.6);
   /* Bo góc & khoảng cách */
   --radius-sm: 8px;
@@ -235,7 +235,7 @@ button:not(:disabled), [role="button"] {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: var(--on-primary);
   border: none;
-  box-shadow: 0 2px 8px rgba(126, 41, 48, 0.25);
+  box-shadow: 0 2px 8px rgba(27, 77, 62, 0.25);
 }
 
 :root[data-theme="dark"] .btn-primary {
@@ -249,7 +249,7 @@ button:not(:disabled), [role="button"] {
 
 .btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--primary-hover), var(--primary));
-  box-shadow: 0 4px 14px rgba(126, 41, 48, 0.35);
+  box-shadow: 0 4px 14px rgba(27, 77, 62, 0.35);
   transform: translateY(-1px);
 }
 
@@ -560,13 +560,13 @@ tbody tr:last-child td {
 
 .sidebar-link.active {
   background: #FFFFFF;
-  color: #7E2930;
+  color: #1B4D3E;
   font-weight: 700;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
 }
 
 .sidebar-link.active svg {
-  color: #7E2930 !important;
+  color: #1B4D3E !important;
 }
 
 /* ---------- Hộp thoại ---------- */
@@ -674,7 +674,7 @@ tbody tr:last-child td {
   background: var(--primary);
   color: var(--on-primary);
   border-color: var(--primary);
-  box-shadow: 0 2px 8px rgba(126, 41, 48, 0.25);
+  box-shadow: 0 2px 8px rgba(27, 77, 62, 0.25);
 }
 
 .tab-btn:hover:not(.active) {

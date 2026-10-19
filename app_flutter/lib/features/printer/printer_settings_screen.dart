@@ -9,7 +9,7 @@ import '../../core/printer/print_queue_service.dart';
 import '../../core/printer/printer_types.dart';
 import '../../core/printer/receipt_printer.dart';
 
-/// Màn hình Cài Đặt Máy In Bluetooth & LAN (POS Trạm)
+/// Màn hình Cài Đặt Máy In Bluetooth & LAN (POS Trạm Blao)
 class PrinterSettingsScreen extends StatefulWidget {
   const PrinterSettingsScreen({super.key});
 
@@ -135,7 +135,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
 
     try {
       final bytes = ReceiptPrinter.buildTestReceiptBytes(
-        storeName: 'POS Trạm - Coffee & Tea',
+        storeName: 'POS Trạm Blao - Coffee & Tea',
         paperSize: _btService.paperSize,
         isKitchen: isKitchen,
       );
