@@ -10,6 +10,7 @@ export function LegalPage({ title, updated, children }: { title: string; updated
         <Link href="/support" style={{ color: "var(--subtext)", fontWeight: 500, textDecoration: "none" }}>Trung tâm hỗ trợ</Link>
         <Link href="/privacy" style={{ color: "var(--primary)", fontWeight: 600 }}>Chính sách quyền riêng tư</Link>
         <Link href="/privacy-choices" style={{ color: "var(--primary)", fontWeight: 600 }}>Quyền lựa chọn về dữ liệu</Link>
+        <Link href="/delete-account" style={{ color: "var(--danger)", fontWeight: 600 }}>Xóa tài khoản</Link>
       </nav>
       <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0 }}>{title}</h1>
       <p style={{ color: "var(--subtext)", fontSize: 13, marginTop: 6 }}>Cập nhật lần cuối: {updated}</p>

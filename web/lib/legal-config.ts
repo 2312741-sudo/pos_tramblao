@@ -11,7 +11,7 @@ export const LEGAL = {
   host: "pos-tram.vercel.app",
   hotline: "0865.062.205",
   hotlineTel: "tel:0865062205",
-  contactEmail: (process.env.NEXT_PUBLIC_PRIVACY_EMAIL || "").trim(),
+  contactEmail: (process.env.NEXT_PUBLIC_PRIVACY_EMAIL || "nthanhtam.402@gmail.com").trim(),
 } as const;
 
 /** Liên kết mailto có sẵn tiêu đề; chuỗi rỗng khi chưa cấu hình email */

@@ -427,7 +427,7 @@ export default function DashboardAboutPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "14px" }}>
             <a
-              href={`mailto:${LEGAL.contactEmail || "hotro.postram@gmail.com"}`}
+              href={`mailto:${LEGAL.contactEmail || "nthanhtam.402@gmail.com"}`}
               style={{
                 fontSize: "14px",
                 fontWeight: "700",
@@ -435,11 +435,11 @@ export default function DashboardAboutPage() {
                 textDecoration: "none",
               }}
             >
-              {LEGAL.contactEmail || "hotro.postram@gmail.com"}
+              {LEGAL.contactEmail || "nthanhtam.402@gmail.com"}
             </a>
             <button
               type="button"
-              onClick={() => handleCopy(LEGAL.contactEmail || "hotro.postram@gmail.com", "email")}
+              onClick={() => handleCopy(LEGAL.contactEmail || "nthanhtam.402@gmail.com", "email")}
               className="btn-icon"
               title="Sao chép Email"
               style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: "4px", fontSize: "12px" }}

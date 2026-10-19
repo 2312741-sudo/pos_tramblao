@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yêu Cầu Xóa Tài Khoản | POS Trạm BLAO</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #7FE3C7;
+            --primary-dark: #143A2F;
+            --primary-light: #E8FAF4;
+            --primary-text: #143A2F;
+            --text-main: #1E293B;
+            --text-muted: #64748B;
+            --bg-page: #F8FAFC;
+            --card-bg: #FFFFFF;
+            --border: #E2E8F0;
+            --danger: #EF4444;
+            --danger-bg: #FEF2F2;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            line-height: 1.7;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 840px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 48px;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            margin-bottom: 24px;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-dark);
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 30px;
+            margin-bottom: 36px;
+        }
+
+        .header .badge {
+            display: inline-block;
+            background-color: var(--primary);
+            color: var(--primary-text);
+            padding: 6px 16px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .section {
+            margin-bottom: 32px;
+        }
+
+        .section h2 {
+            font-size: 19px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section h2::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background-color: var(--primary-dark);
+            border-radius: 2px;
+        }
+
+        .step-box {
+            background-color: #F8FAFC;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+
+        .step-box ol {
+            padding-left: 20px;
+        }
+
+        .step-box li {
+            margin-bottom: 12px;
+            font-size: 15px;
+        }
+
+        .step-box li:last-child {
+            margin-bottom: 0;
+        }
+
+        .contact-box {
+            background-color: var(--primary-light);
+            border: 1px solid rgba(127, 227, 199, 0.4);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .contact-item {
+            margin-bottom: 10px;
+            font-size: 15px;
+        }
+
+        .contact-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .alert-box {
+            background-color: var(--danger-bg);
+            border-left: 4px solid var(--danger);
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #991B1B;
+        }
+
+        .data-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .data-list li {
+            position: relative;
+            padding-left: 24px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .data-list li::before {
+            content: "•";
+            position: absolute;
+            left: 8px;
+            color: var(--primary-dark);
+            font-weight: bold;
+        }
+
+        .btn-email {
+            display: inline-block;
+            background: var(--primary);
+            color: var(--primary-text);
+            padding: 10px 22px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+            margin-top: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-email:hover {
+            filter: brightness(0.95);
+            transform: translateY(-1px);
+        }
+
+        .footer {
+            text-align: center;
+            border-top: 1px solid var(--border);
+            padding-top: 24px;
+            margin-top: 40px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-links">
+            <a href="/marketing.html">← Giới thiệu POS BLAO</a>
+            <a href="/support.html">Trung tâm hỗ trợ</a>
+            <a href="/privacy.html">Chính sách quyền riêng tư</a>
+            <a href="/delete-account.html" style="color: var(--primary-dark); font-weight: 700;">Xóa tài khoản</a>
+        </div>
+
+        <div class="header">
+            <div class="badge">Apple Review Guideline 5.1.1(v)</div>
+            <h1>Quy Trình & Yêu Cầu Xóa Tài Khoản</h1>
+            <p>Ứng dụng <strong>POS Trạm BLAO</strong> — Hệ thống Quản lý Bán hàng & Vận hành F&B</p>
+        </div>
+
+        <div class="section">
+            <p>Tuân thủ quy định bảo vệ dữ liệu người dùng của Apple App Store và Google Play, người dùng ứng dụng <strong>POS Trạm BLAO</strong> có toàn quyền tự xóa tài khoản hoặc yêu cầu chúng tôi xóa vĩnh viễn tài khoản và dữ liệu cá nhân liên quan bất cứ lúc nào.</p>
+        </div>
+
+        <div class="section">
+            <h2>1. Tự Xóa Tài Khoản Trực Tiếp Trong Ứng Dụng (Khuyên dùng)</h2>
+            <div class="step-box">
+                <ol>
+                    <li>Mở ứng dụng <strong>POS Trạm BLAO</strong> trên iPad hoặc iPhone của bạn và đăng nhập.</li>
+                    <li>Tại màn hình <strong>Sơ đồ bàn</strong> hoặc màn hình <strong>Quản lý</strong>, nhấn nút <strong>Menu chức năng (⋮)</strong> ở góc trên bên phải.</li>
+                    <li>Chọn mục <strong>"Xóa tài khoản của tôi"</strong> (biểu tượng thẻ đỏ cảnh báo).</li>
+                    <li>Hộp thoại xác nhận sẽ hiện ra. Bạn gõ chính xác từ khóa <code>XOA</code> vào ô xác nhận để tránh bấm nhầm.</li>
+                    <li>Nhấn nút <strong>Xóa tài khoản</strong>. Hệ thống sẽ ngay lập tức xóa thông tin xác thực Firebase Auth, hủy phiên làm việc và xóa toàn bộ dữ liệu cá nhân khỏi máy chủ.</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>2. Yêu Cầu Xóa Tài Khoản Từ Xa Qua Email</h2>
+            <p>Nếu bạn không còn cài đặt ứng dụng hoặc không thể đăng nhập, vui lòng gửi email yêu cầu trực tiếp đến ban quản trị:</p>
+            <div class="contact-box" style="margin-top: 14px;">
+                <div class="contact-item"><strong>Email hỗ trợ:</strong> <a href="mailto:nthanhtam.402@gmail.com?subject=Y%C3%AAu%20c%E1%BA%A7u%20x%C3%B3a%20t%C3%A0i%20kho%E1%BA%A3n%20-%20POS%20Tr%E1%BA%A1m%20BLAO" style="color: var(--primary-text); font-weight: 700;">nthanhtam.402@gmail.com</a></div>
+                <div class="contact-item"><strong>Hotline hỗ trợ:</strong> <a href="tel:0865062205" style="color: var(--primary-text); font-weight: 700;">0865.062.205</a></div>
+                <div class="contact-item"><strong>Tiêu đề email:</strong> <code>Yêu cầu xóa tài khoản - POS Trạm BLAO</code></div>
+                <div class="contact-item"><strong>Thông tin cung cấp:</strong> Tên đăng nhập, mã cửa hàng hoặc số điện thoại đã tạo tài khoản.</div>
+                <a href="mailto:nthanhtam.402@gmail.com?subject=Y%C3%AAu%20c%E1%BA%A7u%20x%C3%B3a%20t%C3%A0i%20kho%E1%BA%A3n%20-%20POS%20Tr%E1%BA%A1m%20BLAO" class="btn-email">Gửi Email Yêu Cầu Xóa Tài Khoản</a>
+            </div>
+            <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);"><em>Thời gian xử lý: Chúng tôi sẽ xác minh và hoàn tất xóa dữ liệu trong vòng <strong>24 – 48 giờ làm việc</strong> (tối đa không quá 30 ngày theo quy định).</em></p>
+        </div>
+
+        <div class="section">
+            <h2>3. Dữ Liệu Nào Được Xử Lý Khi Xóa?</h2>
+            <ul class="data-list">
+                <li><strong>Dữ liệu bị xóa vĩnh viễn:</strong> Thông tin xác thực đăng nhập (Firebase Authentication), họ tên, username, số điện thoại, vai trò và device tokens.</li>
+                <li><strong>Tài khoản liên kết Chấm Công Trạm BLAO:</strong> Liên kết xác thực giữa hai hệ thống sẽ bị hủy bỏ hoàn toàn.</li>
+                <li><strong>Dữ liệu kế toán hóa đơn của cửa hàng:</strong> Theo chuẩn mực kế toán và pháp luật về thương mại cho chủ cửa hàng, các hóa đơn và báo cáo ca két đã kết thúc trong quá khứ được giữ lại trong sổ sách nội bộ của cửa hàng, nhưng tài khoản người lập đơn sẽ được ẩn danh vĩnh viễn.</li>
+            </ul>
+        </div>
+
+        <div class="alert-box">
+            <strong>Lưu ý đối với Chủ quán (Root Owner):</strong> Việc xóa tài khoản chủ quán sẽ ảnh hưởng đến quyền quản lý của chi nhánh. Vui lòng chuyển nhượng quyền chủ quán trước khi thực hiện xóa tài khoản.
+        </div>
+
+        <div class="footer">
+            <p>Bản quyền © 2026 Nguyễn Thanh Tâm • POS Trạm BLAO</p>
+            <p style="margin-top: 4px;">Email hỗ trợ: nthanhtam.402@gmail.com | Hotline: 0865.062.205</p>
+        </div>
+    </div>
+</body>
+</html>

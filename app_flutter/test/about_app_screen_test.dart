@@ -42,7 +42,7 @@ void main() {
       expect(find.text('0865.062.205'), findsOneWidget);
 
       // Email
-      expect(find.text('hotro.postram@gmail.com'), findsOneWidget);
+      expect(find.text('nthanhtam.402@gmail.com'), findsOneWidget);
 
       // Giờ trực
       expect(find.text('08:00 – 22:00 (Hàng ngày, kể cả Lễ, Tết)'), findsOneWidget);

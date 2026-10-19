@@ -20,10 +20,13 @@ class AboutAppScreen extends StatelessWidget {
   static const String teamId = 'W97CS7VC54';
   static const String hotline = '0865.062.205';
   static const String hotlineRaw = '0865062205';
-  static const String supportEmail = 'hotro.postram@gmail.com';
+  static const String supportEmail = 'nthanhtam.402@gmail.com';
   static const String websiteUrl = 'https://pos-tram.vercel.app';
+  static const String supportUrl = 'https://pos-tram.vercel.app/support';
+  static const String marketingUrl = 'https://pos-tram.vercel.app/marketing';
   static const String privacyUrl = 'https://pos-tram.vercel.app/privacy';
   static const String privacyChoicesUrl = 'https://pos-tram.vercel.app/privacy-choices';
+  static const String deleteAccountUrl = 'https://pos-tram.vercel.app/delete-account';
   static const String copyrightOwner = 'Nguyễn Thanh Tâm';
   static const String copyright = '© 2026 Nguyễn Thanh Tâm';
 
@@ -529,6 +532,36 @@ class AboutAppScreen extends StatelessWidget {
                   tooltip: 'Sao chép liên kết',
                   icon: const Icon(Icons.copy, size: 16),
                   onPressed: () => _copyToClipboard(context, privacyChoicesUrl, 'Liên kết quyền dữ liệu'),
+                ),
+              ],
+            ),
+            const Divider(height: 18),
+
+            // Online Delete Account Web Link (Apple Review Guideline 5.1.1(v))
+            Row(
+              children: [
+                Icon(Icons.link, color: context.tc.danger, size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Quy Trình Xóa Dữ Liệu Trực Tuyến',
+                        style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.w600, color: context.tc.textPrimary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        deleteAccountUrl,
+                        style: GoogleFonts.beVietnamPro(fontSize: 11, color: context.tc.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Sao chép liên kết',
+                  icon: const Icon(Icons.copy, size: 16),
+                  onPressed: () => _copyToClipboard(context, deleteAccountUrl, 'Liên kết xóa tài khoản'),
                 ),
               ],
             ),

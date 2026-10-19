@@ -205,7 +205,7 @@ export default function PublicAboutPage() {
               Yêu cầu tính năng, hướng dẫn nghiệp vụ và bàn giao tài khoản quản trị.
             </p>
             <a
-              href={`mailto:${LEGAL.contactEmail || "hotro.postram@gmail.com"}`}
+              href={`mailto:${LEGAL.contactEmail || "nthanhtam.402@gmail.com"}`}
               style={{
                 fontSize: 15,
                 fontWeight: 700,
@@ -215,7 +215,7 @@ export default function PublicAboutPage() {
                 display: "inline-block",
               }}
             >
-              {LEGAL.contactEmail || "hotro.postram@gmail.com"}
+              {LEGAL.contactEmail || "nthanhtam.402@gmail.com"}
             </a>
           </div>
 

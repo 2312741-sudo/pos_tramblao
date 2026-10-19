@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 };
 
 export default function SupportPage() {
-  const supportEmail = LEGAL.contactEmail || "hotro.postram@gmail.com";
+  const supportEmail = LEGAL.contactEmail || "nthanhtam.402@gmail.com";
   const mailtoSupport = privacyMailto("Yêu cầu hỗ trợ kỹ thuật - POS Trạm BLAO") || `mailto:${supportEmail}?subject=${encodeURIComponent("Yêu cầu hỗ trợ kỹ thuật - POS Trạm BLAO")}`;
 
   return (

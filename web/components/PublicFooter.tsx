@@ -60,7 +60,7 @@ export function PublicFooter() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <Mail size={14} color="var(--primary-dark)" />
-              <span>{LEGAL.contactEmail || "hotro.postram@gmail.com"}</span>
+              <span>{LEGAL.contactEmail || "nthanhtam.402@gmail.com"}</span>
             </div>
           </div>
         </div>
@@ -155,8 +155,8 @@ export function PublicFooter() {
               </Link>
             </li>
             <li>
-              <Link href="/support#delete-account" style={{ color: "var(--subtext)", textDecoration: "none" }}>
-                Xóa tài khoản trong ứng dụng
+              <Link href="/delete-account" style={{ color: "var(--subtext)", textDecoration: "none" }}>
+                Hướng dẫn & Yêu cầu xóa tài khoản
               </Link>
             </li>
             <li>

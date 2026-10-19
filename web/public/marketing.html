@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS Trạm BLAO • Phần Mềm Quản Lý Bán Hàng & Vận Hành F&B Toàn Diện</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #7FE3C7;
+            --primary-dark: #143A2F;
+            --primary-light: #E8FAF4;
+            --primary-text: #143A2F;
+            --text-main: #1E293B;
+            --text-muted: #64748B;
+            --bg-page: #F8FAFC;
+            --card-bg: #FFFFFF;
+            --border: #E2E8F0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            line-height: 1.7;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 48px;
+            border-radius: 24px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            margin-bottom: 24px;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-dark);
+        }
+
+        .hero {
+            text-align: center;
+            padding: 20px 0 40px;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 40px;
+        }
+
+        .hero .badge {
+            display: inline-block;
+            background-color: var(--primary);
+            color: var(--primary-text);
+            padding: 6px 18px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+
+        .hero h1 {
+            font-size: clamp(28px, 4vw, 36px);
+            font-weight: 800;
+            color: var(--text-main);
+            margin-bottom: 14px;
+            line-height: 1.3;
+        }
+
+        .hero p {
+            color: var(--text-muted);
+            font-size: 16px;
+            max-width: 680px;
+            margin: 0 auto;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .feature-card {
+            background-color: var(--bg-page);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.2s ease;
+        }
+
+        .feature-card:hover {
+            border-color: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .feature-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            padding: 3px 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .feature-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 13.5px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .cta-box {
+            background: linear-gradient(135deg, var(--primary-light), #FFFFFF);
+            border: 1px solid var(--primary);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .cta-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--primary-dark);
+            margin-bottom: 8px;
+        }
+
+        .cta-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+        }
+
+        .btn-primary {
+            display: inline-block;
+            background: var(--primary);
+            color: var(--primary-text);
+            padding: 12px 28px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 14px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            filter: brightness(0.95);
+        }
+
+        .footer {
+            text-align: center;
+            border-top: 1px solid var(--border);
+            padding-top: 24px;
+            margin-top: 40px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-links">
+            <a href="/marketing.html" style="color: var(--primary-dark); font-weight: 700;">Giới thiệu POS BLAO</a>
+            <a href="/support.html">Trung tâm hỗ trợ</a>
+            <a href="/privacy.html">Chính sách quyền riêng tư</a>
+            <a href="/delete-account.html">Xóa tài khoản</a>
+        </div>
+
+        <div class="hero">
+            <div class="badge">POS THẾ HỆ MỚI • F&B & BÁN LẺ</div>
+            <h1>Phần Mềm Quản Lý Bán Hàng & Vận Hành POS Trạm BLAO</h1>
+            <p>Giải pháp POS chuyên sâu cho Quán Cà phê, Trà sữa, Nhà hàng và Chuỗi F&B. Đồng bộ tức thì thời gian thực giữa Tablet, Mobile và Web Quản trị.</p>
+        </div>
+
+        <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 20px;">Tính Năng Nổi Bật Dành Cho Doanh Nghiệp F&B</h2>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <span class="feature-badge">Giao diện cảm ứng</span>
+                <div class="feature-title">POS Tablet & Mobile Siêu Tốc</div>
+                <div class="feature-desc">Tối ưu cho iPad và điện thoại di động. Chọn món, chỉnh đường đá, size và topping linh hoạt chỉ với một chạm.</div>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-badge">Realtime Sync</span>
+                <div class="feature-title">Sơ Đồ Phòng Bàn Thời Gian Thực</div>
+                <div class="feature-desc">Trực quan ma trận bàn theo khu vực (Tầng 1, Sân vườn, VIP). Chuyển bàn, ghép bàn và theo dõi trạng thái bàn trong 3 giây.</div>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-badge">Chuẩn ESC/POS</span>
+                <div class="feature-title">Báo Bếp/Bar Tự Động & In Nhiệt</div>
+                <div class="feature-desc">Tự động phát lệnh in phiếu pha chế và bếp ngay khi gọi món qua mạng LAN (Port 9100) hoặc Bluetooth, chống nhầm đơn giờ cao điểm.</div>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-badge">Chính xác 100%</span>
+                <div class="feature-title">Thanh Toán Động VietQR Napas247</div>
+                <div class="feature-desc">Tạo mã QR động gắn số tiền từng hóa đơn. Khách quét là tiền về tài khoản quán, loại bỏ nguy cơ khách gõ nhầm tiền.</div>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-badge">Chống thất thoát</span>
+                <div class="feature-title">Quản Lý Ca Két & Kiểm Toán</div>
+                <div class="feature-desc">Kiểm soát nạp tiền đầu ca, doanh thu trong ca và biên bản bàn giao ca cuối ngày. Ghi nhận chi tiết nhật ký thao tác hủy món.</div>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-badge">Hệ sinh thái đồng bộ</span>
+                <div class="feature-title">Kết Nối Chấm Công Trạm BLAO</div>
+                <div class="feature-desc">Đồng bộ đăng nhập tài khoản nhân viên và chấm công nhanh chóng, tiện lợi giữa hai ứng dụng trong chuỗi.</div>
+            </div>
+        </div>
+
+        <div class="cta-box">
+            <div class="cta-title">Sẵn Sàng Nâng Tầm Vận Hành Quán Của Bạn?</div>
+            <div class="cta-desc">Liên hệ ngay để nhận hướng dẫn cài đặt và trải nghiệm hệ thống POS Trạm BLAO.</div>
+            <a href="mailto:nthanhtam.402@gmail.com?subject=T%C6%B0%20v%E1%BA%A5n%20h%E1%BB%87%20th%E1%BB%91ng%20POS%20Tr%E1%BA%A1m%20BLAO" class="btn-primary">Liên Hệ Tư Vấn: nthanhtam.402@gmail.com</a>
+        </div>
+
+        <div class="footer">
+            <p>Bản quyền © 2026 Nguyễn Thanh Tâm • POS Trạm BLAO</p>
+            <p style="margin-top: 4px;">Hotline: 0865.062.205 | Email: nthanhtam.402@gmail.com</p>
+        </div>
+    </div>
+</body>
+</html>
