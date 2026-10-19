@@ -1,22 +1,21 @@
 {
   "project_info": {
-    "project_number": "866082811261",
-    "firebase_url": "https://tramapp-36f53-default-rtdb.asia-southeast1.firebasedatabase.app",
-    "project_id": "tramapp-36f53",
-    "storage_bucket": "tramapp-36f53.firebasestorage.app"
+    "project_number": "351954155486",
+    "project_id": "postramblao",
+    "storage_bucket": "postramblao.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:866082811261:android:75d1b3154331c8ba0ef014",
+        "mobilesdk_app_id": "1:351954155486:android:54e090fd7f7a7001a10f4f",
         "android_client_info": {
-          "package_name": "com.example.tramapp"
+          "package_name": "com.tramblao.pos"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyClGB5QKIA1ux-Q0D8FD1woFT4iE524xo0"
+          "current_key": "AIzaSyC5alAH_cSqcW-Z6i_eSmq0HRus7KFcbOo"
         }
       ],
       "services": {

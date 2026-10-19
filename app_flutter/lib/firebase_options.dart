@@ -2,7 +2,7 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
-/// Default [FirebaseOptions] for use with the shared Trạm Ecosystem project: chamcongtram
+/// Default [FirebaseOptions] for postramblao project
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) return web;
@@ -17,36 +17,36 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // Cấu hình Web (Next.js Dashboard hoặc Flutter Web)
-
+  // Cấu hình Web
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBWSS2o1ERO1HBnAyVZwAbzOSWNkkWa7GY',
-    appId: '1:866082811261:web:5021e5e77a7a6cf50ef014',
-    messagingSenderId: '866082811261',
-    projectId: 'tramapp-36f53',
-    authDomain: 'tramapp-36f53.firebaseapp.com',
-    databaseURL: 'https://tramapp-36f53-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'tramapp-36f53.firebasestorage.app',
-    measurementId: 'G-SSEBJMPH77',
+    apiKey: 'AIzaSyB6Sk10Xy9tIi4uYgdpT5ohyajr6863ybk',
+    appId: '1:351954155486:web:4dbd4ecf4cff30f3a10f4f',
+    messagingSenderId: '351954155486',
+    projectId: 'postramblao',
+    authDomain: 'postramblao.firebaseapp.com',
+    databaseURL: 'https://postramblao-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'postramblao.firebasestorage.app',
+    measurementId: 'G-5PTS5LFS8H',
   );
-  // Cấu hình Android
 
+  // Cấu hình Android
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyClGB5QKIA1ux-Q0D8FD1woFT4iE524xo0',
-    appId: '1:866082811261:android:75d1b3154331c8ba0ef014',
-    messagingSenderId: '866082811261',
-    projectId: 'tramapp-36f53',
-    databaseURL: 'https://tramapp-36f53-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'tramapp-36f53.firebasestorage.app',
+    apiKey: 'AIzaSyC5alAH_cSqcW-Z6i_eSmq0HRus7KFcbOo',
+    appId: '1:351954155486:android:54e090fd7f7a7001a10f4f',
+    messagingSenderId: '351954155486',
+    projectId: 'postramblao',
+    databaseURL: 'https://postramblao-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'postramblao.firebasestorage.app',
   );
+
   // Cấu hình iOS / macOS
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAwrAw9XiRdTLqd31aEzy-wvc9OVyngY3w',
-    appId: '1:866082811261:ios:8fd6c7615b32ed6e0ef014',
-    messagingSenderId: '866082811261',
-    projectId: 'tramapp-36f53',
-    databaseURL: 'https://tramapp-36f53-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket: 'tramapp-36f53.firebasestorage.app',
-    iosBundleId: 'com.tramapp.tramFlutter',
+    apiKey: 'AIzaSyCL4h3G8gFDqiB1q60NGsgVpd-Dd09ZI0w',
+    appId: '1:351954155486:ios:0bf6fcc7a080931ea10f4f',
+    messagingSenderId: '351954155486',
+    projectId: 'postramblao',
+    databaseURL: 'https://postramblao-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'postramblao.firebasestorage.app',
+    iosBundleId: 'com.tramblao.pos',
   );
 }
