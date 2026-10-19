@@ -253,7 +253,7 @@ export default function EndOfDayReportPage() {
   // Handle Export Excel & PDF
   const handleExportExcel = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm Blao",
+      storeName: currentStore?.storeName || "POS Trạm BLAO",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -263,7 +263,7 @@ export default function EndOfDayReportPage() {
 
   const handlePrintPDF = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm Blao",
+      storeName: currentStore?.storeName || "POS Trạm BLAO",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -273,7 +273,7 @@ export default function EndOfDayReportPage() {
 
   const handleExportProductSales = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm Blao",
+      storeName: currentStore?.storeName || "POS Trạm BLAO",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,

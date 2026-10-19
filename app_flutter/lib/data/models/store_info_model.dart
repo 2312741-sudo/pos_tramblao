@@ -59,7 +59,7 @@ class StoreInfoModel {
   factory StoreInfoModel.fromMap(Map<dynamic, dynamic> map, String storeCode) {
     return StoreInfoModel(
       storeCode: map['storeCode']?.toString() ?? storeCode,
-      storeName: map['storeName']?.toString() ?? 'POS Trạm Blao',
+      storeName: map['storeName']?.toString() ?? 'POS Trạm BLAO',
       ownerId: map['ownerId']?.toString() ?? '',
       address: map['address']?.toString() ?? '',
       phone: map['phone']?.toString() ?? '',

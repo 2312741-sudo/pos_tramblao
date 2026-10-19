@@ -34,7 +34,7 @@ export default function ActionCodesPage() {
       style={{
         display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
         cursor: "pointer", border: "1px solid var(--border)",
-        background: tab === id ? "var(--primary)" : "var(--surface)", color: tab === id ? "#fff" : "var(--text)",
+        background: tab === id ? "var(--primary)" : "var(--surface)", color: tab === id ? "#143A2F" : "var(--text)",
       }}
     >
       {icon} {label}

@@ -1546,7 +1546,7 @@ export default function ProductsPage() {
                         />
                         <button
                           onClick={() => handleUpdateNote(n.id, editingNoteText)}
-                          style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}
+                          style={{ background: "var(--primary)", color: "#143A2F", border: "none", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}
                         >
                           Lưu
                         </button>

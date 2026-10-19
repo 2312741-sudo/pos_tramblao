@@ -21,9 +21,9 @@ import { PublicFooter } from "@/components/PublicFooter";
 import { LEGAL } from "@/lib/legal-config";
 
 export const metadata: Metadata = {
-  title: "Giới Thiệu & Thông Tin Ứng Dụng • POS Trạm Blao F&B",
+  title: "Giới Thiệu & Thông Tin Ứng Dụng • POS Trạm BLAO F&B",
   description:
-    "Thông tin chính thức về hệ thống POS Trạm Blao: phiên bản 1.0.1, hỗ trợ kỹ thuật, hotline 0865062205, tiêu chuẩn bảo mật và giải pháp quản lý bán hàng cho chuỗi F&B.",
+    "Thông tin chính thức về hệ thống POS Trạm BLAO: phiên bản 1.0.1, hỗ trợ kỹ thuật, hotline 0865062205, tiêu chuẩn bảo mật và giải pháp quản lý bán hàng cho chuỗi F&B.",
 };
 
 export default function PublicAboutPage() {
@@ -40,7 +40,7 @@ export default function PublicAboutPage() {
               alignItems: "center",
               gap: 6,
               background: "var(--primary-light)",
-              color: "var(--primary)",
+              color: "var(--primary-dark)",
               padding: "6px 14px",
               borderRadius: "999px",
               fontSize: 12,
@@ -60,7 +60,7 @@ export default function PublicAboutPage() {
                 borderRadius: 18,
                 background: "var(--surface)",
                 padding: 4,
-                boxShadow: "0 8px 24px rgba(27, 77, 62, 0.2)",
+                boxShadow: "0 8px 24px rgba(20, 58, 47, 0.15)",
                 border: "1px solid var(--border)",
                 display: "flex",
                 alignItems: "center",
@@ -70,7 +70,7 @@ export default function PublicAboutPage() {
             >
               <Image
                 src="/logo.jpg"
-                alt="Logo POS Trạm Blao"
+                alt="Logo POS Trạm BLAO"
                 width={64}
                 height={64}
                 style={{ objectFit: "cover", borderRadius: 14 }}
@@ -88,18 +88,18 @@ export default function PublicAboutPage() {
               margin: "0 0 10px",
             }}
           >
-            Hệ Thống Bán Hàng & Vận Hành POS Trạm Blao
+            Hệ Thống Bán Hàng & Vận Hành POS Trạm BLAO
           </h1>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
             <span
               style={{
                 background: "var(--primary)",
-                color: "#FFFFFF",
+                color: "var(--on-primary)",
                 padding: "4px 12px",
                 borderRadius: "999px",
-                fontSize: 13,
                 fontWeight: 700,
+                fontSize: 13,
               }}
             >
               Phiên bản 1.0.1 (Build 2)
@@ -284,7 +284,7 @@ export default function PublicAboutPage() {
           >
             <div style={{ padding: "12px 16px", background: "var(--surface-muted)", borderRadius: "var(--radius-md)" }}>
               <div style={{ color: "var(--subtext)", marginBottom: 4 }}>Tên ứng dụng:</div>
-              <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14 }}>POS Trạm Blao (TramApp)</div>
+              <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14 }}>POS TRẠM BLAO (TramApp)</div>
             </div>
 
             <div style={{ padding: "12px 16px", background: "var(--surface-muted)", borderRadius: "var(--radius-md)" }}>

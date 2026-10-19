@@ -78,7 +78,7 @@ class _CampaignListScreenState extends State<CampaignListScreen> {
           ? FloatingActionButton(
               onPressed: _goToCreateCampaign,
               backgroundColor: context.tc.primary,
-              child: const Icon(Icons.add, color: Colors.white),
+              child: Icon(Icons.add, color: context.tc.onPrimary),
             )
           : null,
     );

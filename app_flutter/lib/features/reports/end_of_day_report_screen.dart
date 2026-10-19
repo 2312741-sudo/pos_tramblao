@@ -581,7 +581,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
 
       final currentStoreName = _stores.firstWhere(
         (s) => s.storeCode == _selectedStoreCode,
-        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm Blao - ${_auth.currentStoreCode}'),
+        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO - ${_auth.currentStoreCode}'),
       ).storeName;
 
       // Header Info
@@ -822,7 +822,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
   Widget build(BuildContext context) {
     final currentStoreName = _stores.firstWhere(
       (s) => s.storeCode == _selectedStoreCode,
-      orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm Blao - ${_auth.currentStoreCode}'),
+      orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO - ${_auth.currentStoreCode}'),
     ).storeName;
 
     return Scaffold(
@@ -1035,7 +1035,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
     try {
       final store = _stores.firstWhere(
         (s) => s.storeCode == _selectedStoreCode,
-        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm Blao - ${_auth.currentStoreCode}'),
+        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO - ${_auth.currentStoreCode}'),
       );
       final z = ReportCalculator.generateEndOfDayZReport(
         bills: _rangeBills,
@@ -1104,7 +1104,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
     try {
       final store = _stores.firstWhere(
         (s) => s.storeCode == _selectedStoreCode,
-        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm Blao - ${_auth.currentStoreCode}'),
+        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO - ${_auth.currentStoreCode}'),
       );
       final z = ReportCalculator.generateEndOfDayZReport(
         bills: _rangeBills,

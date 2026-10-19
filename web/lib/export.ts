@@ -180,12 +180,12 @@ export function buildStandardReportHtml(opts: ExportReportOptions): string {
     .join("");
 
   const totalRowHtml = opts.totalRow
-    ? `<tr style="background: #F8F4EE; font-weight: 800; border-top: 2px solid #1B4D3E; border-bottom: 2px solid #1B4D3E;">
+    ? `<tr style="background: #F8F4EE; font-weight: 800; border-top: 2px solid #7FE3C7; border-bottom: 2px solid #7FE3C7;">
         ${opts.totalRow
           .map((cell, cIdx) => {
             const align = cIdx === 0 ? "center" : (typeof cell === "number" ? "right" : "left");
             const valDisplay = typeof cell === "number" ? formatNumber(cell) : String(cell);
-            return `<td style="padding: 10px 12px; border: 1px solid #D8CFBD; text-align: ${align}; font-size: 13px; color: #1B4D3E;">${e(valDisplay)}</td>`;
+            return `<td style="padding: 10px 12px; border: 1px solid #D8CFBD; text-align: ${align}; font-size: 13px; color: #143A2F;">${e(valDisplay)}</td>`;
           })
           .join("")}
       </tr>`
@@ -216,7 +216,7 @@ export function buildStandardReportHtml(opts: ExportReportOptions): string {
       text-align: center;
       font-size: 20px;
       font-weight: 800;
-      color: #1B4D3E;
+      color: #143A2F;
       text-transform: uppercase;
       margin: 12px 0 4px;
       letter-spacing: 0.04em;
@@ -299,7 +299,7 @@ export function buildStandardReportHtml(opts: ExportReportOptions): string {
   </table>
 
   <div class="no-print" style="text-align: center; margin-top: 30px;">
-    <button onclick="window.print()" style="padding: 10px 24px; font-size: 14px; font-weight: 700; background: #1B4D3E; color: white; border: none; border-radius: 8px; cursor: pointer;">
+    <button onclick="window.print()" style="padding: 10px 24px; font-size: 14px; font-weight: 700; background: #7FE3C7; color: #143A2F; border: none; border-radius: 8px; cursor: pointer;">
       🖨️ In / Lưu PDF ngay
     </button>
   </div>
@@ -317,7 +317,7 @@ export function buildStandardReportHtml(opts: ExportReportOptions): string {
 }
 
 /**
- * In / Xuất PDF từ trình duyệt với bố cục chuẩn, font Be Vietnam Pro, màu Trạm #1B4D3E
+ * In / Xuất PDF từ trình duyệt với bố cục chuẩn, font Be Vietnam Pro, màu Trạm #7FE3C7
  */
 export function printStandardReportPDF(opts: ExportReportOptions) {
   if (!guardExport("EXPORT_REPORTS")) return;

@@ -130,7 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _auth.currentStoreInfo?.storeName ?? 'POS Trạm Blao',
+                                _auth.currentStoreInfo?.storeName ?? 'POS Trạm BLAO',
                                 style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 16, color: context.tc.primaryDark),
                               ),
                               Text(

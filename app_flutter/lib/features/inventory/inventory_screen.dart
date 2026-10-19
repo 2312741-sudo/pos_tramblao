@@ -290,7 +290,7 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
               ? FloatingActionButton(
                   onPressed: () => _showCatalogDialog(null),
                   backgroundColor: context.tc.primary,
-                  child: const Icon(Icons.add, color: Colors.white),
+                  child: Icon(Icons.add, color: context.tc.onPrimary),
                 )
               : null,
         );
@@ -597,8 +597,8 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
               ? FloatingActionButton.extended(
                   onPressed: () => _showCreateDocSheet(context),
                   backgroundColor: context.tc.primary,
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text('Tạo phiếu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  icon: Icon(Icons.add, color: context.tc.onPrimary),
+                  label: Text('Tạo phiếu', style: TextStyle(color: context.tc.onPrimary, fontWeight: FontWeight.bold)),
                 )
               : null,
         );
@@ -651,7 +651,7 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
               ? FloatingActionButton(
                   onPressed: () => _showSupplierDialog(null),
                   backgroundColor: context.tc.primary,
-                  child: const Icon(Icons.add, color: Colors.white),
+                  child: Icon(Icons.add, color: context.tc.onPrimary),
                 )
               : null,
         );
@@ -711,7 +711,7 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
       );
       final items = await _inventoryService.getCatalogItems();
       final balances = await _inventoryService.getStockBalances();
-      final currentStore = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm Blao - ${_auth.currentStoreCode}');
+      final currentStore = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO - ${_auth.currentStoreCode}');
       if (mounted) Navigator.of(context).pop();
 
       await InventoryExcelService.exportInventoryExcel(

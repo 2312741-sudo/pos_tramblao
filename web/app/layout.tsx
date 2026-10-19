@@ -8,15 +8,15 @@ import { AuthProvider } from "@/lib/auth";
 const inter = Inter({ subsets: ["latin", "vietnamese"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "POS Trạm Blao Blao • Quản Trị Hệ Thống",
-  description: "Hệ thống Quản lý Vận hành & Bán hàng POS Trạm Blao Blao",
+  title: "POS TRẠM BLAO • Quản Trị Hệ Thống",
+  description: "Hệ thống Quản lý Vận hành & Bán hàng POS TRẠM BLAO",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#1B4D3E" },
+    { media: "(prefers-color-scheme: light)", color: "#7FE3C7" },
     { media: "(prefers-color-scheme: dark)", color: "#141218" },
   ],
 };

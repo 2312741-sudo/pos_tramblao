@@ -362,17 +362,17 @@ class BillDetailSheet extends StatelessWidget {
                       backgroundColor: context.tc.primary,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    icon: const Icon(Icons.print, color: Colors.white),
+                    icon: Icon(Icons.print, color: context.tc.onPrimary),
                     label: Text(
                       'In Lại Bill',
                       style: GoogleFonts.beVietnamPro(
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: context.tc.onPrimary,
                       ),
                     ),
                     onPressed: () async {
                       final storeInfo = auth.currentStoreInfo ??
-                          StoreInfoModel(storeCode: auth.currentStoreCode, storeName: 'POS Trạm Blao');
+                          StoreInfoModel(storeCode: auth.currentStoreCode, storeName: 'POS Trạm BLAO');
                       await ReceiptPrinter.printBill(store: storeInfo, bill: bill);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(

@@ -1,11 +1,11 @@
 {
-    "name": "POS Trạm Blao",
-    "short_name": "POS Blao",
+    "name": "POS Trạm BLAO",
+    "short_name": "POS BLAO",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#F4E9D5",
-    "theme_color": "#1B4D3E",
-    "description": "Hệ thống Quản lý Bán hàng POS Trạm Blao",
+    "theme_color": "#7FE3C7",
+    "description": "Hệ thống Quản lý Bán hàng POS Trạm BLAO",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

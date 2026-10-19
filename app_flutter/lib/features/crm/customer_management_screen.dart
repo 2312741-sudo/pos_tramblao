@@ -192,7 +192,7 @@ class _CustomerManagementScreenState extends State<CustomerManagementScreen> {
     ];
 
     final storeCode = _auth.currentStoreCode;
-    final storeName = _storeInfo?.storeName ?? 'POS Trạm Blao F&B';
+    final storeName = _storeInfo?.storeName ?? 'POS Trạm BLAO F&B';
     final storeAddress = _storeInfo?.address ?? 'Đà Lạt, Lâm Đồng';
     final storePhone = _storeInfo?.phone ?? '0987654321';
     final now = DateTime.now();
@@ -281,7 +281,7 @@ class _CustomerManagementScreenState extends State<CustomerManagementScreen> {
               final newRedeem = int.tryParse(redeemCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1000;
               final newEarn = double.tryParse(earnCtrl.text.trim()) ?? 1.0;
 
-              final updatedInfo = (_storeInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm Blao')).copyWith(
+              final updatedInfo = (_storeInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO')).copyWith(
                 pointRedeemRate: newRedeem,
                 pointEarnRate: newEarn,
               );

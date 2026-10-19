@@ -1,4 +1,4 @@
-// Pure Dart report calculations for POS Trạm Blao Financial & Operations Reports
+// Pure Dart report calculations for POS Trạm BLAO Financial & Operations Reports
 // Không import Flutter framework, phục vụ kiểm thử và tính toán độc lập
 
 import '../../data/models/bill_model.dart';

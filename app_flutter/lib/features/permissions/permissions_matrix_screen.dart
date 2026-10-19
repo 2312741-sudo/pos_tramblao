@@ -458,10 +458,10 @@ class _PermissionsMatrixScreenState extends State<PermissionsMatrixScreen> with 
                 Scaffold(
                   floatingActionButton: FloatingActionButton.extended(
                     onPressed: () => _showAddEditRoleDialog(),
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    label: Text('Thêm Vai Trò Tùy Chỉnh', style: GoogleFonts.beVietnamPro(color: Colors.white, fontWeight: FontWeight.w600)),
+                    icon: Icon(Icons.add, color: context.tc.onPrimary),
+                    label: Text('Thêm Vai Trò Tùy Chỉnh', style: GoogleFonts.beVietnamPro(color: context.tc.onPrimary, fontWeight: FontWeight.w600)),
                     backgroundColor: context.tc.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: context.tc.onPrimary,
                   ),
                   body: ListView.separated(
                     padding: const EdgeInsets.all(16),

@@ -555,7 +555,7 @@ export default function PromotionsPage() {
               {tab.label}
               {tab.key === "campaigns" && (
                 <span style={{
-                  background: isActive ? "var(--primary)" : "var(--border)", color: isActive ? "#fff" : "var(--subtext)",
+                  background: isActive ? "var(--primary)" : "var(--border)", color: isActive ? "#143A2F" : "var(--subtext)",
                   fontSize: "11px", fontWeight: "700", padding: "1px 6px", borderRadius: "10px",
                 }}>
                   {tab.count}
@@ -579,7 +579,7 @@ export default function PromotionsPage() {
                   {["ALL", "Đang chạy", "Sắp tới", "Đã kết thúc", "Tạm dừng", "Ngoài khung giờ"].map(st => (
                     <button key={st} onClick={() => setFilterStatus(st)} style={{
                       padding: "6px 12px", borderRadius: "20px", fontSize: "13px", fontWeight: "600", cursor: "pointer", border: "none",
-                      background: filterStatus === st ? "var(--primary)" : "#f1f1f1", color: filterStatus === st ? "#fff" : "var(--text)", whiteSpace: "nowrap"
+                      background: filterStatus === st ? "var(--primary)" : "#f1f1f1", color: filterStatus === st ? "#143A2F" : "var(--text)", whiteSpace: "nowrap"
                     }}>
                       {st === "ALL" ? "Tất cả" : st}
                     </button>
@@ -1400,7 +1400,7 @@ function FormField({ label, value, onChange, type = "text", placeholder = "", di
 // Styles
 const btnPrimary: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: "6px", padding: "10px 18px",
-  background: "#1B4D3E", color: "#fff", border: "none", borderRadius: "10px",
+  background: "#7FE3C7", color: "#143A2F", border: "none", borderRadius: "10px",
   fontSize: "13px", fontWeight: "700", cursor: "pointer",
 };
 const btnSecondary: React.CSSProperties = {

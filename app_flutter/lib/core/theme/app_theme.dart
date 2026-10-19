@@ -7,14 +7,14 @@ import 'package:google_fonts/google_fonts.dart';
 class TramColors {
   TramColors._();
 
-  // 1. Nhận diện thương hiệu Trạm Blao (Brand & Signature)
+  // 1. Nhận diện thương hiệu Trạm BLAO (Brand & Signature)
   static const Color logoRed = Color(0xFFC91506); // Đỏ thương hiệu logo Trạm
-  static const Color brandPrimary = Color(0xFF1B4D3E); // Xanh thông Trạm Blao
-  static const Color brandDark = Color(0xFF13382D);
-  static const Color brandSurface = Color(0xFFF4E9D5); // Nền kem ấm theo logo Trạm Blao
+  static const Color brandPrimary = Color(0xFF7FE3C7); // Xanh mint Trạm BLAO
+  static const Color brandDark = Color(0xFF143A2F); // Xanh tối tương phản cao cho chữ/icon trên nền mint
+  static const Color brandSurface = Color(0xFFF4E9D5); // Nền kem ấm theo logo Trạm BLAO
   static const Color cardSurface = Color(0xFFFFFEF9); // Mặt nền thẻ trắng ngà sáng rõ
   static const Color background = Color(0xFFF4E9D5); // Nền ấm dịu mắt
-  static const Color mintAccent = Color(0xFF95E4D1); // Tone màu tươi mát
+  static const Color mintAccent = Color(0xFF7FE3C7); // Tone màu tươi mát
 
   // 2. Màu vai trò phân quyền (Role Accents & Surfaces)
   // Chủ Quán (Owner)
@@ -30,7 +30,7 @@ class TramColors {
   static const Color managerTint = Color(0xFFE8F3FE);
 
   // Nhân Viên (Employee)
-  static const Color employeeAccent = Color(0xFF1B4D3E);
+  static const Color employeeAccent = Color(0xFF143A2F);
   static const Color employeeSurface = Color(0xFFF4F9F6);
 
   // 3. Màu trạng thái nghiệp vụ chuẩn (Semantic Status Colors)
@@ -47,7 +47,7 @@ class TramColors {
   // 4. Trạng thái phòng bàn KiotViet FnB
   static const Color tableEmpty = Color(0xFF146A65); // Bàn trống: Xanh ngọc
   static const Color tableEmptyBg = Color(0xFFE6F4F2);
-  static const Color tableInUse = Color(0xFF1B4D3E); // Bàn có khách: Xanh Trạm Blao
+  static const Color tableInUse = Color(0xFF143A2F); // Bàn có khách: Xanh Trạm BLAO đậm
   static const Color tableInUseBg = Color(0xFFE4F4EF);
   static const Color tableReserved = Color(0xFFD97706); // Bàn đặt trước: Vàng hổ phách
   static const Color tableReservedBg = Color(0xFFFBEFD4);
@@ -67,7 +67,7 @@ class TramColors {
 
   // Backward-compatibility aliases for legacy AppColors
   static const Color primary = brandPrimary;
-  static const Color primaryLight = Color(0xFFFBECEE);
+  static const Color primaryLight = Color(0xFFE4F9F2);
   static const Color primaryDark = brandDark;
   static const Color card = cardSurface;
   static const Color cardElevated = Color(0xFFFBF8F2);
@@ -107,7 +107,7 @@ class TramColors {
   static const Color darkTextSecondary = Color(0xFFA7B1C2);
 
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [brandPrimary, brandDark],
+    colors: [brandPrimary, Color(0xFF5ED6B5)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -150,6 +150,9 @@ class TramTokens extends ThemeExtension<TramTokens> {
 
   /// Màu thương hiệu (nền nút, icon nhấn mạnh).
   final Color primary;
+
+  /// Màu chữ/icon trên nền primary (tương phản WCAG ≥ 4.5:1 / 7:1)
+  Color get onPrimary => primary.computeLuminance() > 0.5 ? const Color(0xFF143A2F) : Colors.white;
 
   /// Chữ nhấn mạnh màu thương hiệu (đậm ở chế độ sáng, sáng ở chế độ tối).
   final Color primaryDark;
@@ -212,9 +215,9 @@ class TramTokens extends ThemeExtension<TramTokens> {
   /// Bảng màu tối: nền than ấm, màu trạng thái được làm sáng để đạt tương phản
   /// ≥ 3:1 trên nền tối nhưng vẫn đủ đậm cho chữ trắng trên nút.
   static const TramTokens dark = TramTokens(
-    primary: Color(0xFFC0505A),
-    primaryDark: Color(0xFFF0A8AE),
-    primaryLight: Color(0xFF3B2226),
+    primary: Color(0xFF7FE3C7),
+    primaryDark: Color(0xFF98EBD3),
+    primaryLight: Color(0xFF16382F),
     textPrimary: Color(0xFFF1EEF0),
     textSecondary: Color(0xFFB8B2BC),
     textHint: Color(0xFF8A848F),
@@ -416,12 +419,16 @@ class AppTheme {
       isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
     );
 
+    final onPrimaryColor = primaryColor.computeLuminance() > 0.5
+        ? const Color(0xFF143A2F)
+        : Colors.white;
+
     final colorScheme = ColorScheme.fromSeed(
       seedColor: primaryColor,
       brightness: brightness,
     ).copyWith(
       primary: primaryColor,
-      onPrimary: Colors.white,
+      onPrimary: onPrimaryColor,
       secondary: TramColors.managerAccent,
       onSecondary: Colors.white,
       surface: surfaceColor,
@@ -478,17 +485,17 @@ class AppTheme {
       // AppBar
       appBarTheme: AppBarTheme(
         backgroundColor: isDark ? t.card : primaryColor,
-        foregroundColor: Colors.white,
+        foregroundColor: isDark ? Colors.white : onPrimaryColor,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        iconTheme: const IconThemeData(color: Colors.white),
-        actionsIconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: isDark ? Colors.white : onPrimaryColor),
+        actionsIconTheme: IconThemeData(color: isDark ? Colors.white : onPrimaryColor),
         titleTextStyle: GoogleFonts.beVietnamPro(
           fontSize: 18,
           fontWeight: FontWeight.w700,
-          color: Colors.white,
+          color: isDark ? Colors.white : onPrimaryColor,
         ),
       ),
 
@@ -508,7 +515,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
+          foregroundColor: onPrimaryColor,
           disabledBackgroundColor: isDark ? t.border : const Color(0xFFE4DED3),
           disabledForegroundColor: isDark ? t.textSecondary : TramColors.textDisabled,
           minimumSize: const Size.fromHeight(52),
@@ -520,7 +527,7 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
+          foregroundColor: onPrimaryColor,
           minimumSize: const Size(64, 48),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.brMd),
           textStyle: GoogleFonts.beVietnamPro(fontSize: 15, fontWeight: FontWeight.w700),
@@ -736,18 +743,18 @@ class AppTheme {
         backgroundColor: surfaceColor,
         surfaceTintColor: Colors.transparent,
         headerBackgroundColor: primaryColor,
-        headerForegroundColor: Colors.white,
+        headerForegroundColor: onPrimaryColor,
       ),
 
       timePickerTheme: TimePickerThemeData(backgroundColor: surfaceColor),
 
-      // Floating Action Button: Luôn dùng chữ và icon màu trắng rõ nét
+      // Floating Action Button: Dùng màu tương phản cao theo độ sáng của primary
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        foregroundColor: onPrimaryColor,
         elevation: 3,
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.brLg),
-        extendedTextStyle: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+        extendedTextStyle: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.w600, color: onPrimaryColor),
       ),
     );
   }

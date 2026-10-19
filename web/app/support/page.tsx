@@ -23,14 +23,14 @@ import { PublicFooter } from "@/components/PublicFooter";
 import { LEGAL, privacyMailto } from "@/lib/legal-config";
 
 export const metadata: Metadata = {
-  title: "Hỗ Trợ Khách Hàng & Hướng Dẫn Sử Dụng • POS Trạm Blao",
+  title: "Hỗ Trợ Khách Hàng & Hướng Dẫn Sử Dụng • POS Trạm BLAO",
   description:
-    "Trung tâm hỗ trợ kỹ thuật chính thức của POS Trạm Blao. Giải đáp thắc mắc, hướng dẫn sử dụng, kết nối máy in và xử lý sự cố cho ứng dụng di động và trang quản trị.",
+    "Trung tâm hỗ trợ kỹ thuật chính thức của POS Trạm BLAO. Giải đáp thắc mắc, hướng dẫn sử dụng, kết nối máy in và xử lý sự cố cho ứng dụng di động và trang quản trị.",
 };
 
 export default function SupportPage() {
   const supportEmail = LEGAL.contactEmail || "hotro.postram@gmail.com";
-  const mailtoSupport = privacyMailto("Yêu cầu hỗ trợ kỹ thuật - POS Trạm Blao") || `mailto:${supportEmail}?subject=${encodeURIComponent("Yêu cầu hỗ trợ kỹ thuật - POS Trạm Blao")}`;
+  const mailtoSupport = privacyMailto("Yêu cầu hỗ trợ kỹ thuật - POS Trạm BLAO") || `mailto:${supportEmail}?subject=${encodeURIComponent("Yêu cầu hỗ trợ kỹ thuật - POS Trạm BLAO")}`;
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -45,7 +45,7 @@ export default function SupportPage() {
               alignItems: "center",
               gap: 6,
               background: "var(--primary-light)",
-              color: "var(--primary)",
+              color: "var(--primary-dark)",
               padding: "6px 14px",
               borderRadius: "999px",
               fontSize: 12,
@@ -250,7 +250,7 @@ export default function SupportPage() {
                   <strong>Làm thế nào để đăng nhập vào ứng dụng POS trên iPhone / iPad?</strong>
                 </p>
                 <p style={{ margin: "4px 0 10px", color: "var(--subtext)" }}>
-                  Mở ứng dụng <strong>POS Trạm Blao</strong>, chọn chi nhánh bằng cách nhập <em>Mã cửa hàng</em> (ví dụ: <code>TRAM01</code>), sau đó nhập tên đăng nhập và mật khẩu được cấp bởi Chủ quán hoặc Quản lý chi nhánh. Bạn cũng có thể sử dụng tính năng <em>Đăng nhập bằng Chấm Công Trạm</em> nếu cửa hàng đã liên kết.
+                  Mở ứng dụng <strong>POS Trạm BLAO</strong>, chọn chi nhánh bằng cách nhập <em>Mã cửa hàng</em> (ví dụ: <code>TRAM01</code>), sau đó nhập tên đăng nhập và mật khẩu được cấp bởi Chủ quán hoặc Quản lý chi nhánh. Bạn cũng có thể sử dụng tính năng <em>Đăng nhập bằng Chấm Công Trạm</em> nếu cửa hàng đã liên kết.
                 </p>
                 <p style={{ margin: "6px 0" }}>
                   <strong>Tôi bị quên mật khẩu thì lấy lại bằng cách nào?</strong>
@@ -397,7 +397,7 @@ export default function SupportPage() {
               </div>
               <div style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.6 }}>
                 <p style={{ margin: "4px 0", color: "var(--subtext)" }}>
-                  Ứng dụng <strong>POS Trạm Blao</strong> có cơ chế bộ đệm ngoại tuyến (Offline Persistence). Trong thời gian mất mạng Internet, thu ngân vẫn có thể tiếp tục thao tác mở bàn, chọn món và in bill qua mạng LAN nội bộ (nếu router WiFi tại quán vẫn cấp mạng LAN). Khi có kết nối Internet trở lại, dữ liệu sẽ tự động đồng bộ lên máy chủ đám mây.
+                  Ứng dụng <strong>POS Trạm BLAO</strong> có cơ chế bộ đệm ngoại tuyến (Offline Persistence). Trong thời gian mất mạng Internet, thu ngân vẫn có thể tiếp tục thao tác mở bàn, chọn món và in bill qua mạng LAN nội bộ (nếu router WiFi tại quán vẫn cấp mạng LAN). Khi có kết nối Internet trở lại, dữ liệu sẽ tự động đồng bộ lên máy chủ đám mây.
                 </p>
               </div>
             </div>

@@ -167,7 +167,7 @@ export default function OrdersPage() {
     if (currentStoreCode === "ALL") return { storeName: "Tất cả chi nhánh", storeCode: "ALL" };
     return (
       stores.find((s) => s.storeCode === currentStoreCode) || {
-        storeName: "POS Trạm Blao",
+        storeName: "POS Trạm BLAO",
         storeCode: currentStoreCode,
       }
     );

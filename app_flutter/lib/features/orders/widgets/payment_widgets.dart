@@ -31,7 +31,7 @@ class PaymentTotalHeader extends StatelessWidget {
             'Thanh toán • $tableName',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.white70),
+            style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600, fontSize: 14, color: const Color(0xFF143A2F).withValues(alpha: 0.8)),
           ),
           const SizedBox(height: 2),
           FittedBox(
@@ -39,21 +39,21 @@ class PaymentTotalHeader extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               FormatUtils.vnd(total),
-              style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w800, fontSize: 34, color: Colors.white),
+              style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w800, fontSize: 34, color: const Color(0xFF143A2F)),
             ),
           ),
           if (customerLine != null) ...[
             const SizedBox(height: 4),
             Row(
               children: [
-                const Icon(Icons.person, size: 16, color: Colors.white70),
+                const Icon(Icons.person, size: 16, color: Color(0xFF143A2F)),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     customerLine!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.beVietnamPro(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.beVietnamPro(fontSize: 12, color: const Color(0xFF143A2F), fontWeight: FontWeight.w600),
                   ),
                 ),
               ],

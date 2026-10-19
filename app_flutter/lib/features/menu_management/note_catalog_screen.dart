@@ -380,8 +380,8 @@ class _NoteCatalogScreenState extends State<NoteCatalogScreen> {
         child: FloatingActionButton.extended(
           heroTag: addLabel,
           onPressed: onAdd,
-          icon: const Icon(Icons.add, color: Colors.white),
-          label: Text(addLabel, style: GoogleFonts.beVietnamPro(color: Colors.white, fontWeight: FontWeight.w600)),
+          icon: Icon(Icons.add, color: context.tc.onPrimary),
+          label: Text(addLabel, style: GoogleFonts.beVietnamPro(color: context.tc.onPrimary, fontWeight: FontWeight.w600)),
           backgroundColor: context.tc.primary,
         ),
       ),

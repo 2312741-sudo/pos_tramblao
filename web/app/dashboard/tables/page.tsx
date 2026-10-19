@@ -1043,7 +1043,7 @@ function TablesPageContent() {
         <div>
           <h1 className="section-title">Sơ đồ Phòng / Bàn 🪑</h1>
           <p className="section-subtitle">
-            Hệ sinh thái POS Trạm Blao • Đồng bộ trực tiếp với ứng dụng phục vụ
+            Hệ sinh thái POS Trạm BLAO • Đồng bộ trực tiếp với ứng dụng phục vụ
           </p>
         </div>
         <div style={{ display: "flex", gap: "10px" }}>

@@ -14,14 +14,16 @@
   --card-warm: #FFFEF9;
   --surface-muted: #FAF5EA;
   --surface-sunken: #EDE1CB;
-  /* Thương hiệu Trạm Blao */
-  --primary: #1B4D3E;
-  --primary-dark: #13382D;
-  --primary-hover: #235F4D;
-  --primary-light: #E4F4EF;
-  --on-primary: #FFFFFF;
+  /* Thương hiệu Trạm BLAO */
+  --primary: #7FE3C7;
+  --primary-dark: #143A2F;
+  --primary-hover: #6BD4B8;
+  --primary-light: #EBFBF6;
+  --on-primary: #143A2F;
   --logo-red: #C91506;
-  --secondary: #95E4D1;
+  --secondary: #7FE3C7;
+  --sidebar-bg-top: #194639;
+  --sidebar-bg-bottom: #0E2B22;
   /* Chữ */
   --text: #1C1A2D;
   --subtext: #5D5B63;
@@ -42,9 +44,9 @@
   --info-bg: #E3EFF7;
   /* Hiệu ứng */
   --shadow-sm: 0 2px 8px rgba(28, 26, 45, 0.04);
-  --shadow-md: 0 6px 20px rgba(27, 77, 62, 0.08);
+  --shadow-md: 0 6px 20px rgba(20, 58, 47, 0.08);
   --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.2);
-  --focus-ring: 0 0 0 3px rgba(27, 77, 62, 0.28);
+  --focus-ring: 0 0 0 3px rgba(127, 227, 199, 0.35);
   --overlay: rgba(28, 26, 45, 0.6);
   /* Bo góc & khoảng cách */
   --radius-sm: 8px;
@@ -56,7 +58,7 @@
   /* Trạng thái bàn (sơ đồ bàn): trống / có khách / đặt trước / chờ thanh toán */
   --table-empty: var(--success);
   --table-empty-bg: var(--success-bg);
-  --table-in-use: var(--primary);
+  --table-in-use: var(--primary-dark);
   --table-in-use-bg: var(--primary-light);
   --table-reserved: var(--warning);
   --table-reserved-bg: var(--warning-bg);
@@ -73,10 +75,15 @@
     --card-warm: #221F28;
     --surface-muted: #26222C;
     --surface-sunken: #2B2631;
-    --primary: #95E4D1;
-    --primary-dark: #1B4D3E;
-    --primary-hover: #7BDBC3;
+    --primary: #7FE3C7;
+    --primary-dark: #143A2F;
+    --primary-hover: #98EBD3;
     --primary-light: #16362C;
+    --on-primary: #0E2B22;
+    --sidebar-bg-top: #141218;
+    --sidebar-bg-bottom: #1B1822;
+    --table-in-use: #7FE3C7;
+    --table-in-use-bg: #16362C;
     --text: #F1EEF4;
     --subtext: #C6C2CE;
     --muted: #A29FAE;
@@ -94,7 +101,7 @@
     --info-bg: #15293A;
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
     --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
-    --focus-ring: 0 0 0 3px rgba(149, 228, 209, 0.45);
+    --focus-ring: 0 0 0 3px rgba(127, 227, 199, 0.45);
     --overlay: rgba(0, 0, 0, 0.7);
     --table-awaiting: #B39DF2;
     --table-awaiting-bg: #2A2240;
@@ -109,10 +116,15 @@
   --card-warm: #221F28;
   --surface-muted: #26222C;
   --surface-sunken: #2B2631;
-  --primary: #95E4D1;
-  --primary-dark: #1B4D3E;
-  --primary-hover: #7BDBC3;
+  --primary: #7FE3C7;
+  --primary-dark: #143A2F;
+  --primary-hover: #98EBD3;
   --primary-light: #16362C;
+  --on-primary: #0E2B22;
+  --sidebar-bg-top: #141218;
+  --sidebar-bg-bottom: #1B1822;
+  --table-in-use: #7FE3C7;
+  --table-in-use-bg: #16362C;
   --text: #F1EEF4;
   --subtext: #C6C2CE;
   --muted: #A29FAE;
@@ -130,7 +142,7 @@
   --info-bg: #15293A;
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
-  --focus-ring: 0 0 0 3px rgba(149, 228, 209, 0.45);
+  --focus-ring: 0 0 0 3px rgba(127, 227, 199, 0.45);
   --overlay: rgba(0, 0, 0, 0.7);
   --table-awaiting: #B39DF2;
   --table-awaiting-bg: #2A2240;
@@ -232,35 +244,39 @@ button:not(:disabled), [role="button"] {
 }
 
 .btn-primary {
-  background: #1B4D3E;
-  color: #FFFFFF;
+  background: #7FE3C7;
+  color: #143A2F;
   border: none;
-  box-shadow: 0 2px 8px rgba(27, 77, 62, 0.25);
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(20, 58, 47, 0.2);
 }
 
 :root[data-theme="dark"] .btn-primary {
-  background: #1B4D3E;
-  color: #FFFFFF;
+  background: #7FE3C7;
+  color: #143A2F;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .btn-primary {
-    background: #1B4D3E;
-    color: #FFFFFF;
+    background: #7FE3C7;
+    color: #143A2F;
   }
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #143A2F;
-  box-shadow: 0 4px 14px rgba(27, 77, 62, 0.35);
+  background: #6BD4B8;
+  color: #0E382B;
+  box-shadow: 0 4px 14px rgba(20, 58, 47, 0.3);
   transform: translateY(-1px);
 }
 
 :root[data-theme="dark"] .btn-primary:hover:not(:disabled) {
-  background: #143A2F;
+  background: #6BD4B8;
+  color: #0E382B;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .btn-primary:hover:not(:disabled) {
-    background: #143A2F;
+    background: #6BD4B8;
+    color: #0E382B;
   }
 }
 
@@ -560,24 +576,24 @@ tbody tr:last-child td {
 }
 
 .sidebar-link:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #FFFFFF;
+  background: rgba(127, 227, 199, 0.15);
+  color: #7FE3C7;
 }
 
 .sidebar-link:focus-visible {
-  outline: 2px solid #FFFFFF;
+  outline: 2px solid #7FE3C7;
   outline-offset: 1px;
 }
 
 .sidebar-link.active {
-  background: #FFFFFF;
-  color: #1B4D3E;
+  background: #7FE3C7;
+  color: #143A2F;
   font-weight: 700;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
 }
 
 .sidebar-link.active svg {
-  color: #1B4D3E !important;
+  color: #143A2F !important;
 }
 
 /* ---------- Hộp thoại ---------- */

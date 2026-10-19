@@ -937,10 +937,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddEditUserDialog(),
-        icon: const Icon(Icons.person_add_outlined, color: Colors.white),
-        label: Text('Thêm Nhân Viên', style: GoogleFonts.beVietnamPro(color: Colors.white, fontWeight: FontWeight.w600)),
+        icon: Icon(Icons.person_add_outlined, color: context.tc.onPrimary),
+        label: Text('Thêm Nhân Viên', style: GoogleFonts.beVietnamPro(color: context.tc.onPrimary, fontWeight: FontWeight.w600)),
         backgroundColor: context.tc.primary,
-        foregroundColor: Colors.white,
+        foregroundColor: context.tc.onPrimary,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -90,7 +90,7 @@ function HeaderBar({ onOpenMenu }: { onOpenMenu: () => void }) {
           }}
         />
         <span style={{ fontSize: "13px", fontWeight: "600", color: "var(--success)" }}>
-          Hệ thống Realtime POS Trạm Blao
+          Hệ thống Realtime POS Trạm BLAO
         </span>
       </div>
 

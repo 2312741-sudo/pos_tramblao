@@ -110,7 +110,7 @@ function ShiftsContent() {
       currentStoreCode === "ALL"
         ? { storeName: "Tất cả chi nhánh", storeCode: "ALL" }
         : stores.find((s) => s.storeCode === currentStoreCode) || {
-            storeName: "POS Trạm Blao",
+            storeName: "POS Trạm BLAO",
             storeCode: currentStoreCode,
           };
     exportCashShiftReport(filteredShifts, storeInfo).toExcel();
@@ -121,7 +121,7 @@ function ShiftsContent() {
       currentStoreCode === "ALL"
         ? { storeName: "Tất cả chi nhánh", storeCode: "ALL" }
         : stores.find((s) => s.storeCode === currentStoreCode) || {
-            storeName: "POS Trạm Blao",
+            storeName: "POS Trạm BLAO",
             storeCode: currentStoreCode,
           };
     exportCashShiftReport(filteredShifts, storeInfo).toPDF();
@@ -188,7 +188,7 @@ function ShiftsContent() {
     if (!selectedShift) return;
     const storeInfo =
       targetStore || {
-        storeName: "POS Trạm Blao",
+        storeName: "POS Trạm BLAO",
         storeCode: selectedShift.storeCode || currentStoreCode || "",
       };
     exportShiftPromotionsExcel(selectedShift, selectedShiftBills, storeInfo).toExcel();

@@ -43,7 +43,7 @@ export default function MyOrdersPage() {
   const total = rows.filter(({ b }) => (b.status || "PAID").toUpperCase() === "PAID").reduce((s, { b }) => s + (Number(b.finalAmount ?? b.totalAmount) || 0), 0);
   const chip = (active: boolean) => ({
     padding: "6px 14px", borderRadius: 16, fontSize: 13, fontWeight: active ? 700 : 500, cursor: "pointer",
-    border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary)" : "var(--surface)", color: active ? "#fff" : "var(--subtext)",
+    border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary)" : "var(--surface)", color: active ? "#143A2F" : "var(--subtext)",
   }) as const;
 
   return (

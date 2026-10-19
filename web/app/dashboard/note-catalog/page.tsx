@@ -109,7 +109,7 @@ export default function NoteCatalogPage() {
               style={{
                 padding: "7px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer",
                 border: "1px solid", borderColor: storeCode === s.storeCode ? "var(--primary)" : "var(--border)",
-                background: storeCode === s.storeCode ? "var(--primary)" : "var(--surface)", color: storeCode === s.storeCode ? "#fff" : "var(--subtext)",
+                background: storeCode === s.storeCode ? "var(--primary)" : "var(--surface)", color: storeCode === s.storeCode ? "#143A2F" : "var(--subtext)",
               }}
             >
               🏪 {s.storeName}

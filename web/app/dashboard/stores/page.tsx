@@ -211,7 +211,7 @@ export default function StoresManagementPage() {
             Hệ thống Multi-Store & Quản lý Chi nhánh 🏪
           </h1>
           <p className="section-subtitle">
-            Mở rộng và kiểm soát chuỗi nhiều cửa hàng trên một nền tảng vận hành đồng bộ theo hệ sinh thái POS Trạm Blao.
+            Mở rộng và kiểm soát chuỗi nhiều cửa hàng trên một nền tảng vận hành đồng bộ theo hệ sinh thái POS Trạm BLAO.
           </p>
         </div>
 

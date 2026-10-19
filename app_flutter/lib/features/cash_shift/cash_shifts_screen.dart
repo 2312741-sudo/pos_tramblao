@@ -166,7 +166,7 @@ class _CashShiftsScreenState extends State<CashShiftsScreen> {
     final promo = _computeShiftPromoStats(shift, bills: bills);
     final List<BillModel> paidBills = List<BillModel>.from(promo['paidBills']);
     final storeInfo = _auth.currentStoreInfo;
-    final storeName = storeInfo?.storeName ?? 'POS Trạm Blao F&B';
+    final storeName = storeInfo?.storeName ?? 'POS Trạm BLAO F&B';
     final storeCode = storeInfo?.storeCode ?? _auth.currentStoreCode;
     final storeAddress = storeInfo?.address ?? 'Đà Lạt, Lâm Đồng';
     final storePhone = storeInfo?.phone ?? '0987654321';
@@ -314,7 +314,7 @@ class _CashShiftsScreenState extends State<CashShiftsScreen> {
         : 'Đang mở (Chưa kết ca)';
 
     final storeInfo = _auth.currentStoreInfo;
-    final storeName = storeInfo?.storeName ?? 'POS Trạm Blao F&B';
+    final storeName = storeInfo?.storeName ?? 'POS Trạm BLAO F&B';
     final storeAddress = storeInfo?.address ?? '';
 
     return Container(

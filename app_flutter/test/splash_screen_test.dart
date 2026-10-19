@@ -23,14 +23,14 @@ void main() {
   }
 
   group('SplashScreen Widget Tests', () {
-    testWidgets('hiển thị logo, tên ứng dụng POS Trạm, khẩu hiệu và spinner rồi điều hướng', (tester) async {
+    testWidgets('hiển thị logo, tên ứng dụng POS Trạm BLAO và spinner rồi điều hướng', (tester) async {
       await tester.pumpWidget(buildTestWidget());
 
       // Tên ứng dụng
-      expect(find.text('POS Trạm Blao'), findsOneWidget);
+      expect(find.text('POS Trạm BLAO'), findsOneWidget);
 
-      // Khẩu hiệu thương hiệu
-      expect(find.text('Luôn tươi ngon vì sức khỏe'), findsOneWidget);
+      // Không còn khẩu hiệu
+      expect(find.text('Luôn tươi ngon vì sức khỏe'), findsNothing);
 
       // Spinner tải trang
       expect(find.byType(CircularProgressIndicator), findsOneWidget);

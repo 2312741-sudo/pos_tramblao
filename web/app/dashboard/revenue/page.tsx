@@ -136,7 +136,7 @@ export default function RevenuePage() {
   // Export handlers
   const handleExportExcel = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm Blao",
+      storeName: currentStore?.storeName || "POS Trạm BLAO",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -146,7 +146,7 @@ export default function RevenuePage() {
 
   const handlePrintPDF = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm Blao",
+      storeName: currentStore?.storeName || "POS Trạm BLAO",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -156,7 +156,7 @@ export default function RevenuePage() {
 
   const handleExportPaymentMethods = () => {
     const storeInfo: ReportStoreInfo = {
-      storeName: currentStore?.storeName || "POS Trạm Blao",
+      storeName: currentStore?.storeName || "POS Trạm BLAO",
       address: currentStore?.address || "Đà Lạt, Lâm Đồng",
       phone: currentStore?.phone || "0987.654.321",
       storeCode: currentStoreCode === "ALL" ? "ALL" : currentStore?.storeCode,
@@ -365,7 +365,7 @@ export default function RevenuePage() {
               <XAxis dataKey="label" tick={{ fill: "#5D5B63", fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "#5D5B63", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="netRevenue" fill="#1B4D3E" radius={[6, 6, 0, 0]} maxBarSize={40} />
+              <Bar dataKey="netRevenue" fill="#7FE3C7" radius={[6, 6, 0, 0]} maxBarSize={40} />
             </BarChart>
           </ResponsiveContainer>
         )}

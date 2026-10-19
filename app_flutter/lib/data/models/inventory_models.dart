@@ -1,5 +1,5 @@
 /// File: inventory_models.dart
-/// Chứa tất cả các model liên quan đến quản lý kho (Inventory) cho hệ thống POS Trạm Blao F&B.
+/// Chứa tất cả các model liên quan đến quản lý kho (Inventory) cho hệ thống POS Trạm BLAO F&B.
 /// Quy ước chung:
 /// - Tiền tệ: int (VND, không có số thập phân)
 /// - Thời gian: int (epoch milliseconds UTC)

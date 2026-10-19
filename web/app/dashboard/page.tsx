@@ -189,7 +189,7 @@ export default function DashboardPage() {
           Tổng quan Hoạt động 📊
         </h1>
         <p className="section-subtitle">
-          {format(today, "EEEE, dd MMMM yyyy", { locale: vi })} • Hệ thống POS Trạm Blao
+          {format(today, "EEEE, dd MMMM yyyy", { locale: vi })} • Hệ thống POS Trạm BLAO
         </p>
       </div>
 
@@ -262,9 +262,9 @@ export default function DashboardPage() {
                 <Line
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#1B4D3E"
+                  stroke="#7FE3C7"
                   strokeWidth={3}
-                  dot={{ fill: "#1B4D3E", strokeWidth: 2, r: 4 }}
+                  dot={{ fill: "#7FE3C7", strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, fill: "#D97706" }}
                 />
               </LineChart>

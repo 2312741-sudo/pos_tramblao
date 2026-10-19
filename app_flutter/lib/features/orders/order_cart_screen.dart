@@ -106,7 +106,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       _customerPointsUnknown = true;
       unawaited(_refreshCustomerPoints());
     }
-    _storeInfo = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _fb.currentStoreCode, storeName: 'POS Trạm Blao');
+    _storeInfo = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _fb.currentStoreCode, storeName: 'POS Trạm BLAO');
     _loadStoreAndPromotions();
     _loadAutoPrintSetting();
 
@@ -2792,7 +2792,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                               _buildCurrentBillAsync(status: 'OPEN', method: paymentMethod).then((bill) {
                                 _markTablePrePrinted();
                                 ReceiptPrinter.printBill(
-                                  store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm Blao'),
+                                  store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm BLAO'),
                                   bill: bill,
                                   isPrePrint: true,
                                 ).catchError((_) => false);
@@ -2897,7 +2897,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
 
     // 3. In hóa đơn ra máy in nhiệt (LAN hoặc Bluetooth)
     if (shouldPrint) {
-      final store = _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm Blao');
+      final store = _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm BLAO');
       ReceiptPrinter.printBill(
         store: store,
         bill: bill,
@@ -3370,7 +3370,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     _buildCurrentBillAsync(status: 'PRE_PRINT', method: 'PRE_PRINT').then((bill) {
       _markTablePrePrinted();
       ReceiptPrinter.printBill(
-        store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm Blao'),
+        store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm BLAO'),
         bill: bill,
         isPrePrint: true,
       ).catchError((_) => false);

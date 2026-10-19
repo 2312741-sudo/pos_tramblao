@@ -89,7 +89,7 @@ export default function DashboardAboutPage() {
           >
             <Image
               src="/logo.jpg"
-              alt="Logo POS Trạm Blao"
+              alt="Logo POS Trạm BLAO"
               width={56}
               height={56}
               style={{ objectFit: "cover", borderRadius: "12px" }}
@@ -107,12 +107,12 @@ export default function DashboardAboutPage() {
                   margin: 0,
                 }}
               >
-                POS Trạm Blao F&B System
+                POS Trạm BLAO F&B System
               </h1>
               <span
                 style={{
                   background: "var(--primary-light)",
-                  color: "var(--primary)",
+                  color: "var(--primary-dark)",
                   padding: "3px 10px",
                   borderRadius: "999px",
                   fontSize: "12px",

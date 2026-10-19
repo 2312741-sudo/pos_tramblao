@@ -474,10 +474,10 @@ class _ZoneManagementScreenState extends State<ZoneManagementScreen> {
           ? null
           : FloatingActionButton.extended(
               onPressed: _busy ? null : _showCreateDialog,
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: Text('Thêm khu', style: GoogleFonts.beVietnamPro(color: Colors.white, fontWeight: FontWeight.w600)),
+              icon: Icon(Icons.add, color: context.tc.onPrimary),
+              label: Text('Thêm khu', style: GoogleFonts.beVietnamPro(color: context.tc.onPrimary, fontWeight: FontWeight.w600)),
               backgroundColor: context.tc.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: context.tc.onPrimary,
             ),
     );
   }

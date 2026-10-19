@@ -237,7 +237,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: GoogleFonts.beVietnamPro(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
-                                color: context.tc.primary,
+                                color: context.isDarkMode
+                                    ? context.tc.primary
+                                    : context.tc.primaryDark,
                                 letterSpacing: 0.5),
                           ),
                           const SizedBox(height: 4),
@@ -433,7 +435,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       height: 22,
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2.5,
-                                          color: Colors.white),
+                                          color: Color(0xFF143A2F)),
                                     )
                                   : Text(
                                       isLockedOut
@@ -442,7 +444,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       style: GoogleFonts.beVietnamPro(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.white),
+                                          color: const Color(0xFF143A2F)),
                                     ),
                             ),
                           ),

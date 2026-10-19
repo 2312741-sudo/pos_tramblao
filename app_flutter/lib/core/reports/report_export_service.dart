@@ -35,8 +35,10 @@ class ReportExportService {
     }
   }
 
-  static const String brandPrimaryHex = '#1B4D3E';
+  static const String brandPrimaryHex = '#7FE3C7';
   static final PdfColor brandPrimaryColor = PdfColor.fromHex(brandPrimaryHex);
+  static const String brandDarkHex = '#143A2F';
+  static final PdfColor brandDarkColor = PdfColor.fromHex(brandDarkHex);
   static final PdfColor tableHeaderBg = PdfColor.fromHex('#F8F4EE');
 
   /// Định dạng tiền tệ VND: phân cách hàng nghìn bằng dấu chấm (1.204.560 đ)
@@ -263,7 +265,7 @@ class ReportExportService {
                     borderRadius: pw.BorderRadius.circular(4),
                   ),
                   child: pw.Text('POS TRẠM F&B',
-                      style: pw.TextStyle(font: boldFont, fontSize: 9, color: PdfColors.white)),
+                      style: pw.TextStyle(font: boldFont, fontSize: 9, color: brandDarkColor)),
                 ),
               ],
             ),
@@ -274,7 +276,7 @@ class ReportExportService {
               child: pw.Column(
                 children: [
                   pw.Text('BÁO CÁO $reportTitle'.toUpperCase(),
-                      style: pw.TextStyle(font: boldFont, fontSize: 15, color: brandPrimaryColor)),
+                      style: pw.TextStyle(font: boldFont, fontSize: 15, color: brandDarkColor)),
                   pw.SizedBox(height: 4),
                   pw.Text('Kỳ báo cáo: Từ ngày $fromDateStr đến ngày $toDateStr',
                       style: pw.TextStyle(font: regularFont, fontSize: 10, color: PdfColors.grey800)),
@@ -289,7 +291,7 @@ class ReportExportService {
             pw.TableHelper.fromTextArray(
               headers: headers,
               data: rows.map((r) => r.map((c) => c?.toString() ?? '').toList()).toList(),
-              headerStyle: pw.TextStyle(font: boldFont, fontSize: 8, color: PdfColors.white),
+              headerStyle: pw.TextStyle(font: boldFont, fontSize: 8, color: brandDarkColor),
               headerDecoration: pw.BoxDecoration(color: brandPrimaryColor),
               cellStyle: pw.TextStyle(font: regularFont, fontSize: 8),
               cellAlignment: pw.Alignment.centerLeft,

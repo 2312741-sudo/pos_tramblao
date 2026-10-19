@@ -13,7 +13,7 @@ import '../../core/services/auth_service.dart';
 import '../../data/services/firebase_service.dart';
 import '../../data/models/store_info_model.dart';
 
-/// Màn hình Cài Đặt Máy In Mạng LAN & Bluetooth (POS Trạm Blao)
+/// Màn hình Cài Đặt Máy In Mạng LAN & Bluetooth (POS Trạm BLAO)
 class PrinterSettingsScreen extends StatefulWidget {
   const PrinterSettingsScreen({super.key});
 
@@ -295,7 +295,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
 
     try {
       final bytes = ReceiptPrinter.buildTestReceiptBytes(
-        storeName: _storeInfo?.storeName ?? 'POS Trạm Blao - Coffee & Tea',
+        storeName: _storeInfo?.storeName ?? 'POS Trạm BLAO - Coffee & Tea',
         paperSize: _btService.paperSize,
         isKitchen: isKitchen,
       );

@@ -110,8 +110,8 @@ class ReportRepository {
         return StoreInfoModel(
           storeCode: _currentStoreCode,
           storeName: _currentStoreCode == 'TRAM02'
-              ? 'POS Trạm Blao - Chi nhánh 02 (Sài Gòn)'
-              : (_currentStoreCode == 'TRAM01' ? 'POS Trạm Blao - Trụ sở 01 (Đà Lạt)' : 'POS Trạm Blao - $_currentStoreCode'),
+              ? 'POS Trạm BLAO - Chi nhánh 02 (Sài Gòn)'
+              : (_currentStoreCode == 'TRAM01' ? 'POS Trạm BLAO - Trụ sở 01 (Đà Lạt)' : 'POS Trạm BLAO - $_currentStoreCode'),
         );
       }
       return StoreInfoModel.fromMap(
@@ -121,8 +121,8 @@ class ReportRepository {
     }).asyncMap(_withChainLoyalty).handleError((_) => StoreInfoModel(
       storeCode: _currentStoreCode,
       storeName: _currentStoreCode == 'TRAM02'
-          ? 'POS Trạm Blao - Chi nhánh 02 (Sài Gòn)'
-          : (_currentStoreCode == 'TRAM01' ? 'POS Trạm Blao - Trụ sở 01 (Đà Lạt)' : 'POS Trạm Blao - $_currentStoreCode'),
+          ? 'POS Trạm BLAO - Chi nhánh 02 (Sài Gòn)'
+          : (_currentStoreCode == 'TRAM01' ? 'POS Trạm BLAO - Trụ sở 01 (Đà Lạt)' : 'POS Trạm BLAO - $_currentStoreCode'),
     ));
   }
 
@@ -143,8 +143,8 @@ class ReportRepository {
         return StoreInfoModel(
           storeCode: _currentStoreCode,
           storeName: _currentStoreCode == 'TRAM02'
-              ? 'POS Trạm Blao - Chi nhánh 02 (Sài Gòn)'
-              : (_currentStoreCode == 'TRAM01' ? 'POS Trạm Blao - Trụ sở 01 (Đà Lạt)' : 'POS Trạm Blao - $_currentStoreCode'),
+              ? 'POS Trạm BLAO - Chi nhánh 02 (Sài Gòn)'
+              : (_currentStoreCode == 'TRAM01' ? 'POS Trạm BLAO - Trụ sở 01 (Đà Lạt)' : 'POS Trạm BLAO - $_currentStoreCode'),
         );
       }
       final map = Map<dynamic, dynamic>.from(snap.value as Map);
@@ -157,8 +157,8 @@ class ReportRepository {
       return StoreInfoModel(
         storeCode: _currentStoreCode,
         storeName: _currentStoreCode == 'TRAM02'
-            ? 'POS Trạm Blao - Chi nhánh 02 (Sài Gòn)'
-            : (_currentStoreCode == 'TRAM01' ? 'POS Trạm Blao - Trụ sở 01 (Đà Lạt)' : 'POS Trạm Blao - $_currentStoreCode'),
+            ? 'POS Trạm BLAO - Chi nhánh 02 (Sài Gòn)'
+            : (_currentStoreCode == 'TRAM01' ? 'POS Trạm BLAO - Trụ sở 01 (Đà Lạt)' : 'POS Trạm BLAO - $_currentStoreCode'),
       );
     }
   }
@@ -180,15 +180,15 @@ class ReportRepository {
   Stream<List<StoreInfoModel>> storesStream() {
     return storeInfoRef.onValue.map<List<StoreInfoModel>>((event) {
       if (!event.snapshot.exists || event.snapshot.value == null) {
-        return [StoreInfoModel(storeCode: _currentStoreCode, storeName: 'POS Trạm Blao - $_currentStoreCode')];
+        return [StoreInfoModel(storeCode: _currentStoreCode, storeName: 'POS Trạm BLAO - $_currentStoreCode')];
       }
       final sInfo = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
       return [StoreInfoModel.fromMap(sInfo, _currentStoreCode)];
-    }).handleError((_) => [StoreInfoModel(storeCode: _currentStoreCode, storeName: 'POS Trạm Blao - $_currentStoreCode')]);
+    }).handleError((_) => [StoreInfoModel(storeCode: _currentStoreCode, storeName: 'POS Trạm BLAO - $_currentStoreCode')]);
   }
 
   Future<List<StoreInfoModel>> getAllStores() async {
-    final fallback = [StoreInfoModel(storeCode: _currentStoreCode, storeName: 'POS Trạm Blao - $_currentStoreCode')];
+    final fallback = [StoreInfoModel(storeCode: _currentStoreCode, storeName: 'POS Trạm BLAO - $_currentStoreCode')];
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
       if (uid.isEmpty) return fallback;
@@ -209,7 +209,7 @@ class ReportRepository {
             return StoreInfoModel.fromMap(Map<dynamic, dynamic>.from(snap.value as Map), code);
           }
         } catch (_) {}
-        return StoreInfoModel(storeCode: code, storeName: 'POS Trạm Blao - $code');
+        return StoreInfoModel(storeCode: code, storeName: 'POS Trạm BLAO - $code');
       }));
       return result;
     } catch (_) {

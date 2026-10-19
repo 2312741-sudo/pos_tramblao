@@ -1,5 +1,5 @@
 /**
- * POS Trạm Blao - Core Financial & Analytical Reports Engine
+ * POS Trạm BLAO - Core Financial & Analytical Reports Engine
  * Tuân thủ chuẩn DOCS-REPORT-SPEC-2026-01 (REPORT SPEC v2.0.0)
  * Pure TypeScript functions, độc lập hoàn toàn với React, có thể kiểm thử 100%.
  */
@@ -1617,7 +1617,7 @@ export function generateEndOfDayZReport(
 
   const dateStr = options?.date || (paidBills.length > 0 ? new Date(getBillTimestamp(paidBills[0])).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
   const storeCode = options?.storeCode || (paidBills[0]?.storeCode || "TRAM01");
-  const storeName = options?.storeName || (paidBills[0]?.storeName || `POS Trạm Blao - ${storeCode}`);
+  const storeName = options?.storeName || (paidBills[0]?.storeName || `POS Trạm BLAO - ${storeCode}`);
 
   return {
     date: dateStr,

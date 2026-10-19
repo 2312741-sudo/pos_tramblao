@@ -4,8 +4,8 @@ import { Bullets, LegalPage, Section } from "@/components/LegalPage";
 import { LEGAL, privacyMailto } from "@/lib/legal-config";
 
 export const metadata: Metadata = {
-  title: "Quyền lựa chọn về dữ liệu • POS Trạm Blao",
-  description: "Cách xem, sửa, xóa dữ liệu cá nhân và rút lại đồng ý khi dùng POS Trạm Blao.",
+  title: "Quyền lựa chọn về dữ liệu • POS Trạm BLAO",
+  description: "Cách xem, sửa, xóa dữ liệu cá nhân và rút lại đồng ý khi dùng POS Trạm BLAO.",
 };
 
 const linkStyle = { color: "var(--primary)", fontWeight: 600 } as const;
@@ -22,7 +22,7 @@ function RequestButton({ subject, label }: { subject: string; label: string }) {
         padding: "10px 16px",
         borderRadius: 8,
         background: "var(--primary)",
-        color: "#fff",
+        color: "#143A2F",
         fontWeight: 700,
         textDecoration: "none",
       }}
@@ -61,7 +61,7 @@ export default function PrivacyChoicesPage() {
             "Hóa đơn đã phát sinh được giữ theo thời hạn pháp luật về kế toán và thuế, nhưng thông tin nhận dạng khách hàng trên hóa đơn sẽ được ẩn danh khi bạn yêu cầu.",
           ]}
         />
-        <RequestButton subject="Yêu cầu xóa dữ liệu cá nhân - POS Trạm Blao" label="Gửi yêu cầu xóa dữ liệu" />
+        <RequestButton subject="Yêu cầu xóa dữ liệu cá nhân - POS Trạm BLAO" label="Gửi yêu cầu xóa dữ liệu" />
       </Section>
 
       <Section title="3. Rút lại đồng ý">
@@ -69,7 +69,7 @@ export default function PrivacyChoicesPage() {
           items={[
             "Tham gia tích điểm: bạn có thể yêu cầu ngừng tích điểm và xóa hồ sơ khách hàng bất cứ lúc nào.",
             "Đăng nhập bằng Chấm Công Trạm: Chủ quán có thể hủy liên kết cửa hàng (mục Liên kết Chấm Công Trạm); bạn cũng có thể thu hồi quyền truy cập trong cài đặt tài khoản Google hoặc Apple của mình.",
-            "Quyền trên thiết bị (Bluetooth, mạng nội bộ, ảnh, máy ảnh, micro): thay đổi bất cứ lúc nào trong Cài đặt → POS Trạm Blao của iPhone/iPad.",
+            "Quyền trên thiết bị (Bluetooth, mạng nội bộ, ảnh, máy ảnh, micro): thay đổi bất cứ lúc nào trong Cài đặt → POS Trạm BLAO của iPhone/iPad.",
           ]}
         />
       </Section>
@@ -85,11 +85,11 @@ export default function PrivacyChoicesPage() {
         {LEGAL.contactEmail ? (
           <>
             <p>
-              Gửi email tới <a href={privacyMailto("Yêu cầu về dữ liệu cá nhân - POS Trạm Blao")} style={linkStyle}>{LEGAL.contactEmail}</a> và
+              Gửi email tới <a href={privacyMailto("Yêu cầu về dữ liệu cá nhân - POS Trạm BLAO")} style={linkStyle}>{LEGAL.contactEmail}</a> và
               nêu rõ: (1) yêu cầu của bạn (xem / sửa / xóa / rút đồng ý), (2) họ tên và số điện thoại hoặc tên đăng nhập, (3)
               cửa hàng liên quan. Chúng tôi có thể cần xác minh danh tính trước khi xử lý và sẽ phản hồi trong vòng 30 ngày.
             </p>
-            <RequestButton subject="Yêu cầu về dữ liệu cá nhân - POS Trạm Blao" label="Gửi email yêu cầu" />
+            <RequestButton subject="Yêu cầu về dữ liệu cá nhân - POS Trạm BLAO" label="Gửi email yêu cầu" />
           </>
         ) : (
           <p>
@@ -108,7 +108,7 @@ export default function PrivacyChoicesPage() {
             "We do not sell your data, run ads or track you across apps, so there is no opt-out toggle to set.",
             "Access or correct: staff can update their details in the app or ask a shop owner/manager; loyalty customers can ask shop staff.",
             "Delete: ask a shop owner/manager to remove a staff profile, or request deletion of a loyalty customer record. Bills required by accounting law are retained, with customer identity anonymised on request.",
-            "Withdraw consent: stop loyalty participation, unlink the “Chấm Công Trạm” sign-in, or change device permissions in iOS Settings → POS Trạm Blao at any time.",
+            "Withdraw consent: stop loyalty participation, unlink the “Chấm Công Trạm” sign-in, or change device permissions in iOS Settings → POS Trạm BLAO at any time.",
             LEGAL.contactEmail
               ? `Contact: ${LEGAL.contactEmail}. We respond within 30 days.`
               : "Contact the shop owner where you use the service; they will handle your request and escalate to the platform operator if needed.",

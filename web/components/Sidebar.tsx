@@ -117,8 +117,8 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
         width: "250px",
         maxWidth: "85vw",
         height: "100dvh",
-        // Màu thương hiệu cố định (không đổi theo chế độ tối)
-        background: "linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%)",
+        // Màu thương hiệu cố định
+        background: "linear-gradient(180deg, var(--sidebar-bg-top, #194639) 0%, var(--sidebar-bg-bottom, #0E2B22) 100%)",
         borderRight: "1px solid rgba(255, 255, 255, 0.1)",
         display: "flex",
         flexDirection: "column",
@@ -315,7 +315,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
               padding: "10px 12px",
               borderRadius: "10px",
               background: "var(--primary)",
-              color: "#FFFFFF",
+              color: "#143A2F",
               fontSize: "13px",
               fontWeight: 700,
             }}

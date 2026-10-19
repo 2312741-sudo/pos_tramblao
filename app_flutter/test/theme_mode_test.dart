@@ -44,8 +44,10 @@ void main() {
       expect(_contrast(t.textSecondary, t.card), greaterThan(4.5));
     });
 
-    test('màu trạng thái đọc được trên nền tối và giữ chữ trắng trên nút', () {
-      for (final c in [t.primary, t.success, t.danger, t.info]) {
+    test('màu trạng thái đọc được trên nền tối và tương phản chuẩn trên nút', () {
+      expect(_contrast(t.primary, t.card), greaterThan(3), reason: 'primary trên nền thẻ');
+      expect(_contrast(t.onPrimary, t.primary), greaterThan(4.5), reason: 'onPrimary trên primary');
+      for (final c in [t.success, t.danger, t.info]) {
         expect(_contrast(c, t.card), greaterThan(3), reason: '$c trên nền thẻ');
         expect(_contrast(Colors.white, c), greaterThan(3.5), reason: 'chữ trắng trên $c');
       }

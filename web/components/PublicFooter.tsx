@@ -34,7 +34,7 @@ export function PublicFooter() {
                 height: 32,
                 borderRadius: "var(--radius-sm)",
                 background: "var(--primary)",
-                color: "#FFFFFF",
+                color: "var(--on-primary)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -42,24 +42,24 @@ export function PublicFooter() {
             >
               <Coffee size={18} />
             </div>
-            <span style={{ fontSize: 16, fontWeight: 800, color: "var(--primary)" }}>POS Trạm Blao</span>
+            <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>POS TRẠM BLAO</span>
           </div>
           <p style={{ lineHeight: 1.6, margin: "0 0 16px", color: "var(--subtext)" }}>
             Giải pháp phần mềm quản lý vận hành bán hàng F&B chuyên nghiệp cho Quán Cà phê, Trà sữa, Nhà hàng và Chuỗi F&B đa chi nhánh.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Clock size={14} color="var(--primary)" />
+              <Clock size={14} color="var(--primary-dark)" />
               <span>Hỗ trợ kỹ thuật: 08:00 - 22:00 (Hàng ngày)</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Phone size={14} color="var(--primary)" />
+              <Phone size={14} color="var(--primary-dark)" />
               <a href={LEGAL.hotlineTel} style={{ color: "inherit", textDecoration: "none" }}>
                 Hotline: {LEGAL.hotline}
               </a>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Mail size={14} color="var(--primary)" />
+              <Mail size={14} color="var(--primary-dark)" />
               <span>{LEGAL.contactEmail || "hotro.postram@gmail.com"}</span>
             </div>
           </div>

@@ -324,7 +324,7 @@ class _TableListScreenState extends State<TableListScreen> {
                     children: [
                       Flexible(
                         child: Text(
-                          _auth.currentStoreInfo?.storeName ?? 'POS Trạm Blao',
+                          _auth.currentStoreInfo?.storeName ?? 'POS Trạm BLAO',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.beVietnamPro(fontSize: 16, fontWeight: FontWeight.bold),
@@ -1406,8 +1406,8 @@ class _TableListScreenState extends State<TableListScreen> {
             decoration: const BoxDecoration(
               gradient: AppColors.primaryGradient,
             ),
-            accountName: Text(_auth.currentUser?.fullName ?? 'Chủ Quán', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, color: Colors.white)),
-            accountEmail: Text('Chi nhánh: ${_auth.currentStoreCode} • ${FormatUtils.roleLabel(_auth.currentUser?.roleId ?? '')}', style: GoogleFonts.beVietnamPro(fontSize: 12, color: Colors.white70)),
+            accountName: Text(_auth.currentUser?.fullName ?? 'Chủ Quán', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, color: const Color(0xFF143A2F))),
+            accountEmail: Text('Chi nhánh: ${_auth.currentStoreCode} • ${FormatUtils.roleLabel(_auth.currentUser?.roleId ?? '')}', style: GoogleFonts.beVietnamPro(fontSize: 12, color: const Color(0xFF143A2F).withValues(alpha: 0.8))),
             currentAccountPicture: Container(
               padding: const EdgeInsets.all(2),
               decoration: const BoxDecoration(
@@ -1422,7 +1422,7 @@ class _TableListScreenState extends State<TableListScreen> {
                     'assets/images/logo.jpg',
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Center(
-                      child: Icon(Icons.restaurant, color: AppColors.primary, size: 28),
+                      child: Icon(Icons.restaurant, color: Color(0xFF143A2F), size: 28),
                     ),
                   ),
                 ),
@@ -1440,16 +1440,16 @@ class _TableListScreenState extends State<TableListScreen> {
                 ],
               ),
               child: ListTile(
-                leading: const Icon(Icons.analytics_outlined, color: Colors.white),
+                leading: const Icon(Icons.analytics_outlined, color: Color(0xFF143A2F)),
                 title: Text(
                   'CỔNG QUẢN LÝ & BÁO CÁO',
-                  style: GoogleFonts.beVietnamPro(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  style: GoogleFonts.beVietnamPro(color: const Color(0xFF143A2F), fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 subtitle: Text(
                   'Toàn bộ báo cáo doanh thu & giám sát như Web',
-                  style: GoogleFonts.beVietnamPro(color: Colors.white70, fontSize: 11),
+                  style: GoogleFonts.beVietnamPro(color: const Color(0xFF143A2F).withValues(alpha: 0.8), fontSize: 11),
                 ),
-                trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
+                trailing: const Icon(Icons.arrow_forward_ios, color: Color(0xFF143A2F), size: 14),
                 onTap: () {
                   Navigator.pop(context);
                   context.go('/manager-hub');

@@ -1,6 +1,6 @@
 // lib/widgets/common_widgets.dart
 //
-// Bộ widget dùng chung của POS Trạm Blao. Mọi màu/khoảng cách lấy từ
+// Bộ widget dùng chung của POS Trạm BLAO. Mọi màu/khoảng cách lấy từ
 // core/theme/app_theme.dart (TramColors, AppSpacing, AppRadius) để giữ
 // giao diện nhất quán giữa các màn hình.
 import 'package:flutter/material.dart';
@@ -689,6 +689,9 @@ class RoleBadge extends StatelessWidget {
 /// ElevatedButton là full-width 52dp nên các nút sẽ bị xếp chồng dọc).
 ButtonStyle dialogActionStyle({Color? background}) => ElevatedButton.styleFrom(
       backgroundColor: background,
+      foregroundColor: (background != null && background.computeLuminance() > 0.5)
+          ? const Color(0xFF143A2F)
+          : Colors.white,
       minimumSize: const Size(96, 44),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
     );

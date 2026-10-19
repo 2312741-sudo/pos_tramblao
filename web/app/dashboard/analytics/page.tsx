@@ -191,7 +191,7 @@ export default function AnalyticsPage() {
     }
     return (
       stores.find((s) => s.storeCode === currentStoreCode) || {
-        storeName: "POS Trạm Blao",
+        storeName: "POS Trạm BLAO",
         storeCode: currentStoreCode,
       }
     );
@@ -568,7 +568,7 @@ export default function AnalyticsPage() {
                   formatter={(value) => [formatVND(Number(value)), "Doanh thu thuần"]}
                   labelFormatter={(label) => `Khung giờ: ${label}`}
                 />
-                <Bar dataKey="netRevenue" fill="#1B4D3E" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="netRevenue" fill="#7FE3C7" radius={[4, 4, 0, 0]} maxBarSize={28} />
               </BarChart>
             </ResponsiveContainer>
           </div>

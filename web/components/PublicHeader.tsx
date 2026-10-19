@@ -64,8 +64,8 @@ export function PublicHeader() {
             <Coffee size={20} strokeWidth={2.5} />
           </div>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--primary)" }}>
-              POS Trạm Blao
+            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text)" }}>
+              POS TRẠM BLAO
             </div>
             <div style={{ fontSize: 11, color: "var(--subtext)", fontWeight: 500 }}>
               Hệ thống Quản lý F&B

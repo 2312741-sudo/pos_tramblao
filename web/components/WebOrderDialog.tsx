@@ -117,7 +117,7 @@ export default function WebOrderDialog({
     ({
       padding: "5px 12px", borderRadius: 16, fontSize: 12, fontWeight: active ? 700 : 500, cursor: "pointer", whiteSpace: "nowrap",
       border: active ? "1px solid var(--primary)" : "1px solid var(--border)",
-      background: active ? "var(--primary)" : "var(--surface)", color: active ? "#fff" : "var(--subtext)",
+      background: active ? "var(--primary)" : "var(--surface)", color: active ? "#143A2F" : "var(--subtext)",
     }) as const;
 
   return (

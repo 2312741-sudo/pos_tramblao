@@ -45,6 +45,6 @@ export const fieldInput = {
   color: "var(--text)",
   fontSize: 14,
 } as const;
-export const btnPrimary = { padding: "9px 18px", background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" } as const;
+export const btnPrimary = { padding: "9px 18px", background: "var(--primary)", color: "#143A2F", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" } as const;
 export const btnGhost = { padding: "9px 16px", background: "var(--surface-muted)", color: "var(--text)", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" } as const;
 export const errorBox = { padding: "8px 12px", background: "var(--danger-bg, #FDECEA)", color: "var(--danger, #B3261E)", borderRadius: 8, fontSize: 13, marginBottom: 12 } as const;

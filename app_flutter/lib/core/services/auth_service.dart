@@ -184,7 +184,7 @@ class AuthService extends ChangeNotifier {
       _currentStoreCode = target;
       _currentStoreInfo = info is StoreInfoModel
           ? info
-          : StoreInfoModel(storeCode: target, storeName: 'POS Trạm Blao - $target');
+          : StoreInfoModel(storeCode: target, storeName: 'POS Trạm BLAO - $target');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_keyStoreCode, target);
     } catch (e) {

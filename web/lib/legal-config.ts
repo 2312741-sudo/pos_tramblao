@@ -4,7 +4,7 @@
  * để trống thì trang hướng dẫn người dùng liên hệ chủ cửa hàng nơi họ sử dụng dịch vụ.
  */
 export const LEGAL = {
-  appName: "POS Trạm Blao",
+  appName: "POS Trạm BLAO",
   author: "Nguyễn Thanh Tâm",
   copyright: "© 2026 Nguyễn Thanh Tâm",
   effectiveDate: "12/10/2026",

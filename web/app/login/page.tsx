@@ -171,7 +171,7 @@ export default function LoginPage() {
           >
             <Image
               src="/logo.jpg"
-              alt="Logo POS Trạm Blao"
+              alt="Logo POS Trạm BLAO"
               width={60}
               height={60}
               style={{ objectFit: "cover", borderRadius: "14px" }}
@@ -182,7 +182,7 @@ export default function LoginPage() {
             style={{
               fontSize: "24px",
               fontWeight: "800",
-              color: "var(--primary)",
+              color: "var(--text)",
               letterSpacing: "0.02em",
               marginBottom: "4px",
             }}

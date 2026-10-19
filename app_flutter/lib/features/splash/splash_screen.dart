@@ -68,10 +68,10 @@ class _SplashScreenState extends State<SplashScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
         systemNavigationBarColor: AppColors.primary,
-        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: AppColors.primary,
@@ -88,7 +88,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     borderRadius: BorderRadius.circular(22),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.25),
+                        color: Colors.black.withOpacity(0.15),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -111,38 +111,24 @@ class _SplashScreenState extends State<SplashScreen> {
 
                 // Tên ứng dụng
                 Text(
-                  'POS Trạm Blao',
+                  'POS Trạm BLAO',
                   style: GoogleFonts.beVietnamPro(
                     fontSize: 32,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: const Color(0xFF143A2F),
                     letterSpacing: 0.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
 
-                const SizedBox(height: 12),
-
-                // Tagline / Slogan
-                Text(
-                  'Luôn tươi ngon vì sức khỏe',
-                  style: GoogleFonts.beVietnamPro(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white.withOpacity(0.9),
-                    letterSpacing: 0.3,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-
-                const SizedBox(height: 64),
+                const SizedBox(height: 48),
 
                 // Vòng xoay tải trang (Loading Spinner)
                 const SizedBox(
                   width: 36,
                   height: 36,
                   child: CircularProgressIndicator(
-                    color: Colors.white70,
+                    color: Color(0xFF143A2F),
                     strokeWidth: 2.5,
                   ),
                 ),

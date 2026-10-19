@@ -90,7 +90,7 @@ export default function PromotionReportPage() {
 
   const handleExport = () => {
     const info: ReportStoreInfo = {
-      storeName: currentStore?.storeName || (currentStoreCode === "ALL" ? "Tất cả chi nhánh" : "POS Trạm Blao"),
+      storeName: currentStore?.storeName || (currentStoreCode === "ALL" ? "Tất cả chi nhánh" : "POS Trạm BLAO"),
       address: currentStore?.address,
       phone: currentStore?.phone,
       storeCode: currentStoreCode,
