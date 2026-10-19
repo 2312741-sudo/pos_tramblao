@@ -1,0 +1,45 @@
+{
+  "_comment": "Cấu hình THẬT app phụ 'chamcong' (project chamcongtram) — gitignored. Android chưa đăng ký (chờ đổi package, xem docs/CHAMCONG_SSO.md).",
+  "googleServerClientId": "YOUR_CHAMCONGTRAM_WEB_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+  "android": {
+    "apiKey": "YOUR_ANDROID_API_KEY",
+    "appId": "1:000000000000:android:YOUR_POS_ANDROID_APP_ID",
+    "messagingSenderId": "000000000000",
+    "projectId": "chamcongtram",
+    "storageBucket": "chamcongtram.firebasestorage.app"
+  },
+  "ios": {
+    "apiKey": "AIzaSyDYayXy1_hUz04C3iJo9-lX2ruAsDMqm50",
+    "appId": "1:476583007511:ios:85484a6abc0243cfce1352",
+    "messagingSenderId": "476583007511",
+    "projectId": "chamcongtram",
+    "storageBucket": "chamcongtram.firebasestorage.app",
+    "iosClientId": "476583007511-3iq54af0nd5t20hb1ae3d4eikk0lcboh.apps.googleusercontent.com",
+    "iosBundleId": "com.tramapp.tramFlutter"
+  },
+  "macos": {
+    "apiKey": "YOUR_IOS_API_KEY",
+    "appId": "1:000000000000:ios:YOUR_POS_MACOS_APP_ID",
+    "messagingSenderId": "000000000000",
+    "projectId": "chamcongtram",
+    "storageBucket": "chamcongtram.firebasestorage.app",
+    "iosClientId": "YOUR_MACOS_CLIENT_ID.apps.googleusercontent.com",
+    "iosBundleId": "YOUR_POS_BUNDLE_ID"
+  },
+  "web": {
+    "apiKey": "AIzaSyA2fvOwEKwkeS9AlDNDCELvtyCx07dE6xM",
+    "appId": "1:476583007511:web:0616a296375326d7ce1352",
+    "messagingSenderId": "476583007511",
+    "projectId": "chamcongtram",
+    "authDomain": "chamcongtram.firebaseapp.com",
+    "storageBucket": "chamcongtram.firebasestorage.app"
+  },
+  "windows": {
+    "apiKey": "YOUR_WEB_API_KEY",
+    "appId": "1:000000000000:web:YOUR_POS_WINDOWS_APP_ID",
+    "messagingSenderId": "000000000000",
+    "projectId": "chamcongtram",
+    "authDomain": "chamcongtram.firebaseapp.com",
+    "storageBucket": "chamcongtram.firebasestorage.app"
+  }
+}

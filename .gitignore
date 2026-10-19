@@ -1,0 +1,10 @@
+.DS_Store
+build/
+.dart_tool/
+.gradle/
+ios/Pods/
+ios/.symlinks/
+node_modules/
+.next/
+dist/
+*.log

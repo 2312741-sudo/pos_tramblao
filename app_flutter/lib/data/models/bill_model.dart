@@ -1,0 +1,302 @@
+import 'dart:convert';
+import 'order_item_model.dart';
+import 'order_action_log_model.dart';
+import 'promotion_model.dart';
+import '../../core/domain/deleted_items.dart';
+
+// ==================== PAYMENT SPLIT MODEL (MULTI-METHOD) ====================
+class PaymentSplitModel {
+  final String method; // 'CASH', 'TRANSFER_QR', 'CARD'
+  final int amount;
+  final String? note;
+
+  PaymentSplitModel({
+    required this.method,
+    required this.amount,
+    this.note,
+  });
+
+  factory PaymentSplitModel.fromMap(Map<dynamic, dynamic> map) {
+    return PaymentSplitModel(
+      method: map['method']?.toString() ?? 'CASH',
+      amount: (map['amount'] as num?)?.toInt() ?? 0,
+      note: map['note']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'method': method,
+    'amount': amount,
+    if (note != null && note!.isNotEmpty) 'note': note,
+  };
+}
+
+// ==================== BILL MODEL ====================
+class BillModel {
+  final String id;
+  String billCode; // Mã hóa đơn chính thức (HD-yyMMdd-NNNN, cấp tuần tự khi thanh toán)
+  final String? orderCode; // Mã đặt món / gọi món kiểm soát (OD-yyMMdd-HHmmss)
+  final String tableName;
+  final String zone;
+  final int createdAt;
+  int? closedAt;
+  /// Thời điểm hủy đơn (epoch ms) — chỉ có với đơn CANCELLED.
+  int? cancelledAt;
+  String status; // 'OPEN', 'PAID', 'CANCELLED', 'REFUNDED'
+  /// uid tài khoản thu tiền (HĐ cũ không có → so khớp theo staffUsername)
+  final String? staffUid;
+  final String staffUsername;
+  final String staffFullName;
+  List<OrderItemModel> items;
+  int subTotal;
+  List<BillDiscountModel> discounts;
+  int totalDiscount;
+  double vatRate;
+  int vatAmount;
+  int finalAmount;
+  String paymentMethod; // 'CASH', 'TRANSFER_QR', 'CARD', 'SPLIT'
+  List<PaymentSplitModel>? paymentSplits; // Thanh toán hỗn hợp (VD: Tiền mặt + Chuyển khoản QR)
+  String notes;
+  final String? parentBillId; // If split
+  final List<String>? mergedTableNames;
+  int pointsUsed;
+  int pointsDiscount;
+  String? customerId;
+  String? customerName;
+  String? customerPhone;
+  String? shiftId;
+  List<OrderActionLogModel> actionLogs;
+  /// Món đã lưu bị xóa trước khi chốt đơn (ghi cả với HĐ PAID và CANCELLED).
+  List<DeletedItemEntry> deletedItems;
+
+  BillModel({
+    required this.id,
+    required this.billCode,
+    this.orderCode,
+    required this.tableName,
+    required this.zone,
+    required this.createdAt,
+    this.closedAt,
+    this.cancelledAt,
+    this.status = 'OPEN',
+    this.staffUid,
+    required this.staffUsername,
+    required this.staffFullName,
+    required this.items,
+    required this.subTotal,
+    this.discounts = const [],
+    this.totalDiscount = 0,
+    this.vatRate = 0.0,
+    this.vatAmount = 0,
+    required this.finalAmount,
+    this.paymentMethod = 'CASH',
+    this.paymentSplits,
+    this.notes = '',
+    this.parentBillId,
+    this.mergedTableNames,
+    this.pointsUsed = 0,
+    this.pointsDiscount = 0,
+    this.customerId,
+    this.customerName,
+    this.customerPhone,
+    this.shiftId,
+    this.actionLogs = const [],
+    this.deletedItems = const [],
+  });
+
+  factory BillModel.fromMap(Map<dynamic, dynamic> map, String id) {
+    List<OrderItemModel> items = [];
+    if (map['items'] != null) {
+      if (map['items'] is List) {
+        items = (map['items'] as List).map((e) => OrderItemModel.fromMap(e)).toList();
+      } else if (map['items'] is String) {
+        try {
+          final List list = jsonDecode(map['items']);
+          items = list.map((e) => OrderItemModel.fromMap(e)).toList();
+        } catch (_) {}
+      }
+    }
+
+    List<BillDiscountModel> discounts = [];
+    if (map['discounts'] != null) {
+      if (map['discounts'] is List) {
+        discounts = (map['discounts'] as List).map((e) => BillDiscountModel.fromMap(e)).toList();
+      }
+    }
+
+    List<String>? merged;
+    if (map['mergedTableNames'] != null && map['mergedTableNames'] is List) {
+      merged = List<String>.from(map['mergedTableNames']);
+    }
+
+    List<OrderActionLogModel> actionLogs = [];
+    if (map['actionLogs'] != null && map['actionLogs'] is List) {
+      actionLogs = (map['actionLogs'] as List).map((e) => OrderActionLogModel.fromMap(e)).toList();
+    } else if (map['actionLogsJson'] != null && map['actionLogsJson'] is String && (map['actionLogsJson'] as String).isNotEmpty) {
+      try {
+        final List list = jsonDecode(map['actionLogsJson']);
+        actionLogs = list.map((e) => OrderActionLogModel.fromMap(e)).toList();
+      } catch (_) {}
+    }
+
+    final rawBillCode = map['billCode']?.toString();
+    final rawOrderCode = map['orderCode']?.toString();
+
+    String billCode;
+    String? orderCode = rawOrderCode;
+
+    if (rawBillCode != null && rawBillCode.isNotEmpty && !rawBillCode.startsWith('OD-')) {
+      billCode = rawBillCode;
+    } else if (rawOrderCode != null && rawOrderCode.startsWith('HD-')) {
+      billCode = rawOrderCode;
+    } else if (rawBillCode != null && rawBillCode.isNotEmpty) {
+      billCode = rawBillCode;
+    } else {
+      billCode = rawOrderCode ?? id;
+    }
+
+    if (orderCode == null && rawBillCode != null && rawBillCode.startsWith('OD-')) {
+      orderCode = rawBillCode;
+    }
+
+    List<PaymentSplitModel>? splits;
+    if (map['paymentSplits'] != null && map['paymentSplits'] is List) {
+      splits = (map['paymentSplits'] as List)
+          .map((e) => PaymentSplitModel.fromMap(Map<dynamic, dynamic>.from(e as Map)))
+          .toList();
+    }
+
+    return BillModel(
+      id: id,
+      billCode: billCode,
+      orderCode: orderCode,
+      tableName: map['tableName']?.toString() ?? '',
+      zone: map['zone']?.toString() ?? '',
+      createdAt: (map['createdAt'] as num?)?.toInt() ?? 0,
+      closedAt: (map['closedAt'] as num?)?.toInt(),
+      cancelledAt: (map['cancelledAt'] as num?)?.toInt(),
+      status: map['status']?.toString() ?? 'OPEN',
+      staffUid: map['staffUid']?.toString(),
+      staffUsername: map['staffUsername']?.toString() ?? '',
+      staffFullName: map['staffFullName']?.toString() ?? '',
+      items: items,
+      subTotal: (map['subTotal'] as num?)?.toInt() ?? (map['totalAmount'] as num?)?.toInt() ?? 0,
+      discounts: discounts,
+      totalDiscount: (map['totalDiscount'] as num?)?.toInt() ?? (map['discountAmount'] as num?)?.toInt() ?? 0,
+      vatRate: (map['vatRate'] as num?)?.toDouble() ?? 0.0,
+      vatAmount: (map['vatAmount'] as num?)?.toInt() ?? 0,
+      finalAmount: (map['finalAmount'] as num?)?.toInt() ?? (map['totalAmount'] as num?)?.toInt() ?? 0,
+      paymentMethod: map['paymentMethod']?.toString() ?? 'CASH',
+      paymentSplits: splits,
+      notes: map['notes']?.toString() ?? map['note']?.toString() ?? '',
+      parentBillId: map['parentBillId']?.toString(),
+      mergedTableNames: merged,
+      pointsUsed: (map['pointsUsed'] as num?)?.toInt() ?? 0,
+      pointsDiscount: (map['pointsDiscount'] as num?)?.toInt() ?? 0,
+      customerId: map['customerId']?.toString(),
+      customerName: map['customerName']?.toString(),
+      customerPhone: map['customerPhone']?.toString(),
+      shiftId: map['shiftId']?.toString(),
+      actionLogs: actionLogs,
+      deletedItems: DeletedItemsLogic.decode(map['deletedItems'] ?? map['deletedItemsJson']),
+    );
+  }
+
+  /// Mốc thời gian xếp ngày báo cáo (docs/REPORT_SPEC.md §3.4):
+  /// - CANCELLED: cancelledAt → closedAt → createdAt (đơn hủy thuộc NGÀY HỦY)
+  /// - PAID / REFUNDED: closedAt → createdAt
+  /// - OPEN / khác: createdAt → closedAt
+  int get reportTimeMs {
+    bool ok(int? v) => v != null && v > 0;
+    if (status == 'CANCELLED') {
+      if (ok(cancelledAt)) return cancelledAt!;
+      if (ok(closedAt)) return closedAt!;
+      return createdAt;
+    }
+    if (status == 'PAID' || status == 'REFUNDED') {
+      return ok(closedAt) ? closedAt! : createdAt;
+    }
+    if (createdAt > 0) return createdAt;
+    return ok(closedAt) ? closedAt! : 0;
+  }
+
+  int get deletedItemsCount => DeletedItemsLogic.summarize(deletedItems).count;
+  int get deletedItemsAmount => DeletedItemsLogic.summarize(deletedItems).amount;
+
+  /// Tổng giảm giá theo món (lineDiscountTotal) của hóa đơn.
+  int get itemDiscountTotal => items.fold(0, (s, i) => s + i.lineDiscountTotal);
+
+  /// Giảm giá cấp đơn = tổng giảm − giảm theo món (gồm voucher/CTKM + đổi điểm).
+  int get orderLevelDiscount {
+    final v = totalDiscount - itemDiscountTotal;
+    return v < 0 ? 0 : v;
+  }
+
+  String get note => notes;
+
+  /// Danh sách nhân viên đã nhận order các món trong đơn
+  String get orderStaffSummary {
+    final staffNames = <String>{};
+    for (final it in items) {
+      if (it.orderedByName.isNotEmpty) {
+        staffNames.add(it.orderedByName);
+      }
+    }
+    if (staffNames.isNotEmpty) return staffNames.join(', ');
+    return staffFullName.isNotEmpty ? staffFullName : staffUsername;
+  }
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'billCode': billCode,
+    if (orderCode != null) 'orderCode': orderCode,
+    'tableName': tableName,
+    'zone': zone,
+    'createdAt': createdAt,
+    if (closedAt != null) 'closedAt': closedAt,
+    if (cancelledAt != null) 'cancelledAt': cancelledAt,
+    'status': status,
+    if (staffUid != null && staffUid!.isNotEmpty) 'staffUid': staffUid,
+    'staffUsername': staffUsername,
+    'staffFullName': staffFullName,
+    'cashierName': staffFullName.isNotEmpty ? staffFullName : staffUsername,
+    'orderStaff': orderStaffSummary,
+    'items': items.map((e) => e.toMap()).toList(),
+    'subTotal': subTotal,
+    'discounts': discounts.map((e) => e.toMap()).toList(),
+    'totalDiscount': totalDiscount,
+    'vatRate': vatRate,
+    'vatAmount': vatAmount,
+    'finalAmount': finalAmount,
+    'paymentMethod': paymentMethod,
+    if (paymentSplits != null && paymentSplits!.isNotEmpty)
+      'paymentSplits': paymentSplits!.map((e) => e.toMap()).toList(),
+    'notes': notes,
+    'note': notes,
+    if (parentBillId != null) 'parentBillId': parentBillId,
+    if (mergedTableNames != null) 'mergedTableNames': mergedTableNames,
+    if (pointsUsed > 0) 'pointsUsed': pointsUsed,
+    if (pointsDiscount > 0) 'pointsDiscount': pointsDiscount,
+    if (customerId != null) 'customerId': customerId,
+    if (customerName != null) 'customerName': customerName,
+    if (customerPhone != null) 'customerPhone': customerPhone,
+    if (shiftId != null) 'shiftId': shiftId,
+    'actionLogs': actionLogs.map((e) => e.toMap()).toList(),
+    'actionLogsJson': jsonEncode(actionLogs.map((e) => e.toMap()).toList()),
+    'deletedItems': deletedItems.map((e) => e.toMap()).toList(),
+    'deletedItemsCount': deletedItemsCount,
+    'deletedItemsAmount': deletedItemsAmount,
+  };
+
+  void recalculateTotals() {
+    final rawSubTotal = items.fold(0, (s, i) => s + (i.unitPrice * i.quantity));
+    final itemDiscountTotal = items.fold(0, (s, i) => s + i.lineDiscountTotal);
+    subTotal = rawSubTotal;
+    final voucherDiscount = discounts.fold(0, (s, d) => s + d.amount);
+    totalDiscount = itemDiscountTotal + voucherDiscount + pointsDiscount;
+    if (totalDiscount > subTotal) totalDiscount = subTotal;
+    final afterDiscount = subTotal - totalDiscount;
+    vatAmount = (afterDiscount * (vatRate / 100)).round();
+    finalAmount = afterDiscount + vatAmount;
+  }
+}

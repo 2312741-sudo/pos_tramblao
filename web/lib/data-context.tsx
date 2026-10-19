@@ -1,0 +1,2475 @@
+"use client";
+import { resolveStaffUid } from "./staff-key";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import { db, auth, functions } from "./firebase";
+import { ref, onValue, set, update, remove, get, push, query, limitToLast } from "firebase/database";
+import { onAuthStateChanged } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
+import { buildCreateStorePayload, type CreateStorePayload } from "./create-store-payload";
+import { deduplicateBills, mergeHistoryAndBills } from "./reports";
+import { generateBillCode } from "./bill-code";
+import { recordShiftSale } from "./cash-shift-run";
+import { parseOrderJson, summarizeOrderLines, type RawOrderLine } from "./order-math";
+import { CLEAR_PRE_PRINT, CLEAR_TABLE_CUSTOMER, buildOrderItemsPayload, prePrintPayload, tableCustomerOf } from "./table-status";
+import { errorMessage } from "./errors";
+import { hasPermission, useAuth } from "./auth";
+import { scopeShifts } from "./shift-scope";
+import type { AppliedDiscount } from "./pricing-engine";
+import { PromotionLimitError, reserveAllPromotions, rollbackAllPromotions, type PromotionReservation } from "./promotion-commit";
+import { copyWholeMenu } from "./menu-copy-run";
+import { encodeGroupIds, parseGroupIds } from "./item-options";
+import {
+  appendDeletedItemsJson,
+  billDeletionFields,
+  buildDeletionAuditLog,
+  parseDeletedItems,
+  type DeletedItemEntry,
+} from "./item-deletion";
+import { buildWebOrderUpdates, type OrderActor } from "./web-order";
+import { buildCategoryOrderUpdates, sortCategories } from "./category-order";
+import { computeBillAmounts, DEFAULT_REDEEM_VND } from "./loyalty-checkout";
+import { insufficientBalance, redeemLoyaltyPoints, refundLoyaltyPoints } from "./loyalty-client";
+import { normalizeTiers, parseSharedLoyalty, type LoyaltyTier, type SharedLoyaltyConfig } from "./loyalty";
+import { approvalAuditFields, approvalSuffix, type ManagerApproval } from "./manager-approval";
+import {
+  buildMergePayloads,
+  buildTableOpUpdates,
+  buildTransferPayloads,
+  tableChanged,
+  validateMerge,
+  validateTransfer,
+  type TableActor,
+  type TableNode,
+} from "./table-ops";
+
+/**
+ * Giá trị thô đọc từ RTDB snapshot. Dữ liệu do nhiều phiên bản Flutter/Web cũ ghi nên không có
+ * schema tĩnh; chỉ dùng ở lớp parse (processStoreDataMap / sanitizeHistoryOrder), nơi mọi trường
+ * đều được chuẩn hóa và gán mặc định trước khi đưa ra các kiểu đã định nghĩa bên dưới.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ranh giới parse dữ liệu RTDB không schema
+type RtdbNode = any;
+
+/**
+ * Các nút con của stores/{code} mà Web Admin lắng nghe trực tiếp (processStoreDataMap dùng).
+ * Rules cấp quyền đọc theo TỪNG nút con (không đọc được cả stores/{code}), nên khi
+ * processStoreDataMap cần thêm nút mới thì phải thêm vào danh sách này.
+ */
+export const STORE_CHILD_NODES = [
+  "storeInfo",
+  "users",
+  "products",
+  "categories",
+  "tables",
+  "bills",
+  "history",
+  "audit_logs",
+  "online_orders",
+  "cash_shifts",
+] as const;
+
+/** Đơn hàng online (stores/{code}/online_orders) */
+export interface OnlineOrderItem {
+  id: string;
+  storeCode?: string;
+  storeName?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface OrderActionLog {
+  timestamp: number | string;
+  staffUsername?: string;
+  staffFullName?: string;
+  action: string;
+  details: string;
+}
+
+export interface OrderItem {
+  id?: number | string;
+  productId?: number | string;
+  name: string;
+  price: number;
+  costPrice?: number;
+  unitCost?: number;
+  lineCostPrice?: number;
+  quantity?: number;
+  count?: number;
+  unit?: string;
+  category?: string;
+  selectedSize?: string;
+  selectedSugar?: string;
+  selectedIce?: string;
+  selectedToppings?: unknown[];
+  toppingPrice?: number;
+  sizeExtraPrice?: number;
+  discountAmount?: number;
+  lineGrossAmount?: number;
+  lineTotal?: number;
+  note?: string;
+  orderedBy?: string;
+  orderedByName?: string;
+  orderedAt?: number | string;
+  optionsSummary?: string;
+}
+
+export interface HistoryOrder {
+  id: string;
+  storeCode?: string;
+  storeName?: string;
+  billCode?: string;
+  orderCode?: string;
+  tableName?: string;
+  zone?: string;
+  guestCount?: number;
+  paymentMethod?: string;
+  status?: string;
+  totalAmount?: number;
+  subTotal?: number;
+  finalAmount?: number;
+  discountAmount?: number;
+  totalDiscount?: number;
+  itemDiscounts?: number;
+  billDiscounts?: number;
+  pointsDiscount?: number;
+  pointsUsed?: number;
+  vatRate?: number;
+  vatAmount?: number;
+  refundAmount?: number;
+  cogs?: number;
+  timestamp?: number | string;
+  createdAt?: number | string;
+  closedAt?: number | string;
+  username?: string;
+  createdBy?: string;
+  creatorName?: string;
+  staffFullName?: string;
+  staffUsername?: string;
+  cashierName?: string;
+  orderStaff?: string;
+  shiftId?: string;
+  parentBillId?: string | null;
+  mergedTableNames?: string[] | null;
+  items?: OrderItem[];
+  actionLogs?: OrderActionLog[];
+  orderType?: string;
+  cancelReason?: string;
+  cancellationReason?: string;
+  cancelledAt?: number;
+  cancelledBy?: string;
+  [key: string]: unknown;
+}
+
+export interface TableItem {
+  id: string;
+  storeCode?: string;
+  storeName?: string;
+  name: string;
+  zone: string;
+  inUse: boolean;
+  guestCount?: number;
+  openedAt?: string | null;
+  currentOrderJson?: string;
+  currentBillId?: string | null;
+  currentOrderCode?: string | null;
+  actionLogsJson?: string | null;
+  actionLogs?: OrderActionLog[];
+  orderStaff?: string;
+  mergedIntoTable?: string | null;
+  /** Epoch ms khi in phiếu tạm tính (hợp đồng chung với Flutter) — có ⇒ "Chờ thanh toán" */
+  prePrintedAt?: number | null;
+  /** Username người in phiếu tạm tính */
+  prePrintedBy?: string | null;
+  /** Món đã xóa khỏi đơn đang mở (chuỗi JSON mảng DeletedItemEntry — hợp đồng chung với Flutter) */
+  deletedItemsJson?: string | null;
+  /** Khách tích điểm gắn với bàn (hợp đồng chung với Flutter TableModel) */
+  customerId?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  isReserved?: boolean;
+  reservationCustomer?: string;
+  reservationPhone?: string;
+  reservationTime?: string;
+  reservationDeposit?: number;
+  [key: string]: unknown;
+}
+
+export interface ProductItem {
+  id: string;
+  storeCode?: string;
+  storeName?: string;
+  code?: string;
+  productCode?: string;
+  name: string;
+  price: number;
+  costPrice?: number;
+  unit: string;
+  category: string;
+  imageBase64?: string;
+  isTopping?: boolean;
+  /** Size → phụ thu, VD { S: 0, M: 5000 } */
+  sizes?: Record<string, number>;
+  allowedToppings?: string[];
+  hasIceSugarOptions?: boolean | null;
+  /** Báo hết món (xem lib/product-availability.ts). Thiếu = còn bán. */
+  isAvailable?: boolean;
+  soldOutAt?: number | null;
+  soldOutBy?: string | null;
+  soldOutUntil?: number | null;
+  /** Danh mục note/topping áp dụng cho món: không có trường = kế thừa nhóm món; ["__none__"] = không có (xem item-options.ts) */
+  noteGroupIds?: string[];
+  toppingGroupIds?: string[];
+}
+
+export interface CategoryItem {
+  id: string;
+  storeCode?: string;
+  storeName?: string;
+  name: string;
+  allowedToppingIds?: string[];
+  noteGroupIds?: string[];
+  toppingGroupIds?: string[];
+  /** Thứ tự hiển thị (nhỏ đứng trước); đồng bộ với app */
+  order?: number;
+}
+
+export interface UserItem {
+  id: string;
+  storeCode?: string;
+  storeName?: string;
+  fullName: string;
+  username: string;
+  role: string;
+  roleId?: string;
+  password?: string;
+  phone?: string;
+  isActive?: boolean;
+  isRootOwner?: boolean;
+  customPermissions?: string[];
+  createdAt?: number;
+  lastLoginAt?: number | null;
+  mustChangePassword?: boolean;
+  [key: string]: unknown;
+}
+
+export interface AuditLogItem {
+  id: string;
+  storeCode?: string;
+  action: string;
+  details?: string;
+  timestamp?: number | string;
+  username?: string;
+  userFullName?: string;
+  userRole?: string;
+  targetType?: string;
+  targetId?: string;
+  isSuspicious?: boolean;
+  beforeState?: Record<string, unknown>;
+  afterState?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface StoreItem {
+  id: string;
+  storeCode: string;
+  storeName: string;
+  address?: string;
+  phone?: string;
+  wifiName?: string;
+  bankId?: string;
+  bankAccount?: string;
+  accountName?: string;
+  defaultVatRate?: number;
+  allowStackPromotions?: boolean;
+  allowStaffViewShiftDifference?: boolean;
+  pointEarnRate?: number;
+  pointRedeemRate?: number;
+  /** Điểm tích lũy tối thiểu cho từng hạng (storeInfo.loyaltyTiers); luôn có giá trị (mặc định nếu chưa cấu hình) */
+  loyaltyTiers?: LoyaltyTier[];
+  /** Điểm dùng chung toàn hệ thống — Chủ quán xác nhận (storeInfo.sharedLoyalty) */
+  sharedLoyalty?: SharedLoyaltyConfig;
+  active?: boolean;
+  createdAt?: number | string;
+  totalTables?: number;
+  inUseTables?: number;
+  totalRevenue?: number;
+  totalOrders?: number;
+  [key: string]: unknown;
+}
+
+export interface CashShiftItem {
+  id: string;
+  shiftCode: string;
+  shiftName?: string;
+  storeCode: string;
+  /** uid chủ ca (ca cũ trước khi tách theo tài khoản: không có → nhận diện theo staffUsername) */
+  staffUid?: string;
+  staffUsername: string;
+  staffFullName: string;
+  openedAt: number;
+  closedAt?: number;
+  initialCash: number;
+  totalCashSales: number;
+  totalQrSales: number;
+  totalCardSales: number;
+  cashIn: number;
+  cashOut: number;
+  actualCash?: number;
+  difference?: number;
+  status: "OPEN" | "CLOSED";
+  notes?: string;
+  startTime?: number;
+  [key: string]: unknown;
+}
+
+/** Nhật ký kèm theo khi ghi lại danh sách món của bàn */
+export interface TableOrderLog {
+  action: string;
+  details: string;
+  staffUsername?: string;
+  staffFullName?: string;
+  staffRole?: string;
+  approval?: ManagerApproval | null;
+  /** Xóa món / giảm số lượng: mỗi bản ghi → nối vào deletedItemsJson + 1 audit log DELETE_ITEM */
+  deletions?: DeletedItemEntry[];
+}
+
+interface DashboardContextType {
+  stores: StoreItem[];
+  currentStoreCode: string; // 'ALL' or specific storeCode (e.g. 'TRAM01')
+  currentStore?: StoreItem;
+  setCurrentStoreCode: (code: string) => void;
+  createStore: (storeData: Partial<StoreItem>, copyMenuFrom?: string) => Promise<{ success: boolean; error?: string }>;
+  updateStore: (storeCode: string, data: Partial<StoreItem>) => Promise<{ success: boolean; error?: string }>;
+  deleteStore: (storeCode: string) => Promise<{ success: boolean; error?: string }>;
+  updateStoreShiftDifferenceSetting: (storeCode: string, allow: boolean) => Promise<{ success: boolean; error?: string }>;
+
+  checkoutAndFreeTable: (
+    table: TableItem,
+    options?: {
+      paymentMethod?: "CASH" | "TRANSFER";
+      staffName?: string;
+      discountAmount?: number;
+      /** Khuyến mãi / voucher nhân viên đã chọn (ghi vào bill.discounts, đổi mã + cập nhật bộ đếm khi thanh toán) */
+      promotions?: AppliedDiscount[];
+      /** Khách hàng của hóa đơn (tính lượt dùng theo khách của chương trình) */
+      customerId?: string | null;
+      /** Số điểm khách dùng để giảm giá (đổi qua callable redeemLoyaltyPoints TRƯỚC khi ghi hóa đơn) */
+      pointsUsed?: number;
+      /** Đồng/điểm khi đổi (cấu hình chuỗi); thiếu → mặc định 1000 như máy chủ */
+      pointRedeemRate?: number;
+    }
+  ) => Promise<{ success: boolean; billId?: string; billCode?: string; customerId?: string; error?: string }>;
+  saveTable: (
+    tableData: { id?: string; name: string; zone: string; inUse?: boolean },
+    storeCode?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  deleteTable: (tableId: string, storeCode?: string) => Promise<{ success: boolean; error?: string }>;
+  /** Ghi lại danh sách món của bàn đang mở (giảm giá dòng / đổi số lượng); luôn xóa đánh dấu in tạm tính */
+  updateTableOrderItems: (
+    table: TableItem,
+    nextItems: RawOrderLine[],
+    log: TableOrderLog
+  ) => Promise<{ success: boolean; error?: string }>;
+  /**
+   * Bấm đơn trên web (dự phòng khi app POS sự cố): mở bàn trống nếu cần, thêm món vào đơn và
+   * (tùy chọn) gửi phiếu bếp — đọc lại bàn từ DB để không ghi đè món vừa gọi từ POS.
+   */
+  submitWebOrder: (
+    table: TableItem,
+    newLines: RawOrderLine[],
+    opts: { sendKitchen: boolean; guestCount?: number; kitchenNote?: string; actor: OrderActor }
+  ) => Promise<{ success: boolean; error?: string; sentCount?: number; orderCode?: string }>;
+  /** Chuyển toàn bộ đơn sang bàn trống (khớp Flutter transferTable); đọc lại 2 bàn từ DB, từ chối nếu đã đổi */
+  transferTable: (source: TableItem, target: TableItem, actor: TableActor) => Promise<{ success: boolean; error?: string }>;
+  /** Gộp đơn bàn nguồn vào bàn đích đang có khách (khớp Flutter mergeTables) */
+  mergeTables: (source: TableItem, target: TableItem, actor: TableActor) => Promise<{ success: boolean; error?: string }>;
+  /** Đánh dấu bàn đã in phiếu tạm tính (prePrintedAt/prePrintedBy) */
+  markTablePrePrinted: (table: TableItem, username?: string) => Promise<{ success: boolean; error?: string }>;
+  saveProduct: (
+    productData: { id?: string; name: string; code?: string; price: number; costPrice?: number; unit?: string; category?: string; imageBase64?: string; isTopping?: boolean; noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null },
+    storeCode?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  deleteProduct: (productId: string, storeCode?: string) => Promise<{ success: boolean; error?: string }>;
+  saveCategory: (
+    categoryName: string,
+    storeCode?: string,
+    oldCategoryName?: string,
+    allowedToppingIds?: string[],
+    groupIds?: { noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null }
+  ) => Promise<{ success: boolean; error?: string }>;
+  saveCategoryOrder: (orderedNames: string[], storeCode?: string) => Promise<{ success: boolean; error?: string }>;
+  deleteCategory: (
+    categoryName: string,
+    storeCode?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  saveUser: (
+    userData: {
+      username: string;
+      fullName: string;
+      password?: string;
+      role: string;
+      phone?: string;
+      isActive?: boolean;
+      storeCode?: string;
+    },
+    targetStoreCode?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  deleteUser: (username: string, storeCode?: string) => Promise<{ success: boolean; error?: string }>;
+  cancelActiveTable: (
+    table: TableItem,
+    reason: string,
+    staffName?: string
+  ) => Promise<{ success: boolean; billId?: string; error?: string }>;
+  cancelOrder: (orderId: string, reason: string, storeCode?: string) => Promise<{ success: boolean; error?: string }>;
+  deleteOrder: (orderId: string, storeCode?: string) => Promise<{ success: boolean; error?: string }>;
+
+  tables: TableItem[];
+  allTables: TableItem[];
+  historyData: HistoryOrder[];
+  products: ProductItem[];
+  allProducts: ProductItem[];
+  categories: CategoryItem[];
+  allCategories: CategoryItem[];
+  usersList: UserItem[];
+  allUsers: UserItem[];
+  auditLogs: AuditLogItem[];
+  onlineOrders: OnlineOrderItem[];
+  cashShifts: CashShiftItem[];
+  loading: boolean;
+  historyLoaded: boolean;
+  refreshAll: () => void;
+}
+
+const DashboardContext = createContext<DashboardContextType>({
+  stores: [],
+  currentStoreCode: "ALL",
+  setCurrentStoreCode: () => {},
+  createStore: async () => ({ success: false }),
+  updateStore: async () => ({ success: false }),
+  deleteStore: async () => ({ success: false }),
+  updateStoreShiftDifferenceSetting: async () => ({ success: false }),
+
+  checkoutAndFreeTable: async () => ({ success: false }),
+  cancelActiveTable: async () => ({ success: false }),
+  saveTable: async () => ({ success: false }),
+  deleteTable: async () => ({ success: false }),
+  updateTableOrderItems: async () => ({ success: false }),
+  submitWebOrder: async () => ({ success: false }),
+  transferTable: async () => ({ success: false }),
+  mergeTables: async () => ({ success: false }),
+  markTablePrePrinted: async () => ({ success: false }),
+  saveProduct: async () => ({ success: false }),
+  deleteProduct: async () => ({ success: false }),
+  saveCategory: async () => ({ success: false }),
+  saveCategoryOrder: async () => ({ success: false }),
+  deleteCategory: async () => ({ success: false }),
+  saveUser: async () => ({ success: false }),
+  deleteUser: async () => ({ success: false }),
+  cancelOrder: async () => ({ success: false }),
+  deleteOrder: async () => ({ success: false }),
+
+  tables: [],
+  allTables: [],
+  historyData: [],
+  products: [],
+  allProducts: [],
+  categories: [],
+  allCategories: [],
+  usersList: [],
+  allUsers: [],
+  auditLogs: [],
+  onlineOrders: [],
+  cashShifts: [],
+  loading: true,
+  historyLoaded: false,
+  refreshAll: () => {},
+});
+
+// Helper to strip heavy base64 strings from history items to optimize memory & render speed
+/**
+ * Xác định mã chi nhánh để GHI dữ liệu. Không còn mặc định ngầm về TRAM01:
+ * nếu đang ở chế độ "ALL" hoặc không có chi nhánh thì báo lỗi để người dùng chọn chi nhánh cụ thể.
+ */
+export function resolveWriteStoreCode(code?: string | null): string {
+  const clean = (code || "").trim();
+  if (!clean || clean === "ALL") {
+    throw new Error("Vui lòng chọn một chi nhánh cụ thể trước khi thực hiện thao tác này.");
+  }
+  return clean;
+}
+
+/** Đọc nhật ký thao tác của bàn (ưu tiên actionLogsJson, fallback mảng actionLogs) */
+function parseActionLogs(table: TableItem): OrderActionLog[] {
+  if (table.actionLogsJson) {
+    try {
+      const p = JSON.parse(table.actionLogsJson);
+      if (Array.isArray(p)) return p as OrderActionLog[];
+    } catch {
+      // JSON hỏng — bỏ qua nhật ký cũ, không chặn thanh toán
+    }
+  } else if (Array.isArray(table.actionLogs)) {
+    return [...table.actionLogs];
+  }
+  return [];
+}
+
+function sanitizeHistoryOrder(raw: RtdbNode, id: string): HistoryOrder {
+  const mapItem = (it: RtdbNode): OrderItem => {
+    // Bỏ ảnh base64 (nặng) khỏi dòng món lịch sử
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { imageBase64, ...rest } = it;
+    return {
+      ...rest,
+      price: Number(rest.price || 0),
+      quantity: Number(rest.quantity || rest.count || 1),
+      costPrice: rest.costPrice != null ? Number(rest.costPrice) : (rest.unitCost != null ? Number(rest.unitCost) : 0),
+      unitCost: rest.unitCost != null ? Number(rest.unitCost) : (rest.costPrice != null ? Number(rest.costPrice) : 0),
+      lineCostPrice: rest.lineCostPrice != null ? Number(rest.lineCostPrice) : undefined,
+      lineGrossAmount: rest.lineGrossAmount != null ? Number(rest.lineGrossAmount) : undefined,
+      lineTotal: rest.lineTotal != null ? Number(rest.lineTotal) : undefined,
+      discountAmount: Number(rest.discountAmount || 0),
+    };
+  };
+
+  let items: OrderItem[] = [];
+  if (Array.isArray(raw.items)) {
+    items = raw.items.map(mapItem);
+  } else if (raw.itemsJson) {
+    try {
+      const parsed = typeof raw.itemsJson === "string" ? JSON.parse(raw.itemsJson) : raw.itemsJson;
+      if (Array.isArray(parsed)) {
+        items = parsed.map(mapItem);
+      }
+    } catch {
+      items = [];
+    }
+  }
+
+  // Parse actionLogs
+  let actionLogs: OrderActionLog[] = [];
+  if (Array.isArray(raw.actionLogs)) {
+    actionLogs = raw.actionLogs;
+  } else if (raw.actionLogsJson) {
+    try {
+      const parsed = typeof raw.actionLogsJson === "string" ? JSON.parse(raw.actionLogsJson) : raw.actionLogsJson;
+      if (Array.isArray(parsed)) {
+        actionLogs = parsed;
+      }
+    } catch {
+      actionLogs = [];
+    }
+  }
+
+  // Determine orderStaff (Người nhận đơn / người nhận order)
+  let orderStaff = raw.orderStaff || "";
+  if (!orderStaff) {
+    const staffSet = new Set<string>();
+    items.forEach((it) => {
+      if (it.orderedByName) staffSet.add(it.orderedByName);
+    });
+    if (staffSet.size > 0) {
+      orderStaff = Array.from(staffSet).join(", ");
+    } else {
+      orderStaff = raw.staffFullName || raw.creatorName || raw.username || "Nhân viên Order";
+    }
+  }
+
+  // Determine cashierName (Người thanh toán / thu ngân)
+  const cashierName = raw.cashierName || raw.staffFullName || raw.username || raw.createdBy || "Thu ngân";
+
+  // If actionLogs is empty, synthesize realistic logs based on order info for seamless display
+  if (actionLogs.length === 0) {
+    const timeCreated = raw.createdAt || raw.timestamp || Date.now();
+    const timeClosed = raw.closedAt || raw.timestamp || Date.now();
+    actionLogs = [
+      {
+        timestamp: timeCreated,
+        staffFullName: orderStaff,
+        action: "ADD_ITEMS",
+        details: `${orderStaff} tạo order & nhận ${items.length || 1} món (${items.map((it) => it.name).join(", ") || "Order bàn"})`,
+      },
+      {
+        timestamp: timeClosed,
+        staffFullName: cashierName,
+        action: "PAY_BILL",
+        details: `${cashierName} thanh toán hóa đơn ${new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(Number(raw.totalAmount || raw.finalAmount) || 0)} (${raw.paymentMethod || "Tiền mặt"})`,
+      },
+    ];
+  }
+
+  // Không đoán mã chi nhánh — nơi gọi sẽ gán theo nút stores/{storeCode} chứa hóa đơn
+  const storeCode: string | undefined = raw.storeCode || undefined;
+  const subTotal = Number(raw.subTotal != null ? raw.subTotal : (raw.totalAmount || 0));
+  const finalAmount = Number(raw.finalAmount != null ? raw.finalAmount : (raw.totalAmount || 0));
+  const totalAmount = finalAmount;
+  const totalDiscount = Number(raw.totalDiscount != null ? raw.totalDiscount : (raw.discountAmount || 0));
+  const discountAmount = totalDiscount;
+  const vatAmount = Number(raw.vatAmount || 0);
+  const vatRate = Number(raw.vatRate || 0);
+  const pointsDiscount = Number(raw.pointsDiscount || 0);
+  const pointsUsed = Number(raw.pointsUsed || 0);
+  // refundAmount / cogs giữ undefined khi thiếu để báo cáo tự suy ra (từ finalAmount / giá vốn từng món)
+  const refundAmount = raw.refundAmount != null ? Number(raw.refundAmount) : undefined;
+  const guestCount = Number(raw.guestCount || 0);
+  const cogs = raw.cogs != null ? Number(raw.cogs) : undefined;
+
+  return {
+    ...raw,
+    id,
+    storeCode,
+    items,
+    totalAmount,
+    finalAmount,
+    subTotal,
+    totalDiscount,
+    discountAmount,
+    vatAmount,
+    vatRate,
+    pointsDiscount,
+    pointsUsed,
+    refundAmount,
+    guestCount,
+    cogs,
+    orderStaff,
+    cashierName,
+    actionLogs,
+    itemsJson: undefined,
+  };
+}
+
+export function DashboardDataProvider({ children }: { children: React.ReactNode }) {
+  // Người đang đăng nhập — dùng chốt chặn quyền hủy/xóa hóa đơn (CANCEL_BILL) ở tầng xử lý, ngoài UI và rules
+  const { user: actingUser } = useAuth();
+  // Store management state
+  // Store management state: hydrat hóa từ sessionStorage để render tức thì 0ms không nháy trắng
+  const [stores, setStores] = useState<StoreItem[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const cached = sessionStorage.getItem("tram_cached_stores");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+  const [currentStoreCode, setCurrentStoreCodeState] = useState<string>(() => {
+    if (typeof window === "undefined") return "ALL";
+    try {
+      return sessionStorage.getItem("tram_current_store") || "ALL";
+    } catch {
+      return "ALL";
+    }
+  });
+
+  const setCurrentStoreCode = useCallback((code: string) => {
+    setCurrentStoreCodeState(code);
+    try {
+      sessionStorage.setItem("tram_current_store", code);
+    } catch {}
+  }, []);
+
+  // Pre-load from sessionStorage for instant (0ms) render if available
+  const [rawTables, setRawTables] = useState<Record<string, TableItem[]>>({});
+  const [allHistory, setAllHistory] = useState<HistoryOrder[]>([]);
+  const [rawProductsMap, setRawProductsMap] = useState<Record<string, ProductItem[]>>({});
+  const [rawCategoriesMap, setRawCategoriesMap] = useState<Record<string, CategoryItem[]>>({});
+  const [rawUsersMap, setRawUsersMap] = useState<Record<string, UserItem[]>>({});
+  const [rawAuditLogs, setRawAuditLogs] = useState<AuditLogItem[]>([]);
+  const [onlineOrders, setOnlineOrders] = useState<OnlineOrderItem[]>([]);
+  const [rawCashShifts, setRawCashShifts] = useState<Record<string, CashShiftItem[]>>({});
+
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const cached = sessionStorage.getItem("tram_cached_stores");
+      if (cached && JSON.parse(cached).length > 0) return false;
+    } catch {}
+    return true;
+  });
+  const [historyLoaded, setHistoryLoaded] = useState<boolean>(false);
+
+  // Xử lý dữ liệu gom từ các chi nhánh được cấp quyền
+  const processStoreDataMap = useCallback((dataMap: Record<string, RtdbNode>) => {
+    const entries = Object.entries(dataMap);
+    if (entries.length === 0) {
+      // Fallback default store nếu chưa có dữ liệu chi nhánh và chưa có cache
+      setStores((prev) =>
+        prev.length > 0
+          ? prev
+          : [
+              {
+                id: "TRAM01",
+                storeCode: "TRAM01",
+                storeName: "POS Trạm - Trụ sở 01 (Đà Lạt)",
+                address: "Số 123 Đường Ba Tháng Tư, Phường 3, TP. Đà Lạt",
+                phone: "0987654321",
+                bankId: "MB",
+                bankAccount: "0987654321",
+                accountName: "CHU CUA HANG TRAM FNB",
+                defaultVatRate: 0,
+                allowStackPromotions: true,
+                allowStaffViewShiftDifference: true,
+                active: true,
+              },
+            ]
+      );
+      setAllHistory([]);
+      setHistoryLoaded(true);
+      setRawAuditLogs([]);
+      setOnlineOrders([]);
+      setRawTables({});
+      setRawCashShifts({});
+      setRawProductsMap({});
+      setRawCategoriesMap({});
+      setRawUsersMap({});
+      setLoading(false);
+      return;
+    }
+
+    const list: StoreItem[] = [];
+    const shiftsMap: Record<string, CashShiftItem[]> = {};
+    const prodsMap: Record<string, ProductItem[]> = {};
+    const catsMap: Record<string, CategoryItem[]> = {};
+    const usersMap: Record<string, UserItem[]> = {};
+    const branchTablesMap: Record<string, TableItem[]> = {};
+    const historyList: HistoryOrder[] = [];
+    const logsList: AuditLogItem[] = [];
+    const onlineList: OnlineOrderItem[] = [];
+
+    entries.forEach(([code, val]: [string, RtdbNode]) => {
+      if (!val) return;
+      const info = val.storeInfo || val;
+      list.push({
+        id: code,
+        storeCode: code,
+        storeName: info.storeName || `POS Trạm (${code})`,
+        address: info.address || "",
+        phone: info.phone || "",
+        wifiName: info.wifiName || "",
+        bankId: info.bankId || "MB",
+        bankAccount: info.bankAccount || "",
+        accountName: info.accountName || "CHU QUAN FNB",
+        defaultVatRate: (info.defaultVatRate === 8 || info.defaultVatRate === "8") ? 0 : (typeof info.defaultVatRate === "number" ? info.defaultVatRate : 0),
+        allowStackPromotions: info.allowStackPromotions ?? true,
+        allowStaffViewShiftDifference: info.allowStaffViewShiftDifference ?? true,
+        // Cấu hình tích / đổi điểm (trang Khách hàng)
+        pointEarnRate: typeof info.pointEarnRate === "number" ? info.pointEarnRate : undefined,
+        pointRedeemRate: typeof info.pointRedeemRate === "number" ? info.pointRedeemRate : undefined,
+        loyaltyTiers: normalizeTiers(info.loyaltyTiers),
+        sharedLoyalty: parseSharedLoyalty(info.sharedLoyalty),
+        active: info.active ?? true,
+        createdAt: info.createdAt || Date.now(),
+      });
+
+      // Một chi nhánh có dữ liệu lạ KHÔNG được làm hỏng cả danh sách chi nhánh / các chi nhánh khác
+      try {
+        if (info.defaultVatRate === 8 || info.defaultVatRate === "8") {
+          update(ref(db, `stores/${code}/storeInfo`), { defaultVatRate: 0 }).catch(() => {});
+        }
+
+        if (val.cash_shifts) {
+          const sList: CashShiftItem[] = [];
+          Object.entries(val.cash_shifts).forEach(([id, s]: [string, RtdbNode]) => {
+            sList.push({
+              ...s,
+              id,
+              storeCode: s.storeCode || code,
+            });
+          });
+          shiftsMap[code] = sList;
+        }
+
+        if (val.products) {
+          const pList: ProductItem[] = [];
+          Object.entries(val.products).forEach(([id, p]: [string, RtdbNode]) => {
+            pList.push({
+              ...p,
+              id,
+              price: Number(p.price || 0),
+              costPrice: p.costPrice != null ? Number(p.costPrice) : 0,
+              storeCode: code,
+              storeName: info.storeName || code,
+            });
+          });
+          prodsMap[code] = pList;
+        }
+
+        if (val.categories) {
+          const cList: CategoryItem[] = [];
+          Object.entries(val.categories).forEach(([id, c]: [string, RtdbNode]) => {
+            cList.push({
+              id,
+              name: typeof c === "string" ? c : (c.name || id),
+              allowedToppingIds: typeof c === "object" && c !== null && Array.isArray(c.allowedToppingIds) ? c.allowedToppingIds : [],
+              noteGroupIds: typeof c === "object" && c !== null ? parseGroupIds(c.noteGroupIds) : undefined,
+              toppingGroupIds: typeof c === "object" && c !== null ? parseGroupIds(c.toppingGroupIds) : undefined,
+              order: typeof c === "object" && c !== null && typeof c.order === "number" ? c.order : undefined,
+              storeCode: code,
+            });
+          });
+          catsMap[code] = sortCategories(cList);
+        }
+
+        if (val.users) {
+          const uList: UserItem[] = [];
+          Object.entries(val.users).forEach(([id, u]: [string, RtdbNode]) => {
+            const uName = u.username || id;
+            uList.push({
+              ...u,
+              id: uName,
+              // Mã tài khoản thật (khóa nút / trường uid) — `id` ở trên chỉ là tên đăng nhập để hiển thị
+              uid: resolveStaffUid(id, u),
+              nodeKey: id,
+              username: uName,
+              fullName: u.fullName || u.name || uName,
+              role: u.roleId || u.role || "ROLE_STAFF",
+              roleId: u.roleId || u.role || "ROLE_STAFF",
+              phone: u.phone || "",
+              password: u.password || "",
+              isActive: u.isActive !== false,
+              isRootOwner: u.isRootOwner === true || (u.roleId || u.role || "").toUpperCase().includes("OWNER"),
+              storeCode: u.storeCode || code,
+              storeName: info.storeName || code,
+            });
+          });
+          usersMap[code] = uList;
+        }
+
+        if (val.tables) {
+          const tArr: TableItem[] = [];
+          Object.entries(val.tables).forEach(([id, v]: [string, RtdbNode]) => {
+            tArr.push({
+              ...v,
+              id,
+              storeCode: code,
+              storeName: info.storeName || code,
+              inUse: Boolean(v.inUse),
+            });
+          });
+          branchTablesMap[code] = tArr;
+        }
+
+        // Đọc cả history (bản chốt, có thể chỉ tóm tắt) lẫn bills (bản đầy đủ từ Flutter) rồi gộp theo id
+        if (val.history || val.bills) {
+          mergeHistoryAndBills(val.history, val.bills).forEach(([id, v]) => {
+            const sanitized = sanitizeHistoryOrder(v, id);
+            sanitized.storeCode = sanitized.storeCode || code;
+            sanitized.storeName = sanitized.storeName || info.storeName || code;
+            historyList.push(sanitized);
+          });
+        }
+
+        if (val.audit_logs) {
+          Object.entries(val.audit_logs).forEach(([id, v]: [string, RtdbNode]) => {
+            logsList.push({
+              ...v,
+              id,
+              storeCode: v.storeCode || code,
+              storeName: v.storeName || info.storeName || code,
+            });
+          });
+        }
+
+        if (val.online_orders) {
+          Object.entries(val.online_orders).forEach(([id, v]: [string, RtdbNode]) => {
+            onlineList.push({
+              ...v,
+              id,
+              storeCode: v.storeCode || code,
+              storeName: v.storeName || info.storeName || code,
+            });
+          });
+        }
+      } catch (err) {
+        console.warn(`[data-context] Bỏ qua dữ liệu lỗi của chi nhánh ${code}:`, err);
+      }
+    });
+
+    list.sort((a, b) => a.storeCode.localeCompare(b.storeCode));
+    if (list.length > 0) {
+      setStores(list);
+      try {
+        sessionStorage.setItem("tram_cached_stores", JSON.stringify(list));
+      } catch {}
+    }
+    setRawCashShifts(shiftsMap);
+    setRawProductsMap(prodsMap);
+    setRawCategoriesMap(catsMap);
+    setRawUsersMap(usersMap);
+    setRawTables(branchTablesMap);
+
+    const hasHistoryData = historyList.length > 0 || entries.some(([_, v]) => v?.history || v?.bills);
+    const dedupedHistory = deduplicateBills(historyList);
+    dedupedHistory.sort((a, b) => {
+      const ta = typeof a.timestamp === "number" ? a.timestamp : new Date(a.timestamp || 0).getTime();
+      const tb = typeof b.timestamp === "number" ? b.timestamp : new Date(b.timestamp || 0).getTime();
+      return tb - ta;
+    });
+    setAllHistory(dedupedHistory);
+    if (hasHistoryData) {
+      setHistoryLoaded(true);
+    }
+
+    logsList.sort((a, b) => {
+      const ta = typeof a.timestamp === "number" ? a.timestamp : new Date(a.timestamp || 0).getTime();
+      const tb = typeof b.timestamp === "number" ? b.timestamp : new Date(b.timestamp || 0).getTime();
+      return tb - ta;
+    });
+    setRawAuditLogs(logsList);
+    setOnlineOrders(onlineList);
+    setLoading(false);
+  }, []);
+
+  // Bộ hẹn giờ an toàn: Đảm bảo không bao giờ bị kẹt spinner loading vô tận
+  useEffect(() => {
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+      setHistoryLoaded(true);
+    }, 2000);
+    return () => clearTimeout(safetyTimer);
+  }, []);
+
+  // 1. Lắng nghe đa chi nhánh theo đúng phân quyền RBAC (stores/$storeCode)
+  // Progressive streaming: Cập nhật ngay từng phần khi từng nút con trả về, không chặn lẫn nhau
+  useEffect(() => {
+    let isMounted = true;
+    const storeListeners = new Map<string, () => void>();
+    const storeDataMap: Record<string, RtdbNode> = {};
+
+    let processScheduled = false;
+    function scheduleProcess() {
+      if (processScheduled) return;
+      processScheduled = true;
+      queueMicrotask(() => {
+        processScheduled = false;
+        if (!isMounted) return;
+        processStoreDataMap(storeDataMap);
+      });
+    }
+
+    function updateStoreSubscriptions(storeCodes: string[]) {
+      const uniqueCodes = Array.from(new Set(storeCodes.filter(Boolean)));
+      if (uniqueCodes.length === 0) {
+        uniqueCodes.push("TRAM01");
+      }
+
+      // 1. Hủy lắng nghe các store không còn trong danh sách
+      for (const [code, unsub] of storeListeners.entries()) {
+        if (!uniqueCodes.includes(code)) {
+          unsub();
+          storeListeners.delete(code);
+          delete storeDataMap[code];
+        }
+      }
+
+      // 2. Thêm listener cho các store mới.
+      // Dùng progressive streaming: Mỗi node khi nhận dữ liệu sẽ cập nhật ngay vào storeDataMap
+      // và kích hoạt scheduleProcess() mà không phải đợi tất cả các node khác.
+      uniqueCodes.forEach((code) => {
+        if (!storeListeners.has(code)) {
+          const nodes: RtdbNode = storeDataMap[code] || {};
+
+          const publishChild = (child: string, val: unknown) => {
+            if (!isMounted) return;
+            if (val !== undefined && val !== null) {
+              nodes[child] = val;
+            } else {
+              delete nodes[child];
+            }
+            if (Object.keys(nodes).length > 0) {
+              storeDataMap[code] = { ...nodes };
+            } else {
+              delete storeDataMap[code];
+            }
+            scheduleProcess();
+          };
+
+          const unsubs = STORE_CHILD_NODES.map((child) => {
+            // Giới hạn 150 mục mới nhất cho history và audit_logs để tránh tải hàng chục MB ảnh base64 qua WebSocket
+            const queryRef =
+              child === "history"
+                ? query(ref(db, `stores/${code}/${child}`), limitToLast(150))
+                : child === "audit_logs"
+                ? query(ref(db, `stores/${code}/${child}`), limitToLast(150))
+                : ref(db, `stores/${code}/${child}`);
+
+            return onValue(
+              queryRef,
+              (snap) => {
+                publishChild(child, snap.exists() ? snap.val() : null);
+              },
+              (error) => {
+                if (!isMounted) return;
+                console.warn(`[data-context] Không thể đọc stores/${code}/${child}:`, error.message);
+                publishChild(child, null);
+              }
+            );
+          });
+
+          storeListeners.set(code, () => {
+            unsubs.forEach((u) => u());
+          });
+        }
+      });
+      scheduleProcess();
+    }
+
+    let unsubUserIndex: (() => void) | null = null;
+
+    const unsubAuth = onAuthStateChanged(auth, (fbUser) => {
+      if (!isMounted) return;
+
+      if (unsubUserIndex) {
+        unsubUserIndex();
+        unsubUserIndex = null;
+      }
+
+      if (!fbUser) {
+        for (const unsub of storeListeners.values()) {
+          unsub();
+        }
+        storeListeners.clear();
+        for (const code of Object.keys(storeDataMap)) delete storeDataMap[code];
+        processStoreDataMap({});
+        return;
+      }
+
+      // Khởi tạo ngay chi nhánh mặc định/đã lưu để UI tải lập tức (0ms) không cần đợi userIndex roundtrip
+      const savedStore = typeof window !== "undefined" ? sessionStorage.getItem("tram_current_store") : null;
+      updateStoreSubscriptions(savedStore && savedStore !== "ALL" ? [savedStore, "TRAM01"] : ["TRAM01"]);
+
+      // Đăng nhập: Đọc userIndex/{uid} để lấy danh sách cửa hàng được cấp quyền
+      const userIndexRef = ref(db, `userIndex/${fbUser.uid}`);
+      unsubUserIndex = onValue(
+        userIndexRef,
+        (indexSnap) => {
+          if (!isMounted) return;
+          const userIndexStores = indexSnap.exists() ? Object.keys(indexSnap.val() || {}) : [];
+          const candidateStores = userIndexStores.length > 0 ? userIndexStores : ["TRAM01"];
+          updateStoreSubscriptions(candidateStores);
+          // Chi nhánh được cấp quyền luôn có mặt trong danh sách chọn, kể cả khi dữ liệu còn đang tải (tên thật được cập nhật sau)
+          setStores((prev) => {
+            const have = new Set(prev.map((x) => x.storeCode));
+            const missing = candidateStores.filter((c) => !have.has(c));
+            if (missing.length === 0) return prev;
+            const extra: StoreItem[] = missing.map((c) => ({
+              id: c,
+              storeCode: c,
+              storeName: `POS Trạm (${c})`,
+              address: "",
+              phone: "",
+              bankId: "MB",
+              bankAccount: "",
+              accountName: "",
+              defaultVatRate: 0,
+              allowStackPromotions: true,
+              allowStaffViewShiftDifference: true,
+              active: true,
+            }));
+            return [...prev, ...extra].sort((a, b) => a.storeCode.localeCompare(b.storeCode));
+          });
+        },
+        (error) => {
+          if (!isMounted) return;
+          console.warn("[data-context] Không thể đọc userIndex:", error.message);
+          updateStoreSubscriptions(["TRAM01"]);
+        }
+      );
+    });
+
+    return () => {
+      isMounted = false;
+      unsubAuth();
+      if (unsubUserIndex) unsubUserIndex();
+      for (const unsub of storeListeners.values()) {
+        unsub();
+      }
+      storeListeners.clear();
+    };
+  }, [processStoreDataMap]);
+
+  // Compute allTables (Flattened from all branches)
+  const allTables = useMemo(() => {
+    const map = new Map<string, TableItem>();
+    const tram01Tables = rawTables["TRAM01"] || [];
+    // Khóa gộp gồm cả khu: hai khu khác nhau có thể cùng tên bàn (vd. "Grab"); cùng khu + tên thì chỉ giữ một (ưu tiên bàn đang dùng)
+    const put = (sCode: string, t: TableItem) => {
+      const k = `${sCode}_${t.zone || ""}_${t.name}`;
+      const cur = map.get(k);
+      if (!cur || (!cur.inUse && t.inUse)) map.set(k, { ...t, storeCode: sCode });
+    };
+    tram01Tables.forEach((t) => put("TRAM01", t));
+
+    Object.entries(rawTables).forEach(([sCode, tList]) => {
+      if (sCode !== "TRAM01") {
+        tList.forEach((t) => put(sCode, t));
+      }
+    });
+
+    const list = Array.from(map.values());
+    list.sort((a, b) => {
+      if (a.storeCode !== b.storeCode) return (a.storeCode || "").localeCompare(b.storeCode || "");
+      if (a.zone !== b.zone) return (a.zone || "").localeCompare(b.zone || "");
+      return (a.name || "").localeCompare(b.name || "", undefined, { numeric: true });
+    });
+    return list;
+  }, [rawTables]);
+
+  // Compute scoped tables based on currentStoreCode
+  const scopedTables = useMemo(() => {
+    if (currentStoreCode === "ALL") return allTables;
+    return allTables.filter((t) => t.storeCode === currentStoreCode);
+  }, [allTables, currentStoreCode]);
+
+  // Compute scoped history based on currentStoreCode
+  const scopedHistory = useMemo(() => {
+    if (currentStoreCode === "ALL") return allHistory;
+    return allHistory.filter((o) => {
+      const code = o.storeCode || "TRAM01";
+      return code === currentStoreCode;
+    });
+  }, [allHistory, currentStoreCode]);
+
+  // Compute scoped audit logs
+  const scopedAuditLogs = useMemo(() => {
+    if (currentStoreCode === "ALL") return rawAuditLogs;
+    return rawAuditLogs.filter((l) => {
+      if (l.storeCode) return l.storeCode === currentStoreCode;
+      // If no storeCode, default to TRAM01
+      return currentStoreCode === "TRAM01";
+    });
+  }, [rawAuditLogs, currentStoreCode]);
+
+  // Compute scoped cash shifts
+  const allCashShifts = useMemo(() => {
+    const list: CashShiftItem[] = [];
+    Object.values(rawCashShifts).forEach((shifts) => {
+      list.push(...shifts);
+    });
+    list.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+    return list;
+  }, [rawCashShifts]);
+
+  const scopedCashShifts = useMemo(() => {
+    const byStore =
+      currentStoreCode === "ALL"
+        ? allCashShifts
+        : allCashShifts.filter((s) => (s.storeCode || "TRAM01") === currentStoreCode);
+    // Ca/két độc lập theo tài khoản: tài khoản không có VIEW_ALL_SHIFTS chỉ thấy ca của chính mình
+    return scopeShifts(
+      byStore,
+      { uid: actingUser?.uid, username: actingUser?.username },
+      hasPermission(actingUser, "VIEW_ALL_SHIFTS"),
+    );
+  }, [allCashShifts, currentStoreCode, actingUser]);
+
+  // Compute products across all stores and scoped to currentStoreCode
+  const allProducts = useMemo(() => {
+    const list: ProductItem[] = [];
+    Object.values(rawProductsMap).forEach((pList) => {
+      pList.forEach((p) => {
+        list.push(p);
+      });
+    });
+    list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    return list;
+  }, [rawProductsMap]);
+
+  const scopedProducts = useMemo(() => {
+    if (currentStoreCode === "ALL") return allProducts;
+    return allProducts.filter((p) => p.storeCode === currentStoreCode);
+  }, [allProducts, currentStoreCode]);
+
+  // Compute categories across all stores and scoped to currentStoreCode
+  const allCategories = useMemo(() => {
+    const list: CategoryItem[] = [];
+    Object.values(rawCategoriesMap).forEach((cList) => {
+      cList.forEach((c) => {
+        list.push(c);
+      });
+    });
+    return list;
+  }, [rawCategoriesMap]);
+
+  const scopedCategories = useMemo(() => {
+    if (currentStoreCode === "ALL") {
+      const map = new Map<string, CategoryItem>();
+      allCategories.forEach((c) => {
+        if (c.name && !map.has(c.name)) {
+          map.set(c.name, c);
+        }
+      });
+      return sortCategories(Array.from(map.values()));
+    }
+    return sortCategories(allCategories.filter((c) => c.storeCode === currentStoreCode));
+  }, [allCategories, currentStoreCode]);
+
+  // Compute users across all stores and scoped to currentStoreCode
+  const allUsers = useMemo(() => {
+    const list: UserItem[] = [];
+    const seen = new Set<string>();
+
+    // Add store-scoped users
+    Object.entries(rawUsersMap).forEach(([code, uList]) => {
+      uList.forEach((u) => {
+        const uName = (u.username || u.id || "").toLowerCase().trim();
+        const key = `${code}_${uName}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            ...u,
+            id: u.id || uName,
+            username: u.username || uName,
+            storeCode: code,
+            isActive: u.isActive !== false,
+          });
+        }
+      });
+    });
+
+    list.sort((a, b) => (a.fullName || a.username || "").localeCompare(b.fullName || b.username || ""));
+    return list;
+  }, [rawUsersMap]);
+
+  const scopedUsers = useMemo(() => {
+    if (currentStoreCode === "ALL") return allUsers;
+    return allUsers.filter((u) => u.storeCode === currentStoreCode || u.isRootOwner);
+  }, [allUsers, currentStoreCode]);
+
+  // Compute store stats (tables count, in-use count, orders count, total revenue)
+  const enrichedStores = useMemo(() => {
+    return stores.map((s) => {
+      const sTables = allTables.filter((t) => t.storeCode === s.storeCode);
+      const sOrders = allHistory.filter((o) => (o.storeCode || "TRAM01") === s.storeCode);
+      const totalRev = sOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+      return {
+        ...s,
+        totalTables: sTables.length,
+        inUseTables: sTables.filter((t) => t.inUse).length,
+        totalOrders: sOrders.length,
+        totalRevenue: totalRev,
+      };
+    });
+  }, [stores, allTables, allHistory]);
+
+  const currentStore = useMemo(() => {
+    if (currentStoreCode === "ALL") return undefined;
+    return enrichedStores.find((s) => s.storeCode === currentStoreCode);
+  }, [enrichedStores, currentStoreCode]);
+
+  // Store Management Actions
+  const createStore = useCallback(async (storeData: Partial<StoreItem>, copyMenuFrom?: string) => {
+    try {
+      // Tạo chi nhánh qua Cloud Function (máy chủ ghi storeInfo/khu/bàn/userIndex/hồ sơ chủ quán + nhật ký
+      // trong MỘT lần ghi; client không ghi trực tiếp vì rules chặn chi nhánh chưa có quyền).
+      const payload = buildCreateStorePayload(storeData);
+      if (!payload.storeCode) return { success: false, error: "Mã chi nhánh không được để trống và chỉ gồm chữ cái, số." };
+      await httpsCallable<CreateStorePayload, { success: boolean; storeCode: string }>(functions, "createStore")(payload);
+      const cleanCode = payload.storeCode;
+
+      // Sao chép thực đơn từ chi nhánh khác (cùng thư viện với màn Thực đơn → Sao chép thực đơn).
+      // Chạy sau khi máy chủ trả về: chủ quán đã có quyền ghi trên chi nhánh mới.
+      if (copyMenuFrom) {
+        const copied = await copyWholeMenu(db, copyMenuFrom.trim().toUpperCase(), cleanCode, { username: "admin", role: "MANAGER" });
+        if (!copied.ok) {
+          return { success: false, error: `Đã tạo chi nhánh nhưng sao chép thực đơn lỗi: ${copied.error}` };
+        }
+      }
+
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: errorMessage(e) || "Lỗi khi tạo chi nhánh mới." };
+    }
+  }, []);
+
+  const updateStore = useCallback(async (storeCode: string, data: Partial<StoreItem>) => {
+    try {
+      const storeRefNode = ref(db, `stores/${storeCode}/storeInfo`);
+      await update(storeRefNode, data);
+
+      const logEntry = {
+        action: "UPDATE_STORE",
+        targetType: "STORE",
+        targetId: storeCode,
+        details: `Cập nhật thông tin chi nhánh: ${data.storeName || storeCode}`,
+        timestamp: Date.now(),
+        userRole: "MANAGER",
+        username: "admin",
+      };
+      await set(ref(db, `stores/${storeCode}/audit_logs/LOG_${Date.now()}`), logEntry);
+
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: errorMessage(e) || "Lỗi khi cập nhật chi nhánh." };
+    }
+  }, []);
+
+  const deleteStore = useCallback(async (storeCode: string) => {
+    try {
+      // Soft disable store
+      const storeRefNode = ref(db, `stores/${storeCode}/storeInfo`);
+      await update(storeRefNode, { active: false });
+
+      const logEntry = {
+        action: "DEACTIVATE_STORE",
+        targetType: "STORE",
+        targetId: storeCode,
+        details: `Tạm dừng hoạt động chi nhánh: ${storeCode}`,
+        timestamp: Date.now(),
+        userRole: "MANAGER",
+        username: "admin",
+      };
+      await set(ref(db, `stores/${storeCode}/audit_logs/LOG_${Date.now()}`), logEntry);
+
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: errorMessage(e) || "Lỗi khi xóa chi nhánh." };
+    }
+  }, []);
+
+  const updateStoreShiftDifferenceSetting = useCallback(
+    async (storeCode: string, allow: boolean) => {
+      try {
+        const targetCode = storeCode === "ALL" ? resolveWriteStoreCode(stores[0]?.storeCode) : resolveWriteStoreCode(storeCode);
+        const storeRefNode = ref(db, `stores/${targetCode}/storeInfo`);
+        await update(storeRefNode, { allowStaffViewShiftDifference: allow });
+
+        const logEntry = {
+          action: "UPDATE_STORE_SETTING",
+          targetType: "STORE",
+          targetId: targetCode,
+          details: `Cập nhật cấu hình xem chênh lệch két tiền nhân viên: ${allow ? "BẬT" : "TẮT"}`,
+          timestamp: Date.now(),
+          userRole: "MANAGER",
+          username: "admin",
+        };
+        await set(ref(db, `stores/${targetCode}/audit_logs/LOG_${Date.now()}`), logEntry);
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi khi cập nhật cấu hình két tiền." };
+      }
+    },
+    [stores]
+  );
+
+  // Table operations (multi-store aware)
+  // Thanh toán / hủy đơn được ghi bằng MỘT lệnh update() đa đường dẫn (bills + history + bàn + audit log)
+  // để không bao giờ xảy ra trạng thái nửa vời (đã ghi hóa đơn nhưng bàn chưa trả, hoặc ngược lại).
+  // Chỉ ghi vào khóa bàn chuẩn {zone}_{name} nếu nút đó thực sự tồn tại (tránh tạo bàn "ma")
+  const tableKeysFor = useCallback(
+    (targetStoreCode: string, table: TableItem): string[] => {
+      const stdKey = `${table.zone}_${table.name}`;
+      const storeTables = rawTables[targetStoreCode] || [];
+      const keys = [table.id];
+      if (stdKey !== table.id && storeTables.some((t) => t.id === stdKey)) keys.push(stdKey);
+      return keys;
+    },
+    [rawTables]
+  );
+
+  const buildTableFieldUpdates = useCallback(
+    (targetStoreCode: string, table: TableItem, payload: Record<string, unknown>) => {
+      const updates: Record<string, unknown> = {};
+      for (const key of tableKeysFor(targetStoreCode, table)) {
+        for (const [field, value] of Object.entries(payload)) {
+          updates[`stores/${targetStoreCode}/tables/${key}/${field}`] = value;
+        }
+      }
+      return updates;
+    },
+    [tableKeysFor]
+  );
+
+  const buildCloseTableUpdates = useCallback(
+    (targetStoreCode: string, table: TableItem, prefix: Record<string, unknown>) => {
+      const clearPayload: Record<string, unknown> = {
+        inUse: false,
+        currentOrderJson: "",
+        guestCount: 0,
+        openedAt: null,
+        currentBillId: null,
+        currentOrderCode: null,
+        mergedIntoTable: null,
+        actionLogsJson: null,
+        deletedItemsJson: null,
+        ...CLEAR_PRE_PRINT,
+        ...CLEAR_TABLE_CUSTOMER,
+      };
+      const updates: Record<string, unknown> = { ...prefix };
+      for (const key of tableKeysFor(targetStoreCode, table)) {
+        for (const [field, value] of Object.entries(clearPayload)) {
+          updates[`stores/${targetStoreCode}/tables/${key}/${field}`] = value;
+        }
+      }
+      return { updates, clearPayload };
+    },
+    [tableKeysFor]
+  );
+
+  /** Món đã xóa của bàn — đọc từ server (tránh bản cục bộ cũ), lỗi thì dùng bản cục bộ */
+  const readTableDeletedItems = useCallback(async (targetStoreCode: string, table: TableItem): Promise<DeletedItemEntry[]> => {
+    try {
+      const snap = await get(ref(db, `stores/${targetStoreCode}/tables/${table.id}/deletedItemsJson`));
+      return parseDeletedItems(snap.exists() ? snap.val() : null);
+    } catch {
+      return parseDeletedItems(table.deletedItemsJson);
+    }
+  }, []);
+
+  const applyClosedTableLocally = useCallback(
+    (targetStoreCode: string, table: TableItem, clearPayload: Record<string, unknown>) => {
+      setRawTables((prev) => {
+        const next = { ...prev };
+        const updateList = (list: TableItem[]) =>
+          list.map((t) => (t.id === table.id || t.name === table.name ? { ...t, ...clearPayload } : t));
+        if (next[targetStoreCode]) next[targetStoreCode] = updateList(next[targetStoreCode]);
+        return next;
+      });
+    },
+    []
+  );
+
+  const checkoutAndFreeTable = useCallback(
+    async (
+      table: TableItem,
+      options?: {
+        paymentMethod?: "CASH" | "TRANSFER";
+        staffName?: string;
+        discountAmount?: number;
+        promotions?: AppliedDiscount[];
+        customerId?: string | null;
+        pointsUsed?: number;
+        pointRedeemRate?: number;
+      }
+    ): Promise<{ success: boolean; billId?: string; billCode?: string; customerId?: string; error?: string }> => {
+      let reservations: PromotionReservation[] = [];
+      let redeemed: { storeCode: string; customerId: string; billId: string; points: number } | null = null;
+      let reservedStore = "";
+      try {
+        const targetStoreCode = table.storeCode || resolveWriteStoreCode(currentStoreCode);
+        const targetStore = stores.find((s) => s.storeCode === targetStoreCode) || currentStore;
+        const storeName =
+          targetStore?.storeName ||
+          `POS Trạm - Chi nhánh ${targetStoreCode}`;
+
+        const items = parseOrderJson(table.currentOrderJson);
+        if (items.length === 0) {
+          return { success: false, error: "Bàn chưa có món nào để thanh toán" };
+        }
+
+        const { subTotal, itemDiscounts } = summarizeOrderLines(items);
+        const promotions = (options?.promotions || []).filter((d) => Number(d.amount) > 0);
+        const promoTotal = promotions.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+        const customer = tableCustomerOf(table);
+        const customerId = options?.customerId || customer.customerId || "";
+        const redeemRate = options?.pointRedeemRate && options.pointRedeemRate > 0 ? options.pointRedeemRate : DEFAULT_REDEEM_VND;
+        const pointsUsed = customerId ? Math.max(0, Math.trunc(options?.pointsUsed || 0)) : 0;
+        const manualDiscount = Math.max(0, Number(options?.discountAmount || 0));
+        if (pointsUsed * redeemRate > Math.max(0, subTotal - itemDiscounts - manualDiscount - promoTotal)) {
+          return { success: false, error: "Số điểm dùng vượt quá số tiền cần thanh toán, vui lòng giảm số điểm." };
+        }
+        const { billDiscounts, totalDiscount, finalAmount, pointsDiscount } = computeBillAmounts({
+          subTotal,
+          itemDiscounts,
+          manualDiscount,
+          promoTotal,
+          pointsUsed,
+          redeemRate,
+        });
+        const paymentMethod = options?.paymentMethod || "CASH";
+        const cashierName = options?.staffName || "Quản trị viên Web";
+        const now = Date.now();
+        // Mã hóa đơn tuần tự HD-yyMMdd-NNNN dùng chung bộ đếm với Flutter POS
+        const billCode =
+          table.currentBillId && table.currentBillId.startsWith("HD-")
+            ? table.currentBillId
+            : await generateBillCode(db, targetStoreCode, now);
+        const billId = `bill_${now}_${Math.floor(Math.random() * 1000)}`;
+
+        const actionLogs = parseActionLogs(table);
+        actionLogs.push({
+          timestamp: now,
+          staffUsername: "admin_web",
+          staffFullName: cashierName,
+          action: "PAY_BILL",
+          details: `Thanh toán hóa đơn ${billCode} bàn ${table.name}: ${new Intl.NumberFormat("vi-VN").format(finalAmount)}đ (${paymentMethod === "CASH" ? "Tiền mặt" : "Chuyển khoản VietQR"}) qua Web Admin`,
+        });
+
+        const orderCode = table.currentOrderCode || billCode;
+
+        const historyBill: HistoryOrder = {
+          id: billId,
+          storeCode: targetStoreCode,
+          storeName: storeName,
+          billCode: billCode,
+          orderCode: orderCode,
+          tableName: table.name,
+          zone: table.zone || "Khu A",
+          guestCount: table.guestCount || 1,
+          totalAmount: finalAmount,
+          finalAmount: finalAmount,
+          subTotal: subTotal,
+          discountAmount: totalDiscount,
+          totalDiscount: totalDiscount,
+          itemDiscounts: itemDiscounts,
+          billDiscounts: billDiscounts,
+          ...(promotions.length > 0 ? { discounts: promotions } : {}),
+          ...customer,
+          ...(options?.customerId ? { customerId: options.customerId } : {}),
+          ...(pointsUsed > 0 ? { pointsUsed, pointsDiscount } : {}),
+          vatRate: 0,
+          vatAmount: 0,
+          paymentMethod: paymentMethod,
+          status: "PAID",
+          timestamp: now,
+          createdAt: table.openedAt ? new Date(table.openedAt).getTime() : now,
+          closedAt: now,
+          cashierName: cashierName,
+          staffUsername: "admin_web",
+          staffFullName: cashierName,
+          orderStaff: table.orderStaff || "POS Staff",
+          items: items as unknown as OrderItem[],
+          actionLogs: actionLogs,
+          ...billDeletionFields(await readTableDeletedItems(targetStoreCode, table)),
+        };
+
+        const rawHistoryMap = {
+          ...historyBill,
+          itemsJson: JSON.stringify(items),
+          actionLogsJson: JSON.stringify(actionLogs),
+        };
+
+        const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
+        const auditPayload = {
+          timestamp: now,
+          username: "admin_web",
+          userFullName: cashierName,
+          userRole: "ADMIN",
+          action: "PAY_BILL",
+          targetType: "BILL",
+          targetId: billCode,
+          storeCode: targetStoreCode,
+          details: `Thanh toán & trả bàn ${table.name} (${table.zone}) - Số tiền: ${new Intl.NumberFormat("vi-VN").format(finalAmount)}đ (${paymentMethod === "CASH" ? "Tiền mặt" : "Chuyển khoản VietQR"}) qua Web Admin`,
+          afterState: {
+            orderCode: billCode,
+            tableName: table.name,
+            totalAmount: finalAmount,
+            itemsCount: items.length,
+            paymentMethod: paymentMethod,
+          },
+        };
+
+        const { updates, clearPayload } = buildCloseTableUpdates(targetStoreCode, table, {
+          [`stores/${targetStoreCode}/bills/${billId}`]: rawHistoryMap,
+          [`stores/${targetStoreCode}/history/${billId}`]: rawHistoryMap,
+          [`stores/${targetStoreCode}/audit_logs/${logId}`]: auditPayload,
+        });
+        // Đổi voucher + cập nhật bộ đếm khuyến mãi bằng transaction TRƯỚC khi ghi hóa đơn
+        // (chống 2 máy dùng 1 mã); ghi hóa đơn lỗi thì hoàn tác ở khối catch.
+        if (promotions.length > 0) {
+          reservedStore = targetStoreCode;
+          reservations = await reserveAllPromotions(db, targetStoreCode, promotions, billId, {
+            username: "admin_web",
+            staffName: cashierName,
+            billCode,
+            tableName: table.name,
+            customerId: options?.customerId,
+          });
+        }
+        // Đổi điểm (điểm dùng chung toàn chuỗi) PHẢI thành công trước khi ghi hóa đơn; lỗi → không ghi gì
+        if (pointsUsed > 0) {
+          try {
+            await redeemLoyaltyPoints(targetStoreCode, customerId, billId, pointsUsed, billCode);
+          } catch (re) {
+            const lack = insufficientBalance(re);
+            throw new Error(
+              lack
+                ? `Khách chỉ còn ${new Intl.NumberFormat("vi-VN").format(lack.balance)} điểm, không đủ để dùng ${pointsUsed} điểm. Chưa ghi hóa đơn.`
+                : `Không đổi được điểm (chưa ghi hóa đơn): ${errorMessage(re, "lỗi kết nối")}`
+            );
+          }
+          redeemed = { storeCode: targetStoreCode, customerId, billId, points: pointsUsed };
+        }
+        // Ghi nguyên tử: thành công tất cả hoặc không ghi gì
+        await update(ref(db), updates);
+        reservations = [];
+        redeemed = null;
+
+        applyClosedTableLocally(targetStoreCode, table, clearPayload);
+        setAllHistory((prev) => [sanitizeHistoryOrder(historyBill, billId), ...prev]);
+
+        // Doanh số vào ca/két đang mở của người thanh toán (không có ca mở thì bỏ qua; không làm hỏng thanh toán)
+        if (actingUser?.uid) {
+          void recordShiftSale(db, targetStoreCode, { uid: actingUser.uid, username: actingUser.username }, paymentMethod, finalAmount);
+        }
+
+        return { success: true, billId, billCode, customerId: customerId || undefined };
+      } catch (e) {
+        console.error("checkoutAndFreeTable error:", e);
+        if (redeemed) {
+          const r: { storeCode: string; customerId: string; billId: string; points: number } = redeemed;
+          try {
+            await refundLoyaltyPoints(r.storeCode, r.customerId, r.billId, r.points);
+          } catch (re) {
+            console.error("Hoàn điểm sau khi ghi hóa đơn lỗi thất bại:", re);
+            return { success: false, error: `${errorMessage(e, "Lỗi khi thanh toán trả bàn")} — CHƯA hoàn được ${r.points} điểm đã đổi, hãy báo quản lý (hóa đơn ${r.billId}).` };
+          }
+        }
+        if (reservations.length > 0) {
+          const rbErrors = await rollbackAllPromotions(db, reservedStore, reservations);
+          if (rbErrors.length > 0) console.error("Hoàn tác khuyến mãi lỗi:", rbErrors);
+        }
+        if (e instanceof PromotionLimitError) return { success: false, error: e.message };
+        return { success: false, error: errorMessage(e, "Lỗi khi thanh toán trả bàn") };
+      }
+    },
+    [currentStoreCode, stores, currentStore, buildCloseTableUpdates, applyClosedTableLocally, readTableDeletedItems, actingUser]
+  );
+
+  const cancelActiveTable = useCallback(
+    async (
+      table: TableItem,
+      reason: string,
+      staffName?: string
+    ): Promise<{ success: boolean; billId?: string; error?: string }> => {
+      try {
+        const targetStoreCode =
+          table.storeCode || resolveWriteStoreCode(currentStoreCode);
+        const storeObj = stores.find((s) => s.storeCode === targetStoreCode) || currentStore;
+        const storeName = storeObj ? storeObj.storeName : "POS Trạm - Chi nhánh " + targetStoreCode;
+
+        const items = parseOrderJson(table.currentOrderJson);
+        const { subTotal: totalAmount } = summarizeOrderLines(items);
+
+        const cancellerName = staffName || "Quản trị viên Web";
+        const now = Date.now();
+        const billCode =
+          table.currentBillId && table.currentBillId.startsWith("HD-")
+            ? table.currentBillId
+            : await generateBillCode(db, targetStoreCode, now);
+        const orderCode = table.currentOrderCode || billCode;
+        const cancelBillId = `BILL_CANCELLED_${now}_${Math.floor(Math.random() * 1000)}`;
+
+        const actionLogs = parseActionLogs(table);
+        actionLogs.push({
+          timestamp: now,
+          staffUsername: "admin_web",
+          staffFullName: cancellerName,
+          action: "CANCEL_BILL",
+          details: `${cancellerName} hủy đơn bàn ${table.name}. Lý do: ${reason}`,
+        });
+
+        const cancelRecord: HistoryOrder = {
+          id: cancelBillId,
+          storeCode: targetStoreCode,
+          storeName: storeName,
+          billCode: billCode,
+          orderCode: orderCode,
+          tableName: table.name,
+          zone: table.zone || "Khu A",
+          guestCount: table.guestCount || 1,
+          totalAmount: totalAmount,
+          finalAmount: 0,
+          subTotal: totalAmount,
+          discountAmount: 0,
+          totalDiscount: 0,
+          status: "CANCELLED",
+          ...tableCustomerOf(table),
+          cancelReason: reason,
+          cancellationReason: reason,
+          cancelledAt: now,
+          cancelledBy: cancellerName,
+          timestamp: now,
+          createdAt: table.openedAt ? new Date(table.openedAt).getTime() : now,
+          closedAt: now,
+          cashierName: cancellerName,
+          staffUsername: "admin_web",
+          staffFullName: cancellerName,
+          orderStaff: table.orderStaff || "POS Staff",
+          items: items as unknown as OrderItem[],
+          actionLogs: actionLogs,
+          ...billDeletionFields(await readTableDeletedItems(targetStoreCode, table)),
+        };
+
+        const rawCancelMap = {
+          ...cancelRecord,
+          itemsJson: JSON.stringify(items),
+          actionLogsJson: JSON.stringify(actionLogs),
+        };
+
+        const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
+        const auditPayload = {
+          timestamp: now,
+          username: "admin_web",
+          userFullName: cancellerName,
+          userRole: "ADMIN",
+          action: "CANCEL_BILL",
+          targetType: "BILL",
+          targetId: billCode,
+          storeCode: targetStoreCode,
+          details: `Hủy đơn & trả bàn ${table.name} (${table.zone}) - Số tiền: ${new Intl.NumberFormat("vi-VN").format(totalAmount)}đ. Lý do: ${reason}`,
+          afterState: {
+            orderCode: billCode,
+            tableName: table.name,
+            totalAmount: totalAmount,
+            itemsCount: items.length,
+            status: "CANCELLED",
+            reason: reason,
+          },
+        };
+
+        const { updates, clearPayload } = buildCloseTableUpdates(targetStoreCode, table, {
+          [`stores/${targetStoreCode}/bills/${cancelBillId}`]: rawCancelMap,
+          [`stores/${targetStoreCode}/history/${cancelBillId}`]: rawCancelMap,
+          [`stores/${targetStoreCode}/audit_logs/${logId}`]: auditPayload,
+        });
+        // Ghi nguyên tử: thành công tất cả hoặc không ghi gì
+        await update(ref(db), updates);
+
+        applyClosedTableLocally(targetStoreCode, table, clearPayload);
+        setAllHistory((prev) => [sanitizeHistoryOrder(cancelRecord, cancelBillId), ...prev]);
+
+        return { success: true, billId: cancelBillId };
+      } catch (e) {
+        console.error("cancelActiveTable error:", e);
+        return { success: false, error: errorMessage(e, "Lỗi khi hủy đơn bàn") };
+      }
+    },
+    [currentStoreCode, stores, currentStore, buildCloseTableUpdates, applyClosedTableLocally, readTableDeletedItems]
+  );
+
+  const updateTableOrderItems = useCallback(
+    async (
+      table: TableItem,
+      nextItems: RawOrderLine[],
+      log: TableOrderLog
+    ): Promise<{ success: boolean; error?: string }> => {
+      try {
+        if (!table.inUse) return { success: false, error: "Bàn không còn mở" };
+        const targetStoreCode = table.storeCode || resolveWriteStoreCode(currentStoreCode);
+        // Kiểm tra lạc quan: đơn trên server phải trùng với bản người dùng đang sửa
+        // (tránh ghi đè món vừa thêm/sửa từ POS Flutter)
+        const snap = await get(ref(db, `stores/${targetStoreCode}/tables/${table.id}/currentOrderJson`));
+        const serverJson = snap.exists() ? String(snap.val() ?? "") : "";
+        const prevItems = parseOrderJson(table.currentOrderJson);
+        if (JSON.stringify(parseOrderJson(serverJson)) !== JSON.stringify(prevItems)) {
+          return { success: false, error: "Đơn của bàn vừa thay đổi trên thiết bị khác. Vui lòng xem lại và thử lại." };
+        }
+        const payload = buildOrderItemsPayload(prevItems, nextItems);
+        if (!payload) return { success: true };
+
+        const now = Date.now();
+        const staffUsername = log.staffUsername || "admin_web";
+        const staffFullName = log.staffFullName || "Quản trị viên Web";
+        const actionLogs = parseActionLogs(table);
+        const suffix = approvalSuffix(log.approval);
+        actionLogs.push({ timestamp: now, staffUsername, staffFullName, action: log.action, details: `${log.details}${suffix}` });
+        const deletions = log.deletions || [];
+        const tableFields: Record<string, unknown> = { ...payload, actionLogsJson: JSON.stringify(actionLogs) };
+        if (deletions.length > 0) {
+          // Nối vào danh sách món đã xóa trên server (không ghi đè bản Flutter vừa thêm)
+          const delSnap = await get(ref(db, `stores/${targetStoreCode}/tables/${table.id}/deletedItemsJson`));
+          tableFields.deletedItemsJson = appendDeletedItemsJson(delSnap.exists() ? delSnap.val() : null, deletions);
+        }
+        const updates = buildTableFieldUpdates(targetStoreCode, table, tableFields);
+        if (deletions.length > 0) {
+          deletions.forEach((entry, i) => {
+            updates[`stores/${targetStoreCode}/audit_logs/log_${now}_del${i}_${Math.floor(Math.random() * 100000)}`] = buildDeletionAuditLog({
+              entry,
+              tableName: table.name,
+              orderCode: table.currentOrderCode || table.currentBillId || "",
+              storeCode: targetStoreCode,
+              userRole: log.staffRole,
+              extra: approvalAuditFields(log.approval),
+            });
+          });
+        } else {
+          const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
+          updates[`stores/${targetStoreCode}/audit_logs/${logId}`] = {
+            timestamp: now,
+            username: staffUsername,
+            userFullName: staffFullName,
+            action: log.action,
+            targetType: "TABLE",
+            targetId: table.name,
+            storeCode: targetStoreCode,
+            details: `${log.details} (bàn ${table.name}) qua Web Admin${suffix}`,
+            ...approvalAuditFields(log.approval),
+          };
+        }
+        await update(ref(db), updates);
+        return { success: true };
+      } catch (e) {
+        console.error("updateTableOrderItems error:", e);
+        return { success: false, error: errorMessage(e, "Lỗi cập nhật món của bàn") };
+      }
+    },
+    [currentStoreCode, buildTableFieldUpdates]
+  );
+
+  const submitWebOrder = useCallback(
+    async (
+      table: TableItem,
+      newLines: RawOrderLine[],
+      opts: { sendKitchen: boolean; guestCount?: number; kitchenNote?: string; actor: OrderActor }
+    ): Promise<{ success: boolean; error?: string; sentCount?: number; orderCode?: string }> => {
+      try {
+        const targetStoreCode = table.storeCode || resolveWriteStoreCode(currentStoreCode);
+        const snap = await get(ref(db, `stores/${targetStoreCode}/tables/${table.id}`));
+        if (!snap.exists()) return { success: false, error: "Không tìm thấy bàn trên máy chủ" };
+        const fresh = snap.val() as Record<string, unknown>;
+        if (fresh.isReserved === true && fresh.inUse !== true) {
+          return { success: false, error: "Bàn đang được đặt trước — hãy nhận bàn (check-in) trước khi gọi món" };
+        }
+        const res = buildWebOrderUpdates({
+          storeCode: targetStoreCode,
+          tableKeys: tableKeysFor(targetStoreCode, table),
+          table: {
+            name: table.name,
+            zone: table.zone,
+            inUse: fresh.inUse === true,
+            openedAt: fresh.openedAt,
+            guestCount: typeof fresh.guestCount === "number" ? fresh.guestCount : undefined,
+            currentOrderCode: typeof fresh.currentOrderCode === "string" ? fresh.currentOrderCode : null,
+            currentBillId: typeof fresh.currentBillId === "string" ? fresh.currentBillId : null,
+            actionLogsJson: typeof fresh.actionLogsJson === "string" ? fresh.actionLogsJson : null,
+          },
+          existingLines: fresh.inUse === true ? parseOrderJson(typeof fresh.currentOrderJson === "string" ? fresh.currentOrderJson : "") : [],
+          newLines,
+          sendKitchen: opts.sendKitchen,
+          guestCount: opts.guestCount,
+          kitchenNote: opts.kitchenNote,
+          actor: opts.actor,
+          now: Date.now(),
+        });
+        if (!res.ok) return { success: false, error: res.error };
+        await update(ref(db), res.updates);
+        return { success: true, sentCount: res.sentCount, orderCode: res.orderCode };
+      } catch (e) {
+        console.error("submitWebOrder error:", e);
+        return { success: false, error: errorMessage(e, "Lỗi lưu đơn trên Web") };
+      }
+    },
+    [currentStoreCode, tableKeysFor]
+  );
+
+  // Chuyển / gộp bàn: đọc lại CẢ 2 bàn từ DB, từ chối nếu đã đổi so với bản người dùng đang xem,
+  // rồi ghi bàn nguồn + bàn đích + audit log trong MỘT update() đa đường dẫn.
+  const runTableOp = useCallback(
+    async (
+      kind: "TRANSFER" | "MERGE",
+      source: TableItem,
+      target: TableItem,
+      actor: TableActor
+    ): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const storeCode = source.storeCode || resolveWriteStoreCode(currentStoreCode);
+        if ((target.storeCode || storeCode) !== storeCode) {
+          return { success: false, error: "Chỉ chuyển/gộp bàn trong cùng một chi nhánh." };
+        }
+        const [sSnap, tSnap] = await Promise.all([
+          get(ref(db, `stores/${storeCode}/tables/${source.id}`)),
+          get(ref(db, `stores/${storeCode}/tables/${target.id}`)),
+        ]);
+        const sServer = sSnap.exists() ? ({ name: source.name, zone: source.zone, ...sSnap.val() } as TableNode) : null;
+        const tServer = tSnap.exists() ? ({ name: target.name, zone: target.zone, ...tSnap.val() } as TableNode) : null;
+        if (!sServer || !tServer || tableChanged(source, sServer) || tableChanged(target, tServer)) {
+          return { success: false, error: "Bàn vừa thay đổi trên thiết bị khác. Vui lòng xem lại và thử lại." };
+        }
+        const sameKey = source.id === target.id;
+        const invalid = kind === "TRANSFER" ? validateTransfer(sServer, tServer, sameKey) : validateMerge(sServer, tServer, sameKey);
+        if (invalid) return { success: false, error: invalid };
+
+        const now = Date.now();
+        const args = { source: sServer, target: tServer, actor, now, storeCode };
+        const payloads = kind === "TRANSFER" ? buildTransferPayloads(args) : buildMergePayloads(args);
+        const logId = `log_${now}_${Math.floor(Math.random() * 100000)}`;
+        const updates = buildTableOpUpdates({
+          storeCode,
+          sourceKeys: tableKeysFor(storeCode, source),
+          targetKeys: tableKeysFor(storeCode, target),
+          payloads,
+          logId,
+        });
+        await update(ref(db), updates);
+        return { success: true };
+      } catch (e) {
+        console.error(`${kind} table error:`, e);
+        return { success: false, error: errorMessage(e, kind === "TRANSFER" ? "Lỗi chuyển bàn" : "Lỗi gộp bàn") };
+      }
+    },
+    [currentStoreCode, tableKeysFor]
+  );
+
+  const transferTable = useCallback(
+    (source: TableItem, target: TableItem, actor: TableActor) => runTableOp("TRANSFER", source, target, actor),
+    [runTableOp]
+  );
+  const mergeTables = useCallback(
+    (source: TableItem, target: TableItem, actor: TableActor) => runTableOp("MERGE", source, target, actor),
+    [runTableOp]
+  );
+
+  const markTablePrePrinted = useCallback(
+    async (table: TableItem, username?: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        if (!table.inUse) return { success: false, error: "Bàn không còn mở" };
+        const targetStoreCode = table.storeCode || resolveWriteStoreCode(currentStoreCode);
+        await update(ref(db), buildTableFieldUpdates(targetStoreCode, table, prePrintPayload(Date.now(), username)));
+        return { success: true };
+      } catch (e) {
+        console.error("markTablePrePrinted error:", e);
+        return { success: false, error: errorMessage(e, "Lỗi đánh dấu in tạm tính") };
+      }
+    },
+    [currentStoreCode, buildTableFieldUpdates]
+  );
+
+  const saveTable = useCallback(
+    async (
+      tableData: { id?: string; name: string; zone: string; inUse?: boolean },
+      storeCode?: string
+    ) => {
+      try {
+        const targetCode = storeCode || resolveWriteStoreCode(currentStoreCode);
+        const key = tableData.id || `${tableData.zone}_${tableData.name}`;
+        const payload = {
+          name: tableData.name,
+          zone: tableData.zone,
+          inUse: tableData.inUse ?? false,
+          currentOrderJson: "",
+        };
+        await set(ref(db, `stores/${targetCode}/tables/${key}`), payload);
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi lưu bàn" };
+      }
+    },
+    [currentStoreCode]
+  );
+
+  const deleteTable = useCallback(
+    async (tableId: string, storeCode?: string) => {
+      try {
+        const targetCode = storeCode || resolveWriteStoreCode(currentStoreCode);
+        await remove(ref(db, `stores/${targetCode}/tables/${tableId}`));
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi xóa bàn" };
+      }
+    },
+    [currentStoreCode]
+  );
+
+  const saveProduct = useCallback(
+    async (
+      productData: { id?: string; name: string; code?: string; price: number; costPrice?: number; unit?: string; category?: string; imageBase64?: string; isTopping?: boolean; noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null },
+      storeCode?: string
+    ) => {
+      try {
+        const targetCode = storeCode || resolveWriteStoreCode(currentStoreCode);
+        const payload: Record<string, unknown> = {
+          name: productData.name.trim(),
+          code: (productData.code || "").trim(),
+          price: Number(productData.price),
+          costPrice: productData.costPrice != null ? Number(productData.costPrice) : 0,
+          unit: (productData.unit || "").trim(),
+          category: (productData.category || "").trim(),
+          isTopping: Boolean(productData.isTopping),
+        };
+        // Gắn danh mục note/topping: undefined = không đụng; null = xóa trường (kế thừa nhóm món); mảng rỗng = "không có"
+        if (productData.noteGroupIds !== undefined) payload.noteGroupIds = encodeGroupIds(productData.noteGroupIds);
+        if (productData.toppingGroupIds !== undefined) payload.toppingGroupIds = encodeGroupIds(productData.toppingGroupIds);
+        if (productData.imageBase64 !== undefined) {
+          payload.imageBase64 = productData.imageBase64;
+        }
+
+        if (productData.id) {
+          await update(ref(db, `stores/${targetCode}/products/${productData.id}`), payload);
+        } else {
+          await push(ref(db, `stores/${targetCode}/products`), payload);
+        }
+
+        // Also ensure category exists under the store if category is specified
+        if (payload.category) {
+          await update(ref(db, `stores/${targetCode}/categories/${payload.category}`), {
+            name: payload.category,
+          }).catch(() => {});
+        }
+
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi lưu sản phẩm" };
+      }
+    },
+    [currentStoreCode]
+  );
+
+  const deleteProduct = useCallback(
+    async (productId: string, storeCode?: string) => {
+      try {
+        const targetCode = storeCode || resolveWriteStoreCode(currentStoreCode);
+        await remove(ref(db, `stores/${targetCode}/products/${productId}`));
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi xóa sản phẩm" };
+      }
+    },
+    [currentStoreCode]
+  );
+
+  const saveCategory = useCallback(
+    async (
+      categoryName: string,
+      storeCode?: string,
+      oldCategoryName?: string,
+      allowedToppingIds?: string[],
+      groupIds?: { noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null }
+    ) => {
+      try {
+        const cleanName = categoryName.trim();
+        if (!cleanName) return { success: false, error: "Tên danh mục không được để trống" };
+
+        const targetStores = (!storeCode || storeCode === "ALL")
+          ? (stores.length > 0 ? stores.map((s) => s.storeCode) : [resolveWriteStoreCode(currentStoreCode)])
+          : [storeCode];
+
+        for (const code of targetStores) {
+          // Khi đổi tên: giữ lại các trường gắn note/topping của nhóm cũ (trừ khi form gửi giá trị mới)
+          const carried: Record<string, unknown> = {};
+          // If renaming: remove old key, update products
+          if (oldCategoryName && oldCategoryName !== cleanName) {
+            const oldSnap = await get(ref(db, `stores/${code}/categories/${oldCategoryName}`)).catch(() => null);
+            const oldVal = oldSnap && oldSnap.exists() ? oldSnap.val() : null;
+            if (oldVal && typeof oldVal === "object") {
+              for (const f of ["allowedToppingIds", "noteGroupIds", "toppingGroupIds", "order"]) if (oldVal[f] != null) carried[f] = oldVal[f];
+            }
+            await remove(ref(db, `stores/${code}/categories/${oldCategoryName}`)).catch(() => {});
+
+            // Update any products under this store using the old category name
+            const storeProds = allProducts.filter((p) => p.storeCode === code && p.category === oldCategoryName);
+            for (const p of storeProds) {
+              await update(ref(db, `stores/${code}/products/${p.id}`), { category: cleanName }).catch(() => {});
+            }
+          }
+
+          // Save new category with allowedToppingIds if provided
+          const catPayload: Record<string, unknown> = { name: cleanName, ...carried };
+          if (allowedToppingIds !== undefined) {
+            catPayload.allowedToppingIds = allowedToppingIds;
+          }
+          if (groupIds?.noteGroupIds !== undefined) catPayload.noteGroupIds = groupIds.noteGroupIds ? encodeGroupIds(groupIds.noteGroupIds) : null;
+          if (groupIds?.toppingGroupIds !== undefined) catPayload.toppingGroupIds = groupIds.toppingGroupIds ? encodeGroupIds(groupIds.toppingGroupIds) : null;
+          await update(ref(db, `stores/${code}/categories/${cleanName}`), catPayload);
+        }
+
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi lưu danh mục" };
+      }
+    },
+    [stores, allProducts, currentStoreCode]
+  );
+
+  /** Lưu thứ tự danh mục (đồng bộ app): ghi `order` cho từng danh mục; "ALL" áp dụng cho mọi chi nhánh có danh mục đó */
+  const saveCategoryOrder = useCallback(
+    async (orderedNames: string[], storeCode?: string) => {
+      try {
+        const targets = !storeCode || storeCode === "ALL" ? stores.map((s) => s.storeCode) : [storeCode];
+        const updates: Record<string, number> = {};
+        for (const code of targets) {
+          const existing = new Set((rawCategoriesMap[code] || []).map((c) => c.name));
+          Object.assign(updates, buildCategoryOrderUpdates(code, orderedNames, existing));
+        }
+        if (Object.keys(updates).length === 0) return { success: true };
+        await update(ref(db), updates);
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi lưu thứ tự danh mục" };
+      }
+    },
+    [stores, rawCategoriesMap]
+  );
+
+  const deleteCategory = useCallback(
+    async (categoryName: string, storeCode?: string) => {
+      try {
+        const cleanName = categoryName.trim();
+        const targetStores = (!storeCode || storeCode === "ALL")
+          ? (stores.length > 0 ? stores.map((s) => s.storeCode) : [resolveWriteStoreCode(currentStoreCode)])
+          : [storeCode];
+
+        for (const code of targetStores) {
+          await remove(ref(db, `stores/${code}/categories/${cleanName}`)).catch(() => {});
+        }
+
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi xóa danh mục" };
+      }
+    },
+    [stores, currentStoreCode]
+  );
+
+  const saveUser = useCallback(
+    async (
+      userData: {
+        username: string;
+        fullName: string;
+        password?: string;
+        role: string;
+        phone?: string;
+        isActive?: boolean;
+        storeCode?: string;
+      },
+      targetStoreCode?: string
+    ) => {
+      try {
+        const cleanUsername = userData.username.trim().toLowerCase();
+        if (!cleanUsername) return { success: false, error: "Tên đăng nhập không được để trống" };
+        if (!userData.fullName?.trim()) return { success: false, error: "Họ tên không được để trống" };
+
+        const finalStoreCode = targetStoreCode || userData.storeCode || resolveWriteStoreCode(currentStoreCode);
+        const role = userData.role || "ROLE_STAFF";
+        const isRootOwner = role === "ROLE_OWNER" || role === "OWNER";
+        const now = Date.now();
+
+        const payload = {
+          username: cleanUsername,
+          fullName: userData.fullName.trim(),
+          roleId: role,
+          role: role,
+          phone: userData.phone?.trim() || "",
+          isActive: userData.isActive !== false,
+          isRootOwner: isRootOwner,
+          storeCode: finalStoreCode,
+        };
+
+        // Do NOT store raw passwords in Realtime Database. Passwords belong to Firebase Auth.
+
+        // 1. Write to store-scoped path: stores/{storeCode}/users/{username}
+        await set(ref(db, `stores/${finalStoreCode}/users/${cleanUsername}`), payload);
+
+        // 2. Write Audit Log
+        const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
+        const auditPayload = {
+          timestamp: now,
+          username: "admin_web",
+          userFullName: "Quản trị viên Web",
+          userRole: "ADMIN",
+          action: "SAVE_USER",
+          targetType: "USER",
+          targetId: cleanUsername,
+          storeCode: finalStoreCode,
+          details: `Lưu thông tin nhân viên: ${userData.fullName.trim()} (@${cleanUsername}) - Vai trò: ${role} - Chi nhánh: ${finalStoreCode}`,
+        };
+        await set(ref(db, `stores/${finalStoreCode}/audit_logs/${logId}`), auditPayload).catch(() => {});
+
+        // 3. Optimistic state updates
+        setRawUsersMap((prev) => {
+          const storeUsers = prev[finalStoreCode] ? [...prev[finalStoreCode]] : [];
+          const idx = storeUsers.findIndex((u) => u.username.toLowerCase() === cleanUsername);
+          const updatedUser: UserItem = {
+            id: cleanUsername,
+            ...payload,
+            storeCode: finalStoreCode,
+            storeName: stores.find((s) => s.storeCode === finalStoreCode)?.storeName || finalStoreCode,
+          };
+          if (idx >= 0) {
+            storeUsers[idx] = { ...storeUsers[idx], ...updatedUser };
+          } else {
+            storeUsers.push(updatedUser);
+          }
+          return { ...prev, [finalStoreCode]: storeUsers };
+        });
+
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi lưu thông tin nhân viên" };
+      }
+    },
+    [currentStoreCode, stores]
+  );
+
+  const deleteUser = useCallback(
+    async (username: string, storeCode?: string) => {
+      try {
+        const cleanUsername = username.trim().toLowerCase();
+        if (!cleanUsername) return { success: false, error: "Tên đăng nhập không hợp lệ" };
+
+        const targetStores = (!storeCode || storeCode === "ALL")
+          ? (stores.length > 0 ? stores.map((s) => s.storeCode) : [resolveWriteStoreCode(currentStoreCode)])
+          : [storeCode];
+
+        const now = Date.now();
+
+        for (const code of targetStores) {
+          await remove(ref(db, `stores/${code}/users/${cleanUsername}`)).catch(() => {});
+        }
+
+        // Audit log
+        const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
+        const auditPayload = {
+          timestamp: now,
+          username: "admin_web",
+          userFullName: "Quản trị viên Web",
+          userRole: "ADMIN",
+          action: "DELETE_USER",
+          targetType: "USER",
+          targetId: cleanUsername,
+          storeCode: resolveWriteStoreCode(targetStores[0]),
+          details: `Xóa nhân viên @${cleanUsername} khỏi hệ thống`,
+        };
+        await set(ref(db, `stores/${resolveWriteStoreCode(targetStores[0])}/audit_logs/${logId}`), auditPayload).catch(() => {});
+
+        // Optimistic state updates
+        setRawUsersMap((prev) => {
+          const next = { ...prev };
+          for (const code of targetStores) {
+            if (next[code]) {
+              next[code] = next[code].filter((u) => u.username.toLowerCase() !== cleanUsername);
+            }
+          }
+          return next;
+        });
+
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi xóa nhân viên" };
+      }
+    },
+    [stores, currentStoreCode]
+  );
+
+  const cancelOrder = useCallback(
+    async (
+      orderId: string,
+      reason: string,
+      storeCode?: string
+    ): Promise<{ success: boolean; error?: string }> => {
+      if (!hasPermission(actingUser, "CANCEL_BILL")) {
+        return { success: false, error: "Bạn không có quyền hủy hóa đơn (cần quyền CANCEL_BILL — liên hệ Chủ quán)." };
+      }
+      try {
+        const order = allHistory.find((h) => h.id === orderId);
+        if (!order) return { success: false, error: "Không tìm thấy hóa đơn" };
+
+        const targetStoreCode = storeCode || order.storeCode || resolveWriteStoreCode(currentStoreCode);
+        const now = Date.now();
+
+        const cancelLog = {
+          timestamp: now,
+          staffFullName: "Quản trị viên Web",
+          action: "CANCEL_BILL",
+          details: `Quản trị viên Web hủy hóa đơn ${order.billCode || order.orderCode || orderId}. Lý do: ${reason}`,
+        };
+
+        const updatedLogs = [...(order.actionLogs || []), cancelLog];
+
+        const patch = {
+          status: "CANCELLED",
+          cancelReason: reason,
+          cancelledAt: now,
+          closedAt: now,
+          cancelledBy: "Quản trị viên Web",
+          actionLogs: updatedLogs,
+          actionLogsJson: JSON.stringify(updatedLogs),
+        };
+
+        // Audit log
+        const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
+        const auditPayload = {
+          timestamp: now,
+          username: "admin_web",
+          userFullName: "Quản trị viên Web",
+          userRole: "ADMIN",
+          action: "CANCEL_BILL",
+          targetType: "BILL",
+          targetId: order.billCode || order.orderCode || orderId,
+          storeCode: targetStoreCode,
+          details: `Hủy hóa đơn ${order.billCode || order.orderCode || orderId} bàn ${order.tableName} (${new Intl.NumberFormat("vi-VN").format(order.totalAmount || 0)}đ). Lý do: ${reason}`,
+        };
+
+        // Cập nhật history + bills (nếu bản ghi tồn tại) + audit log trong MỘT update() nguyên tử.
+        // Kiểm tra tồn tại trước để không tạo bản ghi "ma" chỉ có vài trường.
+        const basePath = `stores/${targetStoreCode}`;
+        const [historySnap, billSnap] = await Promise.all([
+          get(ref(db, `${basePath}/history/${orderId}`)),
+          get(ref(db, `${basePath}/bills/${orderId}`)),
+        ]);
+        if (!historySnap.exists() && !billSnap.exists()) {
+          return { success: false, error: "Hóa đơn không còn tồn tại trên hệ thống" };
+        }
+        const updates: Record<string, unknown> = {
+          [`${basePath}/audit_logs/${logId}`]: auditPayload,
+        };
+        for (const [node, snap] of [["history", historySnap], ["bills", billSnap]] as const) {
+          if (!snap.exists()) continue;
+          for (const [field, value] of Object.entries(patch)) {
+            updates[`${basePath}/${node}/${orderId}/${field}`] = value;
+          }
+        }
+        await update(ref(db), updates);
+
+        // Optimistic update
+        setAllHistory((prev) =>
+          prev.map((h) => (h.id === orderId ? { ...h, ...patch } : h))
+        );
+
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi khi hủy hóa đơn" };
+      }
+    },
+    [allHistory, currentStoreCode, actingUser]
+  );
+
+  const deleteOrder = useCallback(
+    async (
+      orderId: string,
+      storeCode?: string
+    ): Promise<{ success: boolean; error?: string }> => {
+      if (!hasPermission(actingUser, "CANCEL_BILL")) {
+        return { success: false, error: "Bạn không có quyền xóa hóa đơn (cần quyền CANCEL_BILL — liên hệ Chủ quán)." };
+      }
+      try {
+        const order = allHistory.find((h) => h.id === orderId);
+        const targetStoreCode = storeCode || order?.storeCode || resolveWriteStoreCode(currentStoreCode);
+        const now = Date.now();
+
+        // Audit log
+        const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
+        const auditPayload = {
+          timestamp: now,
+          username: "admin_web",
+          userFullName: "Quản trị viên Web",
+          userRole: "ADMIN",
+          action: "DELETE_BILL",
+          targetType: "BILL",
+          targetId: order?.billCode || order?.orderCode || orderId,
+          storeCode: targetStoreCode,
+          details: `Xóa vĩnh viễn hóa đơn ${order?.billCode || order?.orderCode || orderId} khỏi hệ thống`,
+        };
+
+        // Xóa history + bills và ghi audit log trong MỘT update() nguyên tử
+        await update(ref(db), {
+          [`stores/${targetStoreCode}/history/${orderId}`]: null,
+          [`stores/${targetStoreCode}/bills/${orderId}`]: null,
+          [`stores/${targetStoreCode}/audit_logs/${logId}`]: auditPayload,
+        });
+
+        // Optimistic update
+        setAllHistory((prev) => prev.filter((h) => h.id !== orderId));
+
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: errorMessage(e) || "Lỗi khi xóa hóa đơn" };
+      }
+    },
+    [allHistory, currentStoreCode, actingUser]
+  );
+
+  const refreshAll = useCallback(() => {
+    setLoading(true);
+    setTimeout(() => setLoading(false), 400);
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      stores: enrichedStores,
+      currentStoreCode,
+      currentStore,
+      setCurrentStoreCode,
+      createStore,
+      updateStore,
+      deleteStore,
+      updateStoreShiftDifferenceSetting,
+
+      checkoutAndFreeTable,
+      cancelActiveTable,
+      saveTable,
+      deleteTable,
+      updateTableOrderItems,
+      submitWebOrder,
+      transferTable,
+      mergeTables,
+      markTablePrePrinted,
+      saveProduct,
+      deleteProduct,
+      saveCategory,
+      saveCategoryOrder,
+      deleteCategory,
+      saveUser,
+      deleteUser,
+      cancelOrder,
+      deleteOrder,
+
+      tables: scopedTables,
+      allTables,
+      historyData: scopedHistory,
+      products: scopedProducts,
+      allProducts,
+      categories: scopedCategories,
+      allCategories,
+      usersList: scopedUsers,
+      allUsers,
+      auditLogs: scopedAuditLogs,
+      onlineOrders,
+      cashShifts: scopedCashShifts,
+      loading,
+      historyLoaded,
+      refreshAll,
+    }),
+    [
+      enrichedStores,
+      currentStoreCode,
+      currentStore,
+      setCurrentStoreCode,
+      createStore,
+      updateStore,
+      deleteStore,
+      updateStoreShiftDifferenceSetting,
+      checkoutAndFreeTable,
+      cancelActiveTable,
+      saveTable,
+      deleteTable,
+      updateTableOrderItems,
+      submitWebOrder,
+      transferTable,
+      mergeTables,
+      markTablePrePrinted,
+      saveProduct,
+      deleteProduct,
+      saveCategory,
+      saveCategoryOrder,
+      deleteCategory,
+      saveUser,
+      deleteUser,
+      cancelOrder,
+      deleteOrder,
+      scopedTables,
+      allTables,
+      scopedHistory,
+      scopedProducts,
+      allProducts,
+      scopedCategories,
+      allCategories,
+      scopedUsers,
+      allUsers,
+      scopedAuditLogs,
+      onlineOrders,
+      scopedCashShifts,
+      loading,
+      historyLoaded,
+      refreshAll,
+    ]
+  );
+
+  return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;
+}
+
+export function useDashboardData() {
+  return useContext(DashboardContext);
+}
