@@ -68,7 +68,7 @@ export default function PrivacyChoicesPage() {
         <Bullets
           items={[
             "Tham gia tích điểm: bạn có thể yêu cầu ngừng tích điểm và xóa hồ sơ khách hàng bất cứ lúc nào.",
-            "Đăng nhập bằng Chấm Công Trạm: Chủ quán có thể hủy liên kết cửa hàng (mục Liên kết Chấm Công Trạm); bạn cũng có thể thu hồi quyền truy cập trong cài đặt tài khoản Google hoặc Apple của mình.",
+            "Tài khoản người dùng: bạn có thể tự xóa tài khoản trong ứng dụng (mục Xóa tài khoản) hoặc liên hệ ban quản trị để thu hồi quyền truy cập.",
             "Quyền trên thiết bị (Bluetooth, mạng nội bộ, ảnh, máy ảnh, micro): thay đổi bất cứ lúc nào trong Cài đặt → POS Trạm BLAO của iPhone/iPad.",
           ]}
         />
@@ -108,7 +108,7 @@ export default function PrivacyChoicesPage() {
             "We do not sell your data, run ads or track you across apps, so there is no opt-out toggle to set.",
             "Access or correct: staff can update their details in the app or ask a shop owner/manager; loyalty customers can ask shop staff.",
             "Delete: ask a shop owner/manager to remove a staff profile, or request deletion of a loyalty customer record. Bills required by accounting law are retained, with customer identity anonymised on request.",
-            "Withdraw consent: stop loyalty participation, unlink the “Chấm Công Trạm” sign-in, or change device permissions in iOS Settings → POS Trạm BLAO at any time.",
+            "Withdraw consent: stop loyalty participation, perform in-app account deletion, or change device permissions in iOS Settings → POS Trạm BLAO at any time.",
             LEGAL.contactEmail
               ? `Contact: ${LEGAL.contactEmail}. We respond within 30 days.`
               : "Contact the shop owner where you use the service; they will handle your request and escalate to the platform operator if needed.",

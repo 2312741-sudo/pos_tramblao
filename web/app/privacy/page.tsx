@@ -34,7 +34,6 @@ export default function PrivacyPolicyPage() {
             "Tên đăng nhập, họ tên, số điện thoại (nếu được nhập), vai trò (Chủ quán, Quản lý, Nhân viên, Bếp/Bar), mã cửa hàng.",
             "Mật khẩu: được xử lý bởi Firebase Authentication; chúng tôi không đọc được và không lưu mật khẩu dạng chữ thường.",
             "Thời điểm đăng nhập, nhật ký thao tác (ví dụ thanh toán, hủy đơn, xóa món kèm lý do, đổi quyền) để kiểm soát thất thoát và an toàn hệ thống.",
-            "Khi bạn chọn “Đăng nhập bằng Chấm Công Trạm”: họ tên, email, số điện thoại, ảnh đại diện, vai trò và trạng thái thành viên từ tài khoản Chấm Công Trạm của bạn, chỉ để tạo và đồng bộ tài khoản POS.",
           ]}
         />
         <p><strong>Khách hàng của cửa hàng (chương trình tích điểm):</strong></p>
@@ -139,13 +138,11 @@ export default function PrivacyPolicyPage() {
         <p>
           {LEGAL.appName} is a point-of-sale system for food and beverage shops. We collect staff account details
           (username, full name, optional phone, role), customer loyalty details entered by shop staff (name, phone, points,
-          purchase history) and operational data (orders, bills, cash shifts, audit logs). When you choose to sign in with
-          the “Chấm Công Trạm” time-keeping account, we receive your name, email, phone, avatar and membership role solely
-          to create your POS account. We do not collect location, contacts or health data, we do not run ads and we do not
-          track you across apps. Data is stored on Google Firebase (Singapore region) and the web console is hosted on
-          Vercel. We do not sell personal data. Permissions requested on the device (Bluetooth, local network, photos,
-          camera, microphone) are used only for printer connection and menu photos. You may request access, correction or
-          deletion at any time — see the{" "}
+          purchase history) and operational data (orders, bills, cash shifts, audit logs). We do not collect location,
+          contacts or health data, we do not run ads and we do not track you across apps. Data is stored on Google Firebase
+          (Singapore region) and the web console is hosted on Vercel. We do not sell personal data. Permissions requested on
+          the device (Bluetooth, local network, photos, camera, microphone) are used only for printer connection and menu
+          photos. You may request access, correction or deletion at any time — see the{" "}
           <Link href="/privacy-choices" style={{ color: "var(--primary)", fontWeight: 600 }}>Your Privacy Choices</Link> page.
         </p>
       </Section>

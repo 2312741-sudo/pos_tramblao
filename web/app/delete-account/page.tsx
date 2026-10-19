@@ -95,7 +95,6 @@ export default function DeleteAccountPage() {
         <Bullets
           items={[
             <><strong>Dữ liệu xóa vĩnh viễn:</strong> Thông tin xác thực Firebase Authentication, thông tin hồ sơ người dùng (họ tên, username, số điện thoại, vai trò), các device tokens nhận thông báo.</>,
-            <><strong>Tài khoản liên kết Chấm Công Trạm BLAO:</strong> Nếu bạn đăng nhập bằng tài khoản Chấm Công Trạm, liên kết xác thực giữa hai hệ thống sẽ bị gỡ bỏ hoàn toàn.</>,
             <><strong>Dữ liệu kế toán & lịch sử hóa đơn:</strong> Nhằm tuân thủ các quy định pháp luật về kế toán và phòng chống gian lận thương mại cho Chủ cửa hàng, các hóa đơn bán hàng và báo cáo ca két đã kết thúc mà bạn đã tạo trong quá khứ sẽ được giữ lại trong hệ thống sổ sách của cửa hàng, nhưng thông tin tài khoản người tạo sẽ chuyển thành trạng thái vô danh (Anonymous/Deactivated Staff).</>,
           ]}
         />

@@ -250,7 +250,7 @@ export default function SupportPage() {
                   <strong>Làm thế nào để đăng nhập vào ứng dụng POS trên iPhone / iPad?</strong>
                 </p>
                 <p style={{ margin: "4px 0 10px", color: "var(--subtext)" }}>
-                  Mở ứng dụng <strong>POS Trạm BLAO</strong>, chọn chi nhánh bằng cách nhập <em>Mã cửa hàng</em> (ví dụ: <code>TRAM01</code>), sau đó nhập tên đăng nhập và mật khẩu được cấp bởi Chủ quán hoặc Quản lý chi nhánh. Bạn cũng có thể sử dụng tính năng <em>Đăng nhập bằng Chấm Công Trạm</em> nếu cửa hàng đã liên kết.
+                  Mở ứng dụng <strong>POS Trạm BLAO</strong>, chọn chi nhánh bằng cách nhập <em>Mã cửa hàng</em> (ví dụ: <code>BLAO</code>), sau đó nhập tên đăng nhập và mật khẩu được cấp bởi Chủ quán hoặc Quản lý chi nhánh.
                 </p>
                 <p style={{ margin: "6px 0" }}>
                   <strong>Tôi bị quên mật khẩu thì lấy lại bằng cách nào?</strong>
