@@ -18,6 +18,7 @@ import '../../core/domain/order_integrity.dart' show StockRetryPlanner;
 import '../../core/domain/item_options.dart';
 import '../../core/domain/menu_copy.dart';
 import '../../core/domain/zone_plan.dart';
+import '../../firebase_options.dart';
 
 export '../repositories/seed_data.dart';
 export '../repositories/auth_repository.dart';
@@ -83,10 +84,13 @@ class FirebaseService {
     }
     _syncDependentServices();
     try {
-      final dbInstance = FirebaseDatabase.instanceFor(
-        app: Firebase.app(),
-        databaseURL: 'https://tramapp-36f53-default-rtdb.asia-southeast1.firebasedatabase.app',
-      );
+      final dbUrl = DefaultFirebaseOptions.currentPlatform.databaseURL;
+      final dbInstance = dbUrl != null && dbUrl.isNotEmpty
+          ? FirebaseDatabase.instanceFor(
+              app: Firebase.app(),
+              databaseURL: dbUrl,
+            )
+          : FirebaseDatabase.instanceFor(app: Firebase.app());
       _root = dbInstance.ref();
       try {
         dbInstance.setPersistenceEnabled(true);

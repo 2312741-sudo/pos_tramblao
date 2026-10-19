@@ -46,7 +46,7 @@ void main() async {
   if (isMismatch) {
     final errorMsg =
         'LỖI CẤU HÌNH DỰ ÁN FIREBASE: projectId ("$projectId") không khớp với project trong databaseURL ("$databaseUrl"). '
-        'Vui lòng chạy "flutterfire configure --project=tramapp-36f53" để đồng nhất cấu hình!';
+        'Vui lòng chạy "flutterfire configure --project=postramblao" để đồng nhất cấu hình!';
     if (kDebugMode) {
       throw StateError(errorMsg);
     } else {
@@ -105,7 +105,7 @@ class FirebaseConfigErrorApp extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   'Tài khoản xác thực (Auth) thuộc project "$projectId" nhưng cơ sở dữ liệu (Database) trỏ về "$databaseUrl".\n\n'
-                  'Vui lòng liên hệ quản trị viên chạy "flutterfire configure --project=tramapp-36f53" để đồng nhất dự án.',
+                  'Vui lòng liên hệ quản trị viên chạy "flutterfire configure --project=postramblao" để đồng nhất dự án.',
                   style: const TextStyle(fontSize: 14, color: Colors.black54, height: 1.5),
                   textAlign: TextAlign.center,
                 ),

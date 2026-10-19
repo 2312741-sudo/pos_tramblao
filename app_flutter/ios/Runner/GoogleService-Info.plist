@@ -18,6 +18,8 @@
 	<string>postramblao</string>
 	<key>STORAGE_BUCKET</key>
 	<string>postramblao.firebasestorage.app</string>
+	<key>DATABASE_URL</key>
+	<string>https://postramblao-default-rtdb.asia-southeast1.firebasedatabase.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
