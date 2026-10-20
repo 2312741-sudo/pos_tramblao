@@ -42,13 +42,15 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>POS Trạm cần quyền truy cập Bluetooth để kết nối và in hóa đơn/phiếu bếp ra máy in nhiệt.</string>
+	<string>POS Trạm BLAO cần quyền truy cập Bluetooth để tìm và kết nối máy in hóa đơn/phiếu bếp nhiệt.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>POS Trạm cần kết nối Bluetooth với máy in nhiệt để in phiếu.</string>
+	<string>POS Trạm BLAO cần kết nối Bluetooth với máy in nhiệt để in hóa đơn bán hàng.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>POS Trạm cần truy cập mạng nội bộ để kết nối máy in hóa đơn và phiếu bếp qua mạng LAN (cổng 9100).</string>
+	<string>POS Trạm BLAO cần truy cập mạng nội bộ Wi-Fi để kết nối máy in hóa đơn và phiếu bếp qua cổng mạng LAN.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>POS Trạm BLAO cần truy cập máy ảnh để chụp ảnh sản phẩm đưa vào menu hoặc quét mã QR.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>POS Trạm cần truy cập thư viện ảnh để bạn chọn ảnh cho món trong thực đơn.</string>
+	<string>POS Trạm BLAO cần truy cập thư viện ảnh để bạn chọn hình ảnh đại diện cho các món ăn và đồ uống trong thực đơn.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
