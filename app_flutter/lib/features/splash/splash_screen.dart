@@ -121,6 +121,20 @@ class _SplashScreenState extends State<SplashScreen> {
                   textAlign: TextAlign.center,
                 ),
 
+                const SizedBox(height: 10),
+
+                // Slogan thương hiệu
+                Text(
+                  'Trạm trà - Trạm bánh',
+                  style: GoogleFonts.beVietnamPro(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF143A2F).withValues(alpha: 0.85),
+                    letterSpacing: 0.3,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+
                 const SizedBox(height: 48),
 
                 // Vòng xoay tải trang (Loading Spinner)

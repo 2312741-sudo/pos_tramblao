@@ -122,9 +122,15 @@ export default function DashboardAboutPage() {
                 Phiên bản 1.0.0
               </span>
             </div>
-            <p style={{ margin: 0, color: "var(--subtext)", fontSize: "14px" }}>
-              Hệ thống Quản lý Bán hàng, Điều phối Phòng bàn, Báo bếp và Vận hành Chuỗi F&B Toàn diện
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "4px 0" }}>
+              <span style={{ fontSize: "13px", fontWeight: "700", color: "var(--primary-dark)" }}>
+                Trạm trà - Trạm bánh
+              </span>
+              <span style={{ color: "var(--subtext)", fontSize: "12px" }}>•</span>
+              <span style={{ margin: 0, color: "var(--subtext)", fontSize: "13px" }}>
+                Hệ thống Quản lý Bán hàng, Điều phối Phòng bàn, Báo bếp và Vận hành Chuỗi F&B Toàn diện
+              </span>
+            </div>
           </div>
         </div>
 
@@ -298,6 +304,11 @@ export default function DashboardAboutPage() {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "13px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "10px", borderBottom: "1px dashed var(--border)" }}>
+              <span style={{ color: "var(--subtext)" }}>Khẩu hiệu thương hiệu:</span>
+              <span style={{ fontWeight: "700", color: "var(--primary-dark)" }}>Trạm trà - Trạm bánh</span>
+            </div>
+
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "10px", borderBottom: "1px dashed var(--border)" }}>
               <span style={{ color: "var(--subtext)" }}>Phiên bản Web Admin:</span>
               <span style={{ fontWeight: "700", color: "var(--text)" }}>1.0.0</span>

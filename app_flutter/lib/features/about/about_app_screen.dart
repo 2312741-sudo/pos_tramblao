@@ -16,6 +16,7 @@ class AboutAppScreen extends StatelessWidget {
 
   static const String appVersion = '1.0.0';
   static const String appBuild = '1';
+  static const String slogan = 'Trạm trà - Trạm bánh';
   static const String bundleId = 'com.tramapp.tramFlutter';
   static const String teamId = 'W97CS7VC54';
   static const String hotline = '0865.062.205';
@@ -187,6 +188,17 @@ class AboutAppScreen extends StatelessWidget {
                 fontWeight: FontWeight.w800,
                 color: context.tc.textPrimary,
                 letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+
+            // Slogan thương hiệu
+            Text(
+              slogan,
+              style: GoogleFonts.beVietnamPro(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: context.tc.primaryDark,
               ),
             ),
             const SizedBox(height: 6),

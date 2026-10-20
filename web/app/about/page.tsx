@@ -85,11 +85,22 @@ export default function PublicAboutPage() {
               fontWeight: 800,
               color: "var(--text)",
               letterSpacing: "-0.02em",
-              margin: "0 0 10px",
+              margin: "0 0 6px",
             }}
           >
             Hệ Thống Bán Hàng & Vận Hành POS Trạm BLAO
           </h1>
+          <div
+            style={{
+              fontSize: "16px",
+              fontWeight: 700,
+              color: "var(--primary-dark)",
+              marginBottom: 12,
+              letterSpacing: "0.02em",
+            }}
+          >
+            Trạm trà - Trạm bánh
+          </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
             <span
@@ -285,6 +296,11 @@ export default function PublicAboutPage() {
             <div style={{ padding: "12px 16px", background: "var(--surface-muted)", borderRadius: "var(--radius-md)" }}>
               <div style={{ color: "var(--subtext)", marginBottom: 4 }}>Tên ứng dụng:</div>
               <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14 }}>POS TRẠM BLAO (TramApp)</div>
+            </div>
+
+            <div style={{ padding: "12px 16px", background: "var(--surface-muted)", borderRadius: "var(--radius-md)" }}>
+              <div style={{ color: "var(--subtext)", marginBottom: 4 }}>Khẩu hiệu thương hiệu (Slogan):</div>
+              <div style={{ fontWeight: 700, color: "var(--primary-dark)", fontSize: 14 }}>Trạm trà - Trạm bánh</div>
             </div>
 
             <div style={{ padding: "12px 16px", background: "var(--surface-muted)", borderRadius: "var(--radius-md)" }}>

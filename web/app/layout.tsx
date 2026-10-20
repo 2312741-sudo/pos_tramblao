@@ -8,8 +8,8 @@ import { AuthProvider } from "@/lib/auth";
 const inter = Inter({ subsets: ["latin", "vietnamese"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "POS TRẠM BLAO • Quản Trị Hệ Thống",
-  description: "Hệ thống Quản lý Vận hành & Bán hàng POS TRẠM BLAO",
+  title: "POS TRẠM BLAO • Trạm trà - Trạm bánh",
+  description: "POS TRẠM BLAO — Trạm trà - Trạm bánh. Hệ thống Quản lý Vận hành & Bán hàng F&B chuyên nghiệp.",
 };
 
 export const viewport: Viewport = {

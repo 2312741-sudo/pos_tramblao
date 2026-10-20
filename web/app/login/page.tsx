@@ -142,7 +142,18 @@ export default function LoginPage() {
           >
             POS TRẠM BLAO
           </h1>
-          <p style={{ color: "var(--subtext)", fontSize: "14px", fontWeight: "500" }}>
+          <div
+            style={{
+              fontSize: "13px",
+              fontWeight: "700",
+              color: "var(--primary-dark)",
+              marginBottom: "6px",
+              letterSpacing: "0.02em",
+            }}
+          >
+            Trạm trà - Trạm bánh
+          </div>
+          <p style={{ color: "var(--subtext)", fontSize: "14px", fontWeight: "500", margin: 0 }}>
             Hệ thống Quản lý Vận hành & Bán hàng
           </p>
         </div>

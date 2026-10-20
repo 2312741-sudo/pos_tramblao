@@ -29,8 +29,8 @@ void main() {
       // Tên ứng dụng
       expect(find.text('POS Trạm BLAO'), findsOneWidget);
 
-      // Không còn khẩu hiệu
-      expect(find.text('Luôn tươi ngon vì sức khỏe'), findsNothing);
+      // Slogan thương hiệu
+      expect(find.text('Trạm trà - Trạm bánh'), findsOneWidget);
 
       // Spinner tải trang
       expect(find.byType(CircularProgressIndicator), findsOneWidget);

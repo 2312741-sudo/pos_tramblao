@@ -1,6 +1,10 @@
 // lib/core/constants/app_constants.dart
 
 class AppConstants {
+  // Slogan & Branding
+  static const String appName = 'POS Trạm BLAO';
+  static const String appSlogan = 'Trạm trà - Trạm bánh';
+
   // Firebase
   static const String firebaseDatabaseUrl = 'https://ungdungdidong-94edd-default-rtdb.firebaseio.com';
   static const String onlineOrderWebUrl = 'https://ungdungdidong-94edd.web.app';

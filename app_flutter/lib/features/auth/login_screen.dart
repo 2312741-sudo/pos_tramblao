@@ -244,6 +244,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
+                            'Trạm trà - Trạm bánh',
+                            style: GoogleFonts.beVietnamPro(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: context.isDarkMode
+                                    ? context.tc.primary
+                                    : context.tc.primaryDark),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
                             'Hệ thống bán hàng & quản lý chi nhánh',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.beVietnamPro(

@@ -5,6 +5,7 @@
  */
 export const LEGAL = {
   appName: "POS Trạm BLAO",
+  slogan: "Trạm trà - Trạm bánh",
   author: "Nguyễn Thanh Tâm",
   copyright: "© 2026 Nguyễn Thanh Tâm",
   effectiveDate: "12/10/2026",

@@ -176,8 +176,8 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
           >
             POS TRẠM BLAO
           </div>
-          <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.7)", fontWeight: "500", marginTop: "2px" }}>
-            Hệ thống Quản lý Vận hành
+          <div style={{ fontSize: "11px", color: "var(--primary, #7FE3C7)", fontWeight: "600", marginTop: "2px" }}>
+            Trạm trà - Trạm bánh
           </div>
         </div>
         <button
