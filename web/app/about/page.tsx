@@ -311,7 +311,7 @@ export default function PublicAboutPage() {
             <div style={{ padding: "12px 16px", background: "var(--surface-muted)", borderRadius: "var(--radius-md)" }}>
               <div style={{ color: "var(--subtext)", marginBottom: 4 }}>Apple Bundle ID:</div>
               <div style={{ fontWeight: 600, fontFamily: "monospace", color: "var(--text)", fontSize: 13 }}>
-                com.tramapp.tramFlutter
+                com.tramblao.pos
               </div>
             </div>
 

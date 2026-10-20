@@ -322,7 +322,7 @@ export default function DashboardAboutPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "10px", borderBottom: "1px dashed var(--border)" }}>
               <span style={{ color: "var(--subtext)" }}>Apple Bundle Identifier:</span>
               <span style={{ fontWeight: "600", fontFamily: "monospace", color: "var(--text)" }}>
-                com.tramapp.tramFlutter
+                com.tramblao.pos
               </span>
             </div>
 

@@ -30,7 +30,7 @@ void main() {
       expect(find.text('Phiên bản 1.0.0 (Bản dựng 1)'), findsOneWidget);
 
       // Bundle ID & Apple Team
-      expect(find.text('com.tramapp.tramFlutter'), findsOneWidget);
+      expect(find.text('com.tramblao.pos'), findsOneWidget);
       expect(find.text('W97CS7VC54'), findsOneWidget);
     });
 
