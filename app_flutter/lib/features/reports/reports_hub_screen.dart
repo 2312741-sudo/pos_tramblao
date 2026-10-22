@@ -341,7 +341,7 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
       case ReportKind.promotions:
         return ['Mã CT / Voucher', 'Tên chương trình', 'Loại hình', 'Lượt áp dụng', 'Chi phí giảm giá'];
       case ReportKind.campaigns:
-        return ['Tên chương trình', 'Mã CT', 'Loại', 'Số hóa đơn', 'Tổng giảm giá', 'Doanh thu HĐ', 'Lượt dùng voucher'];
+        return ['Tên chương trình', 'Mã CT', 'Loại', 'Số hóa đơn', 'Tổng giảm giá', 'Doanh thu HĐ', 'Lượt dùng voucher', 'Điểm đã đổi'];
       case ReportKind.bills:
         return BillReportRows.summaryHeaders;
       case ReportKind.billItems:
@@ -353,7 +353,7 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
       case ReportKind.cashShifts:
         return ['Mã ca', 'Tên ca', 'Thu ngân', 'Đầu ca', 'Bán tiền mặt', 'Nộp thêm', 'Chi vặt', 'Két kỳ vọng', 'Thực kiểm', 'Chênh lệch'];
       case ReportKind.grossProfit:
-        return ['Tên món', 'Số lượng', 'Đơn giá bán', 'Đơn giá vốn', 'Doanh thu thuần', 'Tổng giá vốn', 'Lợi nhuận gộp', 'Tỷ suất LN'];
+        return ['Mã món', 'Tên món', 'Số lượng', 'Đơn giá bán', 'Đơn giá vốn', 'Doanh thu thuần', 'Tổng giá vốn', 'Lợi nhuận gộp', 'Tỷ suất LN'];
       case ReportKind.endOfDay:
         return ['Chỉ tiêu cuối ngày', 'Giá trị', 'Ghi chú đối soát'];
     }
@@ -492,16 +492,17 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
           ReportExportService.formatCurrency(c.discountAmount),
           ReportExportService.formatCurrency(c.revenue),
           c.voucherCodesUsed,
+          c.pointsUsed,
         ]).toList();
 
       case ReportKind.bills:
         return BillReportRows.filterByStatus(bills, _billStatusFilter).map(BillReportRows.summaryRow).toList();
 
       case ReportKind.billItems:
-        return BillReportRows.filterByStatus(bills, _billStatusFilter).expand(BillReportRows.itemRows).toList();
+        return BillReportRows.filterByStatus(bills, _billStatusFilter).expand((b) => BillReportRows.itemRows(b, productsMap: _productsMap)).toList();
 
       case ReportKind.deletedItems:
-        return BillReportRows.filterByStatus(bills, _billStatusFilter).expand(BillReportRows.deletedRows).toList();
+        return BillReportRows.filterByStatus(bills, _billStatusFilter).expand((b) => BillReportRows.deletedRows(b, productsMap: _productsMap)).toList();
 
       case ReportKind.cancellations:
         final c = ReportCalculator.calculateCancellationReport(bills);
@@ -533,6 +534,7 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
       case ReportKind.grossProfit:
         final gp = ReportCalculator.calculateGrossProfitReport(bills, productsMap: _productsMap);
         return gp.items.map((it) => [
+          it.productCode,
           it.productName,
           it.quantity,
           ReportExportService.formatCurrency(it.basePrice),

@@ -105,6 +105,9 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     if (_selectedCustomer != null) {
       _customerPointsUnknown = true;
       unawaited(_refreshCustomerPoints());
+      unawaited(_ensureCustomerBirthday().then((_) {
+        if (mounted) _autoApplyBirthdayCampaigns();
+      }));
     }
     _storeInfo = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _fb.currentStoreCode, storeName: 'POS Trạm BLAO');
     _loadStoreAndPromotions();
@@ -233,7 +236,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
   /// Điểm sẽ được tích khi thanh toán: tính từ số tiền khách thực trả, theo cấu hình chuỗi/chi nhánh
   /// (máy chủ tính lại từ hóa đơn PAID - cùng công thức)
   double get _earnRate => _storeInfo?.pointEarnRate ?? 1.0;
-  int get _earnPreview => LoyaltyMath.pointsToAward(billAmount: _finalTotal, earnRatePercent: _earnRate, redeemRate: _pointRedeemRate);
+  int get _earnPreview => _pointsBlockedByPromo ? 0 : LoyaltyMath.pointsToAward(billAmount: _finalTotal, earnRatePercent: _earnRate, redeemRate: _pointRedeemRate);
 
   void _openLoyaltyConfig() {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomerManagementScreen()));
@@ -771,6 +774,54 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     }
   }
 
+  /// Tự thêm món được tặng/giảm vào đơn khi đơn đã đủ điều kiện nhưng món thưởng chưa có.
+  /// Một món thưởng → thêm luôn; nhiều món → hỏi chọn. Trả true khi đã thêm.
+  Future<bool> _addRewardItems(CampaignModel c) async {
+    final plan = CartCampaignPricing.rewardPlan(c, cart: _cart, products: _products);
+    if (plan == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Chương trình chưa cấu hình món được tặng/giảm hoặc món đã hết.')));
+      }
+      return false;
+    }
+    ProductModel? chosen = plan.candidates.length == 1 ? plan.candidates.first : null;
+    if (chosen == null && mounted) {
+      chosen = await showDialog<ProductModel>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: Text('Chọn món được tặng/giảm (${plan.units} phần)', style: GoogleFonts.beVietnamPro(fontSize: 15, fontWeight: FontWeight.bold)),
+          children: [
+            for (final p in plan.candidates)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, p),
+                child: Text('${p.name} • ${FormatUtils.vnd(p.price)}', style: GoogleFonts.beVietnamPro(fontSize: 14)),
+              ),
+          ],
+        ),
+      );
+    }
+    final picked = chosen;
+    if (picked == null) return false;
+    final staffUser = _auth.currentUser?.username ?? 'staff';
+    final staffName = _auth.currentUser?.fullName ?? 'Nhân viên';
+    setState(() {
+      _cart.add(OrderItemModel(
+        productId: picked.id,
+        name: picked.name,
+        price: picked.price,
+        quantity: plan.units,
+        orderedBy: staffUser,
+        orderedByName: staffName,
+        orderedAt: DateTime.now().millisecondsSinceEpoch,
+        isSentKitchen: false,
+      ));
+    });
+    widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
+    await _fb.saveTable(widget.table).catchError((_) {});
+    return true;
+  }
+
   /// Pricing Engine cho 1 chương trình trên giỏ hàng hiện tại
   PriceQuoteModel _quoteCampaign(CampaignModel c) => CartCampaignPricing.quote(
         c,
@@ -778,7 +829,49 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         products: _products,
         branchId: _fb.currentStoreCode,
         guestCount: _guestCount,
+        customerBirthday: _selectedCustomer?.birthday,
       );
+
+  /// Đơn đang dùng chương trình KM khóa tích điểm?
+  bool get _pointsBlockedByPromo => _appliedDiscounts.any((d) {
+        final c = d.campaignId == null ? null : _campaignById[d.campaignId];
+        return c != null && c.blockPoints;
+      });
+
+  /// Tự áp dụng các KM "chỉ đúng ngày sinh nhật" khi đơn đã gắn khách có ngày sinh trùng hôm nay.
+  void _autoApplyBirthdayCampaigns() {
+    final bday = _selectedCustomer?.birthday ?? '';
+    if (bday.trim().isEmpty) return;
+    final added = <String>[];
+    for (final c in _campaigns) {
+      if (!c.birthdayOnly || c.hasCodes || !c.isEligibleAt(DateTime.now().millisecondsSinceEpoch)) continue;
+      if (_appliedDiscounts.any((d) => d.campaignId == c.campaignId)) continue;
+      final amt = _quoteCampaign(c).totalPromotionDiscount;
+      if (amt <= 0) continue;
+      final allowStack = _storeInfo?.allowStackPromotions ?? true;
+      if (!allowStack) _appliedDiscounts.clear();
+      _appliedDiscounts.add(CartCampaignPricing.discount(c, amt));
+      added.add(c.name);
+    }
+    if (added.isNotEmpty) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Sinh nhật khách: đã tự áp dụng ${added.join(", ")}'),
+        backgroundColor: AppColors.success,
+      ));
+    }
+  }
+
+  /// Hồ sơ khách khôi phục từ bàn có thể thiếu ngày sinh → tra lại theo SĐT rồi tính lại KM sinh nhật.
+  Future<void> _ensureCustomerBirthday() async {
+    final c = _selectedCustomer;
+    if (c == null || c.birthday.trim().isNotEmpty || c.phone.isEmpty) return;
+    try {
+      final full = await _fb.lookupCustomer(c.phone);
+      if (!mounted || !identical(_selectedCustomer, c) || full == null || full.birthday.trim().isEmpty) return;
+      setState(() => c.birthday = full.birthday);
+    } catch (_) {}
+  }
 
   void _recalculateDiscounts() {
     final List<BillDiscountModel> valid = [];
@@ -787,7 +880,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       if (d.campaignId != null && _campaignById.containsKey(d.campaignId)) {
         // Chương trình KM mới: tính lại bằng Pricing Engine
         final r = CartCampaignPricing.recalculate([d], _campaignById,
-            cart: _cart, products: _products, branchId: _fb.currentStoreCode, guestCount: _guestCount);
+            cart: _cart, products: _products, branchId: _fb.currentStoreCode, guestCount: _guestCount, customerBirthday: _selectedCustomer?.birthday);
         valid.addAll(r.discounts);
         dropped.addAll(r.dropped);
       } else if (d.promoId != null) {
@@ -1123,6 +1216,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       _customerPointsUnknown = false;
       _pointsUsed = 0;
     });
+    await _ensureCustomerBirthday();
+    if (!mounted) return;
+    _recalculateDiscounts();
+    _autoApplyBirthdayCampaigns();
     TableCustomerLogic.writeToTable(widget.table, c);
     try {
       await _fb.saveTable(widget.table);
@@ -2344,17 +2441,33 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       final q = _quoteCampaign(c);
                       final amt = q.totalPromotionDiscount;
                       final reason = CartCampaignPricing.reason(q, c);
+                      // Đủ điều kiện nhưng chưa có món thưởng trong đơn → cho bấm để tự thêm món
+                      final canAutoAdd = amt <= 0 && CartCampaignPricing.needsRewardItems(q, c);
                       return CheckboxListTile(
                         value: isSelected,
-                        enabled: amt > 0 || isSelected,
+                        enabled: amt > 0 || isSelected || canAutoAdd,
                         title: Text(c.name, style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600, fontSize: 13)),
                         subtitle: Text(
                           '${c.typeDisplay} • ${describeCampaignBenefit(c)}'
-                          '${amt > 0 ? " → -${FormatUtils.vnd(amt)}" : (reason != null ? " • $reason" : "")}',
+                          '${amt > 0 ? " → -${FormatUtils.vnd(amt)}" : (canAutoAdd ? " • Đơn đủ điều kiện — bấm để tự thêm món được tặng/giảm" : (reason != null ? " • $reason" : ""))}',
                           style: GoogleFonts.beVietnamPro(fontSize: 11),
                         ),
                         onChanged: (val) async {
                           if (val == true) {
+                            var applyAmt = amt;
+                            if (canAutoAdd) {
+                              final added = await _addRewardItems(c);
+                              if (!added) return;
+                              applyAmt = _quoteCampaign(c).totalPromotionDiscount;
+                              if (applyAmt <= 0) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Đã thêm món nhưng chưa tính được ưu đãi.')));
+                                }
+                                setDlgState(() {});
+                                return;
+                              }
+                            }
                             String? staffNote;
                             if (c.requireStaffNote) {
                               staffNote = await _promptStaffNote(context);
@@ -2370,7 +2483,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             setDlgState(() {
                               if (!allowStack) _appliedDiscounts.clear();
                               _appliedDiscounts.removeWhere((d) => d.campaignId == c.campaignId);
-                              _appliedDiscounts.add(CartCampaignPricing.discount(c, amt, staffNote: staffNote));
+                              _appliedDiscounts.add(CartCampaignPricing.discount(c, applyAmt, staffNote: staffNote));
                             });
                           } else {
                             setDlgState(() {
@@ -2660,6 +2773,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       const SizedBox(height: 8),
                       LoyaltyEarnPreview(
                         pointsUnknown: _customerPointsUnknown,
+                        pointsBlocked: _pointsBlockedByPromo,
                         customer: _selectedCustomer!,
                         pointsUsed: _pointsUsed,
                         earnPoints: _earnPreview,
@@ -3322,6 +3436,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 );
 
                 final customerBar = CartCustomerBar(
+                  pointsBlocked: _pointsBlockedByPromo,
                   customer: _selectedCustomer,
                   pointsUsed: _pointsUsed,
                   earnPoints: _earnPreview,

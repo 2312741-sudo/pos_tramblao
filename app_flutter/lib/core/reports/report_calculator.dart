@@ -53,6 +53,18 @@ class ReportCalculator {
     return null;
   }
 
+  /// Mã món (SKU) hiện tại trong danh mục: tra theo id rồi theo tên (danh mục nạp lại có thể đổi id).
+  /// Không có thì trả rỗng (không lấy tên món làm mã).
+  static String resolveProductCode(int productId, String name, Map<int, ProductModel>? productsMap) {
+    if (productsMap == null) return '';
+    final byId = productsMap[productId];
+    if (byId != null && byId.code.trim().isNotEmpty) return byId.code.trim();
+    for (final p in productsMap.values) {
+      if (p.name == name && p.code.trim().isNotEmpty) return p.code.trim();
+    }
+    return '';
+  }
+
   /// Tính giá vốn của 1 dòng món (Line Cost Price)
   static int getLineCostPrice(
     OrderItemModel item, {
@@ -393,7 +405,7 @@ class ReportCalculator {
       for (final it in b.items) {
         final p = findProduct(it, productsMap);
         final prodId = (p != null && p.id > 0) ? p.id : it.productId;
-        final prodCode = (p != null && p.code.isNotEmpty) ? p.code : (it.name);
+        final prodCode = resolveProductCode(it.productId, it.name, productsMap);
         final prodName = (p != null && p.name.isNotEmpty) ? p.name : it.name;
         final category = (p != null && p.category.isNotEmpty) ? p.category : 'Khác';
         final unit = (p != null && p.unit.isNotEmpty) ? p.unit : 'Ly';
@@ -810,6 +822,26 @@ class ReportCalculator {
       }
     }
 
+    // Đổi điểm tích lũy: một dòng riêng trong báo cáo khuyến mãi (từ bill.pointsDiscount / pointsUsed)
+    final pointsBills = <CampaignBillRef>[];
+    int pointsDiscountTotal = 0, pointsUsedTotal = 0, pointsRevenue = 0;
+    for (final b in paidBills) {
+      if (b.pointsDiscount <= 0 && b.pointsUsed <= 0) continue;
+      pointsDiscountTotal += b.pointsDiscount;
+      pointsUsedTotal += b.pointsUsed;
+      pointsRevenue += b.finalAmount;
+      pointsBills.add(CampaignBillRef(
+        billId: b.id,
+        billCode: b.billCode,
+        time: b.closedAt ?? b.createdAt,
+        tableName: b.tableName,
+        voucherCode: '',
+        discount: b.pointsDiscount,
+        billFinalAmount: b.finalAmount,
+        pointsUsed: b.pointsUsed,
+      ));
+    }
+
     final list = map.values
         .map((a) => CampaignReportItem(
               key: a.key,
@@ -824,6 +856,21 @@ class ReportCalculator {
               bills: (a.bills..sort((x, y) => y.time.compareTo(x.time))),
             ))
         .toList();
+    if (pointsBills.isNotEmpty) {
+      list.add(CampaignReportItem(
+        key: 'points:redeem',
+        campaignId: '',
+        name: 'Đổi điểm tích lũy',
+        code: 'DOI_DIEM',
+        type: 'POINTS',
+        billCount: pointsBills.length,
+        discountAmount: pointsDiscountTotal,
+        revenue: pointsRevenue,
+        voucherCodesUsed: 0,
+        bills: pointsBills..sort((x, y) => y.time.compareTo(x.time)),
+        pointsUsed: pointsUsedTotal,
+      ));
+    }
     list.sort((x, y) {
       final c = y.discountAmount.compareTo(x.discountAmount);
       return c != 0 ? c : x.name.compareTo(y.name);

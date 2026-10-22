@@ -146,6 +146,7 @@ class CampaignTier {
   final int maxDiscountMoney; // Trần giảm giá (0 = no cap)
   final int maxRewardQty; // Số lượng món thưởng tối đa
   final List<String> rewardItemIds; // Món thưởng (for P-05, P-06)
+  final List<String> rewardGroupIds; // Nhóm món thưởng (mọi món thuộc nhóm đều là món thưởng)
   final int sortOrder; // Thứ tự trong danh sách tiers
 
   CampaignTier({
@@ -157,6 +158,7 @@ class CampaignTier {
     required this.maxDiscountMoney,
     required this.maxRewardQty,
     required this.rewardItemIds,
+    this.rewardGroupIds = const [],
     required this.sortOrder,
   });
 
@@ -175,6 +177,7 @@ class CampaignTier {
       'maxBenefitValue': maxDiscountMoney,
       'maxRewardQty': maxRewardQty,
       'rewardItemIds': rewardItemIds,
+      'rewardGroupIds': rewardGroupIds,
       'sortOrder': sortOrder,
       'tierIndex': sortOrder,
     };
@@ -189,7 +192,7 @@ class CampaignTier {
       } else if (bType == 'DISCOUNT_AMOUNT' || bType == 'AMOUNT') {
         mode = BenefitMode.fixed.toMap();
       } else if (bType == 'FIXED_PRICE') {
-        mode = BenefitMode.fixed.toMap();
+        mode = BenefitMode.fixedPrice.toMap();
       } else {
         mode = BenefitMode.percent.toMap();
       }
@@ -218,6 +221,7 @@ class CampaignTier {
       maxDiscountMoney: (rawMaxDiscount as num).toInt(),
       maxRewardQty: (map['maxRewardQty'] as num?)?.toInt() ?? 0,
       rewardItemIds: List<String>.from(map['rewardItemIds'] ?? []),
+      rewardGroupIds: List<String>.from(map['rewardGroupIds'] ?? []),
       sortOrder: (map['sortOrder'] as num?)?.toInt() ?? (map['tierIndex'] as num?)?.toInt() ?? 0,
     );
   }
@@ -231,6 +235,7 @@ class CampaignTier {
     int? maxDiscountMoney,
     int? maxRewardQty,
     List<String>? rewardItemIds,
+    List<String>? rewardGroupIds,
     int? sortOrder,
   }) {
     return CampaignTier(
@@ -242,6 +247,7 @@ class CampaignTier {
       maxDiscountMoney: maxDiscountMoney ?? this.maxDiscountMoney,
       maxRewardQty: maxRewardQty ?? this.maxRewardQty,
       rewardItemIds: rewardItemIds ?? this.rewardItemIds,
+      rewardGroupIds: rewardGroupIds ?? this.rewardGroupIds,
       sortOrder: sortOrder ?? this.sortOrder,
     );
   }
@@ -251,8 +257,10 @@ class CampaignTier {
 class CampaignBuyCondition {
   final String conditionId;
   final List<String> buyItemIds; // Danh sách món mua X
+  final List<String> buyGroupIds; // Nhóm món mua X (mọi món thuộc nhóm)
   final int requiredBuyQty; // Số lượng cần mua
   final List<String> rewardItemIds; // Danh sách món thưởng Y
+  final List<String> rewardGroupIds; // Nhóm món thưởng Y
   final int rewardQty; // Số lượng thưởng mỗi bundle
   final String benefitMode; // BenefitMode
   final int value; // % or VND
@@ -261,8 +269,10 @@ class CampaignBuyCondition {
   CampaignBuyCondition({
     required this.conditionId,
     required this.buyItemIds,
+    this.buyGroupIds = const [],
     required this.requiredBuyQty,
     required this.rewardItemIds,
+    this.rewardGroupIds = const [],
     required this.rewardQty,
     required this.benefitMode,
     required this.value,
@@ -273,8 +283,10 @@ class CampaignBuyCondition {
     return {
       'conditionId': conditionId,
       'buyItemIds': buyItemIds,
+      'buyGroupIds': buyGroupIds,
       'requiredBuyQty': requiredBuyQty,
       'rewardItemIds': rewardItemIds,
+      'rewardGroupIds': rewardGroupIds,
       'rewardQty': rewardQty,
       'benefitMode': benefitMode,
       'value': value,
@@ -286,8 +298,10 @@ class CampaignBuyCondition {
     return CampaignBuyCondition(
       conditionId: map['conditionId'] ?? '',
       buyItemIds: List<String>.from(map['buyItemIds'] ?? []),
+      buyGroupIds: List<String>.from(map['buyGroupIds'] ?? []),
       requiredBuyQty: map['requiredBuyQty']?.toInt() ?? 0,
       rewardItemIds: List<String>.from(map['rewardItemIds'] ?? []),
+      rewardGroupIds: List<String>.from(map['rewardGroupIds'] ?? []),
       rewardQty: map['rewardQty']?.toInt() ?? 0,
       benefitMode: map['benefitMode'] ?? BenefitMode.percent.toMap(),
       value: map['value']?.toInt() ?? 0,
@@ -298,8 +312,10 @@ class CampaignBuyCondition {
   CampaignBuyCondition copyWith({
     String? conditionId,
     List<String>? buyItemIds,
+    List<String>? buyGroupIds,
     int? requiredBuyQty,
     List<String>? rewardItemIds,
+    List<String>? rewardGroupIds,
     int? rewardQty,
     String? benefitMode,
     int? value,
@@ -308,8 +324,10 @@ class CampaignBuyCondition {
     return CampaignBuyCondition(
       conditionId: conditionId ?? this.conditionId,
       buyItemIds: buyItemIds ?? this.buyItemIds,
+      buyGroupIds: buyGroupIds ?? this.buyGroupIds,
       requiredBuyQty: requiredBuyQty ?? this.requiredBuyQty,
       rewardItemIds: rewardItemIds ?? this.rewardItemIds,
+      rewardGroupIds: rewardGroupIds ?? this.rewardGroupIds,
       rewardQty: rewardQty ?? this.rewardQty,
       benefitMode: benefitMode ?? this.benefitMode,
       value: value ?? this.value,
@@ -473,6 +491,8 @@ class CampaignModel {
   final bool hasCodes; // Có phát hành mã
   final bool autoApply; // Tự động áp dụng
   final bool requireStaffNote; // Bắt buộc nhân viên nhập ghi chú khi áp dụng mã
+  final bool birthdayOnly; // Chỉ áp dụng đúng ngày sinh nhật khách (cần gắn khách có ngày sinh)
+  final bool blockPoints; // Đơn dùng chương trình này không được tích điểm
 
   // Cộng dồn
   final String stackingMode; // DISABLED, ENABLED
@@ -510,6 +530,8 @@ class CampaignModel {
     required this.hasCodes,
     required this.autoApply,
     this.requireStaffNote = false,
+    this.birthdayOnly = false,
+    this.blockPoints = false,
     required this.stackingMode,
     required this.priority,
     required this.active,
@@ -569,7 +591,8 @@ class CampaignModel {
       return false;
     }
 
-    final dt = DateTime.fromMillisecondsSinceEpoch(timestampMs);
+    // Lịch luôn tính theo giờ Việt Nam (UTC+7), không phụ thuộc múi giờ của máy
+    final dt = DateTime.fromMillisecondsSinceEpoch(timestampMs, isUtc: true).add(const Duration(hours: 7));
 
     // Ngày trong tuần: 1..7 với 1 = Thứ 2, 7 = Chủ Nhật
     if (schedule.daysOfWeek.isNotEmpty) {
@@ -623,6 +646,8 @@ class CampaignModel {
       'hasCodes': hasCodes,
       'autoApply': autoApply,
       'requireStaffNote': requireStaffNote,
+      'birthdayOnly': birthdayOnly,
+      'blockPoints': blockPoints,
       'stackingMode': stackingMode,
       'priority': priority,
       'active': active,
@@ -660,6 +685,8 @@ class CampaignModel {
       hasCodes: map['hasCodes'] ?? false,
       autoApply: map['autoApply'] ?? false,
       requireStaffNote: map['requireStaffNote'] ?? false,
+      birthdayOnly: map['birthdayOnly'] == true,
+      blockPoints: map['blockPoints'] == true,
       stackingMode: normalizeStackingMode(map['stackingMode']?.toString()),
       priority: map['priority']?.toInt() ?? 0,
       active: map['active'] ?? false,
@@ -693,6 +720,8 @@ class CampaignModel {
     bool? hasCodes,
     bool? autoApply,
     bool? requireStaffNote,
+    bool? birthdayOnly,
+    bool? blockPoints,
     String? stackingMode,
     int? priority,
     bool? active,
@@ -724,6 +753,8 @@ class CampaignModel {
       hasCodes: hasCodes ?? this.hasCodes,
       autoApply: autoApply ?? this.autoApply,
       requireStaffNote: requireStaffNote ?? this.requireStaffNote,
+      birthdayOnly: birthdayOnly ?? this.birthdayOnly,
+      blockPoints: blockPoints ?? this.blockPoints,
       stackingMode: stackingMode ?? this.stackingMode,
       priority: priority ?? this.priority,
       active: active ?? this.active,

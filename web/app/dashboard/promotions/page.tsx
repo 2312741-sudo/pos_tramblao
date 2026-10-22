@@ -1,9 +1,10 @@
 "use client";
+import { isEligibleAt, parseCampaign } from "@/lib/pricing-engine";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { Search, Plus, Tag, Ticket } from "lucide-react";
 import { ref, onValue, set, update, get } from "firebase/database";
 import { db } from "@/lib/firebase";
-import { useDashboardData, type ProductItem } from "@/lib/data-context";
+import { useDashboardData, type ProductItem, type CategoryItem } from "@/lib/data-context";
 import { errorMessage } from "@/lib/errors";
 import {
   CAMPAIGN_TYPE_LABELS, REWARD_BENEFIT_LABELS, buildBenefitFields, campaignToForm, describeCampaignBenefit,
@@ -62,6 +63,8 @@ interface CampaignItem {
   hasCodes: boolean;
   autoApply: boolean;
   requireStaffNote?: boolean;
+  birthdayOnly?: boolean;
+  blockPoints?: boolean;
   stackingMode: string;
   priority: number;
   createdAt: number;
@@ -145,6 +148,7 @@ export default function PromotionsPage() {
           active: v.active ?? false, schedule: v.schedule || {}, branchIds: v.branchIds || [],
           includedItemIds: v.includedItemIds || [], includedGroupIds: v.includedGroupIds || [],
           requireStaffNote: v.requireStaffNote ?? false,
+          birthdayOnly: v.birthdayOnly === true, blockPoints: v.blockPoints === true,
           tiers: v.tiers || [], buyConditions: v.buyConditions || [], budgetMoney: v.budgetMoney || 0,
           maxUses: v.maxUses || 0, maxUsesPerCustomer: v.maxUsesPerCustomer || 0, hasCodes: v.hasCodes ?? false,
           autoApply: v.autoApply ?? false, stackingMode: normalizeStackingMode(v.stackingMode), priority: v.priority || 0,
@@ -197,43 +201,8 @@ export default function PromotionsPage() {
     if (end > 0 && now > end) return "Đã kết thúc";
     if (start > 0 && now < start) return "Sắp tới";
 
-    // Kiểm tra ngày trong tuần (1..7: 1 = T2, 7 = CN)
-    if (cam.schedule?.daysOfWeek && cam.schedule.daysOfWeek.length > 0) {
-      const d = new Date(now);
-      const day = d.getDay() === 0 ? 7 : d.getDay();
-      if (!cam.schedule.daysOfWeek.includes(day)) {
-        return "Ngoài khung giờ";
-      }
-    }
-
-    // Kiểm tra khung giờ Happy Hours
-    if (cam.schedule?.timeSlots && cam.schedule.timeSlots.length > 0) {
-      const d = new Date(now);
-      const curMinutes = d.getHours() * 60 + d.getMinutes();
-      let inSlot = false;
-      for (const slot of cam.schedule.timeSlots) {
-        if (!slot.startTime || !slot.endTime) continue;
-        const [sh, sm] = slot.startTime.split(":").map(Number);
-        const [eh, em] = slot.endTime.split(":").map(Number);
-        const startMin = (sh || 0) * 60 + (sm || 0);
-        const endMin = (eh || 0) * 60 + (em || 0);
-        if (startMin <= endMin) {
-          if (curMinutes >= startMin && curMinutes <= endMin) {
-            inSlot = true;
-            break;
-          }
-        } else {
-          // Ca qua đêm e.g. 22:00 -> 02:00
-          if (curMinutes >= startMin || curMinutes <= endMin) {
-            inSlot = true;
-            break;
-          }
-        }
-      }
-      if (!inSlot) {
-        return "Ngoài khung giờ";
-      }
-    }
+    // Ngày trong tuần + khung giờ Happy Hours: dùng đúng hàm của Pricing Engine (giờ Việt Nam)
+    if (!isEligibleAt(parseCampaign(cam.campaignId, cam as unknown as Record<string, unknown>), now)) return "Ngoài khung giờ";
 
     return "Đang chạy";
   }, [nowTs]);
@@ -360,6 +329,8 @@ export default function PromotionsPage() {
         hasCodes: campaignForm.hasCodes,
         autoApply: campaignForm.autoApply,
         requireStaffNote: campaignForm.requireStaffNote,
+        birthdayOnly: campaignForm.birthdayOnly,
+        blockPoints: campaignForm.blockPoints,
         stackingMode: normalizeStackingMode(campaignForm.stackingMode),
         priority: Number(campaignForm.priority) || 0,
         createdAt: editingCampaign?.createdAt || now,
@@ -628,6 +599,12 @@ export default function PromotionsPage() {
                               <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
                                 {cam.requireStaffNote && (
                                   <span style={badgeStyle("#d97706")}>📝 Ghi chú NV</span>
+                                )}
+                                {cam.birthdayOnly && (
+                                  <span style={badgeStyle("#db2777")}>🎂 Sinh nhật khách</span>
+                                )}
+                                {cam.blockPoints && (
+                                  <span style={badgeStyle("#7c3aed")}>🚫 Không tích điểm</span>
                                 )}
                                 {cam.includedItemIds && cam.includedItemIds.length > 0 && (
                                   <span style={badgeStyle("#2563eb")}>📦 {cam.includedItemIds.length} món</span>
@@ -905,12 +882,21 @@ export default function PromotionsPage() {
                       placeholder="VD: 200000"
                     />
                   </div>
-                  <RewardEditor form={campaignForm} setForm={setCampaignForm} products={products} title="Món được tặng/giảm giá" />
+                  <RewardEditor form={campaignForm} setForm={setCampaignForm} products={products} categories={categories} title="Món được tặng/giảm giá" />
                 </div>
               )}
               {campaignForm.campaignType === "BUYXGETY" && (
                 <div className="grid-stack-sm" style={benefitBox}>
                   <div style={{ gridColumn: "1 / -1" }}>
+                    <GroupMultiPicker
+                      label={`📁 Nhóm món mua X (${campaignForm.buyGroupIds.length}) — mọi món trong nhóm đều tính là X`}
+                      color="#1e40af"
+                      categories={categories}
+                      selected={campaignForm.buyGroupIds}
+                      onChange={(ids) => setCampaignForm(prev => ({ ...prev, buyGroupIds: ids }))}
+                      emptyText="Chưa chọn nhóm X"
+                    />
+                    <div style={{ height: "10px" }} />
                     <ItemMultiPicker
                       label={`🛒 Món mua X (${campaignForm.buyItemIds.length}) *`}
                       color="#1e40af"
@@ -922,7 +908,7 @@ export default function PromotionsPage() {
                   </div>
                   <FormField label="Số lượng X cần mua *" value={campaignForm.buyQty} onChange={(v) => setCampaignForm({ ...campaignForm, buyQty: v })} type="number" placeholder="VD: 2" />
                   <div />
-                  <RewardEditor form={campaignForm} setForm={setCampaignForm} products={products} title="Món Y được tặng/giảm giá" />
+                  <RewardEditor form={campaignForm} setForm={setCampaignForm} products={products} categories={categories} title="Món Y được tặng/giảm giá" />
                   <label style={{ gridColumn: "1 / -1", display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer" }}>
                     <input type="checkbox" checked={campaignForm.multiplyByBundle}
                       onChange={(e) => setCampaignForm({ ...campaignForm, multiplyByBundle: e.target.checked })}
@@ -1192,6 +1178,32 @@ export default function PromotionsPage() {
             <FormField label="Ngân sách (VND)" value={campaignForm.budgetMoney} onChange={(v) => setCampaignForm({ ...campaignForm, budgetMoney: v })} type="number" />
             <FormField label="Giới hạn lượt dùng" value={campaignForm.maxUses} onChange={(v) => setCampaignForm({ ...campaignForm, maxUses: v })} type="number" />
 
+            {/* 4b. Sinh nhật khách & khóa tích điểm */}
+            <div style={{ gridColumn: "1 / -1", background: "var(--surface-muted)", border: "1px solid var(--border)", borderRadius: "8px", padding: "12px 14px", marginTop: "4px", display: "grid", gap: "10px" }}>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer" }}>
+                <input type="checkbox" checked={campaignForm.birthdayOnly}
+                  onChange={(e) => setCampaignForm({ ...campaignForm, birthdayOnly: e.target.checked })}
+                  style={{ marginTop: "3px", width: "16px", height: "16px" }} />
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--text)" }}>🎂 Chỉ áp dụng đúng ngày sinh nhật khách</div>
+                  <div style={{ fontSize: "12px", color: "var(--subtext)", marginTop: "2px" }}>
+                    Tại app POS: gắn khách có ngày sinh trùng hôm nay thì tự áp dụng; khách khác (hoặc đơn chưa gắn khách) không dùng được.
+                  </div>
+                </div>
+              </label>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer" }}>
+                <input type="checkbox" checked={campaignForm.blockPoints}
+                  onChange={(e) => setCampaignForm({ ...campaignForm, blockPoints: e.target.checked })}
+                  style={{ marginTop: "3px", width: "16px", height: "16px" }} />
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--text)" }}>🚫 Khóa tích điểm</div>
+                  <div style={{ fontSize: "12px", color: "var(--subtext)", marginTop: "2px" }}>
+                    Đơn dùng chương trình này không được tích điểm (vẫn gắn được thông tin khách vào đơn).
+                  </div>
+                </div>
+              </label>
+            </div>
+
             {/* 5. Bắt buộc nhân viên nhập ghi chú (Mục 2 của Module 1) */}
             <div style={{ gridColumn: "1 / -1", background: "var(--warning-bg)", border: "1px solid #fef08a", borderRadius: "8px", padding: "12px 14px", marginTop: "4px" }}>
               <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer" }}>
@@ -1328,16 +1340,67 @@ function ItemMultiPicker({ label, color, products, selected, onChange, emptyText
   );
 }
 
+/** Chọn nhiều nhóm hàng (tên nhóm = groupId của món) */
+function GroupMultiPicker({ label, color, categories, selected, onChange, emptyText }: {
+  label: string;
+  color: string;
+  categories: CategoryItem[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  emptyText: string;
+}) {
+  return (
+    <div style={{ background: "var(--surface-muted)", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}>
+      <label style={{ ...labelStyle, color }}>{label}</label>
+      <select
+        style={{ ...inputStyle, marginBottom: "8px" }}
+        value=""
+        onChange={(e) => {
+          if (e.target.value && !selected.includes(e.target.value)) onChange([...selected, e.target.value]);
+        }}
+      >
+        <option value="">-- Bấm để thêm nhóm hàng --</option>
+        {categories.filter((c) => !selected.includes(c.name)).map((c) => (
+          <option key={c.id || c.name} value={c.name}>{c.name}</option>
+        ))}
+      </select>
+      {selected.length > 0 ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+          {selected.map((g) => (
+            <span key={g} style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", background: "var(--info-bg)", color, borderRadius: "16px", fontSize: "12px", fontWeight: "600" }}>
+              📁 {g}
+              <button type="button" onClick={() => onChange(selected.filter((x) => x !== g))}
+                style={{ border: "none", background: "none", cursor: "pointer", color, fontWeight: "bold", fontSize: "14px", lineHeight: 1 }}>×</button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: "12px", color: "var(--muted)", fontStyle: "italic" }}>{emptyText}</div>
+      )}
+    </div>
+  );
+}
+
 /** Món thưởng Y + số lượng + hình thức (tặng / giảm % / giảm tiền) — dùng cho GTĐ và Mua X. */
-function RewardEditor({ form, setForm, products, title }: {
+function RewardEditor({ form, setForm, products, categories, title }: {
   form: CampaignFormState;
   setForm: React.Dispatch<React.SetStateAction<CampaignFormState>>;
   products: ProductItem[];
+  categories: CategoryItem[];
   title: string;
 }) {
   return (
     <>
       <div style={{ gridColumn: "1 / -1" }}>
+        <GroupMultiPicker
+          label={`📁 Nhóm món được tặng/giảm (${form.rewardGroupIds.length}) — chọn nhóm để tránh thiếu món`}
+          color="#b45309"
+          categories={categories}
+          selected={form.rewardGroupIds}
+          onChange={(ids) => setForm(prev => ({ ...prev, rewardGroupIds: ids }))}
+          emptyText="Chưa chọn nhóm"
+        />
+        <div style={{ height: "10px" }} />
         <ItemMultiPicker
           label={`🎁 ${title} (${form.rewardItemIds.length}) *`}
           color="#b45309"

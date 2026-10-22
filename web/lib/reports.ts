@@ -3,6 +3,7 @@
  * Tuân thủ chuẩn DOCS-REPORT-SPEC-2026-01 (REPORT SPEC v2.0.0)
  * Pure TypeScript functions, độc lập hoàn toàn với React, có thể kiểm thử 100%.
  */
+import { resolveProductCode } from "./product-code";
 import { lineGross as rawLineGross, type RawOrderLine } from "./order-math";
 import { billDeletedItems, deletionReportFromBills } from "./item-deletion";
 
@@ -370,6 +371,7 @@ export interface CashShiftAuditItem {
 // ==================== BÁO CÁO 11: GROSS PROFIT & COGS ====================
 export interface GrossProfitItem {
   productId?: number | string;
+  productCode?: string;
   productName: string;
   category?: string;
   quantity: number;
@@ -1024,14 +1026,13 @@ export function calculateProductReport(
       const pId = it.productId != null ? it.productId : (it.name || "0");
       const key = String(pId);
 
-      let pCode = it.productCode || it.code || "";
+      const pCode = resolveProductCode({ productId: it.productId, name: it.name, productCode: it.productCode, code: it.code }, productsMap);
       let basePrice = Number(it.price || 0);
       let unit = it.unit || "Ly";
       let category = it.category || "Khác";
 
       if (productsMap && productsMap[pId]) {
         const pDef = productsMap[pId];
-        if (!pCode) pCode = pDef.code || pDef.productCode || "";
         if (!basePrice) basePrice = Number(pDef.price || 0);
         if (!unit && pDef.unit) unit = pDef.unit;
         if ((!category || category === "Khác") && pDef.category) category = pDef.category;
@@ -1538,6 +1539,7 @@ export function calculateGrossProfitReport(
 
     return {
       productId: p.productId,
+      productCode: p.productCode,
       productName: p.productName,
       category: p.category,
       quantity: p.quantity,

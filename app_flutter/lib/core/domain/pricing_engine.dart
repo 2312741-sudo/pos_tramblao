@@ -6,6 +6,8 @@ import '../../data/models/order_item_model.dart';
 class PricingInput {
   final String branchId;
   final String? customerId;
+  /// Ngày sinh khách đã gắn vào đơn (yyyy-MM-dd hoặc dd/MM/yyyy); rỗng/null = chưa có khách / chưa có ngày sinh
+  final String? customerBirthday;
   final int? guestCount;
   final int serverNowMs;
   final List<PricingLineItem> lines;
@@ -16,6 +18,7 @@ class PricingInput {
   PricingInput({
     required this.branchId,
     this.customerId,
+    this.customerBirthday,
     this.guestCount,
     required this.serverNowMs,
     required this.lines,
@@ -78,6 +81,25 @@ class PricingLineItem {
 }
 
 // ==================== HELPERS ====================
+
+/// Hôm nay (giờ Việt Nam, UTC+7) có phải sinh nhật không. Chấp nhận yyyy-MM-dd, dd/MM/yyyy, dd-MM-yyyy.
+bool isBirthdayToday(String? birthday, int nowMs) {
+  final s = (birthday ?? '').trim();
+  if (s.isEmpty) return false;
+  int? month, day;
+  final iso = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})').firstMatch(s);
+  final vn = RegExp(r'^(\d{1,2})[/-](\d{1,2})[/-](\d{4})').firstMatch(s);
+  if (iso != null) {
+    month = int.parse(iso.group(2)!);
+    day = int.parse(iso.group(3)!);
+  } else if (vn != null) {
+    day = int.parse(vn.group(1)!);
+    month = int.parse(vn.group(2)!);
+  }
+  if (month == null || day == null) return false;
+  final now = DateTime.fromMillisecondsSinceEpoch(nowMs, isUtc: true).add(const Duration(hours: 7));
+  return now.month == month && now.day == day;
+}
 
 bool _isType(String type, String compact) => type.toUpperCase().replaceAll('_', '') == compact;
 
@@ -252,6 +274,12 @@ PriceQuoteModel calculatePrice({
       addReason(campaign, 'BRANCH_NOT_SUPPORTED', 'Không áp dụng tại chi nhánh này');
       continue;
     }
+    if (campaign.birthdayOnly && !isBirthdayToday(input.customerBirthday, input.serverNowMs)) {
+      final has = (input.customerBirthday ?? '').trim().isNotEmpty;
+      addReason(campaign, has ? 'NOT_BIRTHDAY' : 'BIRTHDAY_CUSTOMER_REQUIRED',
+          has ? 'Hôm nay không phải sinh nhật của khách' : 'Gắn khách hàng có ngày sinh để áp dụng (chỉ đúng ngày sinh nhật)');
+      continue;
+    }
     final type = campaign.campaignType;
 
     if (_isType(type, 'BILLDISCOUNT')) {
@@ -268,9 +296,13 @@ PriceQuoteModel calculatePrice({
       for (var condition in campaign.buyConditions) {
         final buyIds = condition.buyItemIds.toSet();
         final rewardIds = condition.rewardItemIds.toSet();
+        final buyGroups = condition.buyGroupIds.toSet();
+        final rewardGroups = condition.rewardGroupIds.toSet();
+        bool isBuy(PricingLineItem l) => buyIds.contains(l.itemId) || (l.groupId != null && buyGroups.contains(l.groupId));
+        bool isReward(PricingLineItem l) => rewardIds.contains(l.itemId) || (l.groupId != null && rewardGroups.contains(l.groupId));
         final buyQty = condition.requiredBuyQty;
         final rewardQty = condition.rewardQty;
-        if (buyIds.isEmpty || rewardIds.isEmpty || buyQty <= 0 || rewardQty <= 0) {
+        if ((buyIds.isEmpty && buyGroups.isEmpty) || (rewardIds.isEmpty && rewardGroups.isEmpty) || buyQty <= 0 || rewardQty <= 0) {
           addReason(campaign, 'INVALID_CONFIG', 'Điều kiện Mua X tặng/giảm Y chưa cấu hình đủ');
           continue;
         }
@@ -279,8 +311,8 @@ PriceQuoteModel calculatePrice({
         int xo = 0, yo = 0, bo = 0; // chỉ X, chỉ Y, vừa X vừa Y
         for (final l in input.lines) {
           if (l.isGift || campaign.excludedItemIds.contains(l.itemId)) continue;
-          final isX = buyIds.contains(l.itemId);
-          final isY = rewardIds.contains(l.itemId);
+          final isX = isBuy(l);
+          final isY = isReward(l);
           final a = max(0, avail(l));
           if (isX && isY) {
             bo += a;
@@ -317,7 +349,7 @@ PriceQuoteModel calculatePrice({
         }
 
         final candidates = input.lines
-            .where((l) => !l.isGift && rewardIds.contains(l.itemId) && !campaign.excludedItemIds.contains(l.itemId))
+            .where((l) => !l.isGift && isReward(l) && !campaign.excludedItemIds.contains(l.itemId))
             .toList();
         campaignDiscount += distributeReward(
           candidates: candidates,
@@ -326,7 +358,7 @@ PriceQuoteModel calculatePrice({
           value: condition.value,
           campaignId: campaign.campaignId,
           tierId: condition.conditionId,
-          isBoth: (l) => buyIds.contains(l.itemId),
+          isBoth: isBuy,
           maxFromBoth: bestBothAllowed,
         );
       }
@@ -350,13 +382,17 @@ PriceQuoteModel calculatePrice({
         continue;
       }
       final rewardIds = tier.rewardItemIds.toSet();
-      if (rewardIds.isEmpty) {
+      final rewardGroups = tier.rewardGroupIds.toSet();
+      if (rewardIds.isEmpty && rewardGroups.isEmpty) {
         addReason(campaign, 'INVALID_CONFIG', 'Chưa chọn món được tặng/giảm');
         continue;
       }
       final units = tier.maxRewardQty > 0 ? tier.maxRewardQty : 1;
       final candidates = input.lines
-          .where((l) => !l.isGift && rewardIds.contains(l.itemId) && !campaign.excludedItemIds.contains(l.itemId))
+          .where((l) =>
+              !l.isGift &&
+              (rewardIds.contains(l.itemId) || (l.groupId != null && rewardGroups.contains(l.groupId))) &&
+              !campaign.excludedItemIds.contains(l.itemId))
           .toList();
       if (candidates.isEmpty) {
         addReason(campaign, 'REWARD_ITEM_NOT_IN_BILL', 'Đơn đủ điều kiện: thêm món được tặng/giảm vào đơn để áp dụng');
@@ -379,23 +415,25 @@ PriceQuoteModel calculatePrice({
     } else if (_isType(type, 'ITEMPRICERULE')) {
       if (campaign.tiers.isNotEmpty) {
         var tier = campaign.tiers.first;
-        var fixedPrice = (tier.benefitMode == 'FIXEDPRICE') ? tier.value : null;
-
+        // Đồng giá (FIXEDPRICE) hoặc đồng giảm: % / số tiền / tặng — tính theo từng phần của dòng
         bool applied = false;
         for (var line in input.lines) {
-          if (inScope(campaign, line)) {
-            if (fixedPrice != null && line.unitPrice > fixedPrice) {
-              final remaining = max(0, lineFinalPrices[line.lineId] ?? 0);
-              int discount = min((line.unitPrice - fixedPrice) * line.quantity, remaining);
-              if (discount <= 0) continue;
-              lineDiscounts[line.lineId] = (lineDiscounts[line.lineId] ?? 0) + discount;
-              lineFinalPrices[line.lineId] = remaining - discount;
-              totalDiscount += discount;
-              applied = true;
-            }
-          }
+          if (!inScope(campaign, line)) continue;
+          final perUnit = _unitBenefit(tier.benefitMode, tier.value, line.unitPrice);
+          if (perUnit <= 0) continue;
+          final remaining = max(0, lineFinalPrices[line.lineId] ?? 0);
+          int discount = min(perUnit * line.quantity, remaining);
+          if (discount <= 0) continue;
+          lineDiscounts[line.lineId] = (lineDiscounts[line.lineId] ?? 0) + discount;
+          lineFinalPrices[line.lineId] = remaining - discount;
+          totalDiscount += discount;
+          applied = true;
         }
-        if (applied) markApplied(campaign.campaignId);
+        if (applied) {
+          markApplied(campaign.campaignId);
+        } else if (!input.lines.any((l) => inScope(campaign, l))) {
+          addReason(campaign, 'ITEM_NOT_IN_BILL', 'Thêm món thuộc chương trình vào đơn để áp dụng');
+        }
       }
     }
   }

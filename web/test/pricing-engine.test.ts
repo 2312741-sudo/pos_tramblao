@@ -6,6 +6,7 @@ import {
   buildAppliedDiscount,
   calculatePrice,
   evaluateVoucher,
+  isBirthdayToday,
   linesFromOrder,
   listEligibleCampaigns,
   parseCampaign,
@@ -232,7 +233,7 @@ describe("lịch & chi nhánh", () => {
 
   it("khung giờ qua đêm", () => {
     const c = camp({ campaignType: "BILLDISCOUNT", schedule: { timeSlots: [{ startTime: "22:00", endTime: "02:00" }], daysOfWeek: [] } });
-    const at = (h: number, m: number) => new Date(2026, 9, 12, h, m).getTime();
+    const at = (h: number, m: number) => Date.UTC(2026, 9, 12, h - 7, m); // giờ Việt Nam (UTC+7)
     expect(listEligibleCampaigns([c], "B", at(23, 0))).toHaveLength(1);
     expect(listEligibleCampaigns([c], "B", at(1, 0))).toHaveLength(1);
     expect(listEligibleCampaigns([c], "B", at(12, 0))).toHaveLength(0);
@@ -426,5 +427,77 @@ describe("in phiếu có khuyến mãi", () => {
     const bill = buildOrderReceiptHtml({ id: "x", billCode: "HD-1", totalAmount: 40000, items: [{ name: "Trà", price: 50000, quantity: 1 }], discounts: [{ campaignName: "CT C", voucherCode: "ABC123", amount: 10000 }, { promoName: "Không tiền", amount: 0 }] }, "now");
     expect(bill).toContain("KM: CT C (mã ABC123)");
     expect(bill).not.toContain("Không tiền");
+  });
+});
+
+describe("nhóm món & đồng giá/đồng giảm (bổ sung)", () => {
+  const g = (id: string, item: string, group: string, qty: number, price: number): PricingLine => ({ ...line(id, item, qty, price), groupId: group });
+
+  it("Mua X tặng Y theo NHÓM món: món bất kỳ trong nhóm đều tính", () => {
+    const c = camp({
+      campaignType: "BUYXGETY",
+      buyConditions: [{ ...bxgy({ x: [], y: [], buy: 2, get: 1 }), buyGroupIds: ["Cà phê"], rewardGroupIds: ["Trà"] }],
+    });
+    // 1 cà phê A + 1 cà phê B = đủ 2 món X từ nhóm; tặng 1 trà rẻ nhất
+    const r = q(c, [g("1", "CF_A", "Cà phê", 1, 30000), g("2", "CF_B", "Cà phê", 1, 35000), g("3", "TRA1", "Trà", 1, 25000), g("4", "TRA2", "Trà", 1, 40000)]);
+    expect(r.totalPromotionDiscount).toBe(25000);
+    // Thiếu X
+    expect(q(c, [g("1", "CF_A", "Cà phê", 1, 30000), g("3", "TRA1", "Trà", 1, 25000)]).totalPromotionDiscount).toBe(0);
+  });
+
+  it("Mua X cấu hình toàn nhóm nhưng không chọn gì → INVALID_CONFIG", () => {
+    const c = camp({ campaignType: "BUYXGETY", buyConditions: [{ ...bxgy({ x: [], y: [] }) }] });
+    expect(q(c, [line("1", "A", 1, 1000)]).reasons[0].reasonCode).toBe("INVALID_CONFIG");
+  });
+
+  it("Giảm/tặng món theo giá trị đơn: nhóm món thưởng", () => {
+    const c = camp({
+      campaignType: "ORDERVALUEITEMBENEFIT",
+      tiers: [{ ...tier({ threshold: 100000, mode: "FREEITEM", value: 10000, maxQty: 1, reward: [] }), rewardGroupIds: ["Trà"] }],
+    });
+    const r = q(c, [line("1", "A", 1, 120000), g("2", "TRA1", "Trà", 1, 25000)]);
+    expect(r.totalPromotionDiscount).toBe(25000);
+  });
+
+  it("Đồng giá: báo lý do khi đơn chưa có món thuộc chương trình", () => {
+    const c = camp({ campaignType: "ITEMPRICERULE", includedItemIds: ["XOAI"], tiers: [tier({ mode: "FIXEDPRICE", value: 14000 })] });
+    const r = q(c, [line("1", "A", 1, 30000)]);
+    expect(r.totalPromotionDiscount).toBe(0);
+    expect(r.reasons[0].reasonCode).toBe("ITEM_NOT_IN_BILL");
+    expect(q(c, [line("1", "XOAI", 2, 32000)]).totalPromotionDiscount).toBe(36000);
+  });
+
+  it("Đồng giảm (PERCENT) cho món thuộc chương trình", () => {
+    const c = camp({ campaignType: "ITEMPRICERULE", includedItemIds: ["XOAI"], tiers: [tier({ mode: "PERCENT", value: 5000 })] });
+    expect(q(c, [line("1", "XOAI", 2, 32000)]).totalPromotionDiscount).toBe(32000);
+  });
+});
+
+describe("KM sinh nhật khách (birthdayOnly)", () => {
+  const bd = camp({ campaignType: "BILLDISCOUNT", birthdayOnly: true, blockPoints: true, tiers: [tier({ mode: "PERCENT", value: 3000 })] });
+  const lines = [line("1", "A", 1, 100000)];
+  // nowMs: 2026-10-22 12:00 giờ VN
+  const now = Date.UTC(2026, 9, 22, 5, 0, 0);
+  const run = (birthday?: string) => calculatePrice({ branchId: "B", nowMs: now, lines, customerBirthday: birthday }, [bd]);
+
+  it("đúng ngày sinh → giảm 30% cả đơn", () => {
+    expect(run("1995-10-22").totalPromotionDiscount).toBe(30000);
+    expect(run("22/10/1988").totalPromotionDiscount).toBe(30000);
+  });
+  it("sai ngày hoặc chưa gắn khách → không áp, có lý do", () => {
+    const a = run("1995-10-23");
+    expect(a.totalPromotionDiscount).toBe(0);
+    expect(a.reasons[0].reasonCode).toBe("NOT_BIRTHDAY");
+    expect(run(undefined).reasons[0].reasonCode).toBe("BIRTHDAY_CUSTOMER_REQUIRED");
+  });
+  it("tính theo giờ Việt Nam (0h30 sáng VN vẫn là ngày mới)", () => {
+    const vnEarly = Date.UTC(2026, 9, 21, 17, 30, 0); // 22/10 00:30 VN
+    expect(isBirthdayToday("2000-10-22", vnEarly)).toBe(true);
+    expect(isBirthdayToday("2000-10-21", vnEarly)).toBe(false);
+  });
+  it("parseCampaign đọc birthdayOnly / blockPoints", () => {
+    const c = parseCampaign("X", { campaignType: "BILLDISCOUNT", birthdayOnly: true, blockPoints: true });
+    expect(c.birthdayOnly).toBe(true);
+    expect(c.blockPoints).toBe(true);
   });
 });

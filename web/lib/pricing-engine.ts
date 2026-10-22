@@ -21,14 +21,20 @@ export interface CampaignTier {
   maxDiscountMoney: number;
   maxRewardQty: number;
   rewardItemIds: string[];
+  /** Nhóm món thưởng (mọi món thuộc nhóm đều là món thưởng) */
+  rewardGroupIds?: string[];
   sortOrder: number;
 }
 
 export interface CampaignBuyCondition {
   conditionId: string;
   buyItemIds: string[];
+  /** Nhóm món mua X */
+  buyGroupIds?: string[];
   requiredBuyQty: number;
   rewardItemIds: string[];
+  /** Nhóm món thưởng Y */
+  rewardGroupIds?: string[];
   rewardQty: number;
   benefitMode: string;
   value: number;
@@ -64,6 +70,10 @@ export interface Campaign {
   hasCodes: boolean;
   autoApply: boolean;
   requireStaffNote: boolean;
+  /** Chỉ áp dụng đúng ngày sinh nhật khách (cần gắn khách có ngày sinh) */
+  birthdayOnly?: boolean;
+  /** Đơn dùng chương trình này không được tích điểm */
+  blockPoints?: boolean;
   /** "ENABLED" | "DISABLED" (đã chuẩn hóa, "STACKABLE" cũ = ENABLED) */
   stackingMode: "ENABLED" | "DISABLED";
   priority: number;
@@ -94,7 +104,8 @@ export function parseTier(raw: Record<string, unknown>): CampaignTier {
   if (!mode) {
     const bType = String(raw.benefitType ?? "").toUpperCase();
     if (bType === "DISCOUNT_PERCENT" || bType === "PERCENT") mode = "PERCENT";
-    else if (bType === "DISCOUNT_AMOUNT" || bType === "AMOUNT" || bType === "FIXED_PRICE") mode = "FIXED";
+    else if (bType === "DISCOUNT_AMOUNT" || bType === "AMOUNT") mode = "FIXED";
+    else if (bType === "FIXED_PRICE") mode = "FIXEDPRICE";
     else mode = "PERCENT";
   }
   let cond = raw.conditionBasis != null ? String(raw.conditionBasis) : "";
@@ -108,6 +119,7 @@ export function parseTier(raw: Record<string, unknown>): CampaignTier {
     maxDiscountMoney: toInt(raw.maxDiscountMoney ?? raw.maxBenefitValue ?? 0),
     maxRewardQty: toInt(raw.maxRewardQty ?? 0),
     rewardItemIds: strList(raw.rewardItemIds),
+    rewardGroupIds: strList(raw.rewardGroupIds),
     sortOrder: toInt(raw.sortOrder ?? raw.tierIndex ?? 0),
   };
 }
@@ -116,8 +128,10 @@ export function parseBuyCondition(raw: Record<string, unknown>): CampaignBuyCond
   return {
     conditionId: raw.conditionId != null ? String(raw.conditionId) : "",
     buyItemIds: strList(raw.buyItemIds),
+    buyGroupIds: strList(raw.buyGroupIds),
     requiredBuyQty: toInt(raw.requiredBuyQty),
     rewardItemIds: strList(raw.rewardItemIds),
+    rewardGroupIds: strList(raw.rewardGroupIds),
     rewardQty: toInt(raw.rewardQty),
     benefitMode: raw.benefitMode != null ? String(raw.benefitMode) : "PERCENT",
     value: toInt(raw.value),
@@ -158,6 +172,8 @@ export function parseCampaign(id: string, raw: Record<string, unknown> | null | 
     hasCodes: Boolean(r.hasCodes),
     autoApply: Boolean(r.autoApply),
     requireStaffNote: Boolean(r.requireStaffNote),
+    birthdayOnly: r.birthdayOnly === true,
+    blockPoints: r.blockPoints === true,
     stackingMode: normalizeStackingMode(r.stackingMode != null ? String(r.stackingMode) : null),
     priority: toInt(r.priority),
     active: Boolean(r.active),
@@ -182,17 +198,38 @@ function slotContains(slot: { startTime: string; endTime: string }, hour: number
 }
 
 /** Khớp CampaignModel.isEligibleAt (không xét cờ active) */
+/** Hôm nay (giờ Việt Nam, UTC+7) có phải sinh nhật không. Chấp nhận yyyy-MM-dd, dd/MM/yyyy, dd-MM-yyyy. Khớp isBirthdayToday (Dart). */
+export function isBirthdayToday(birthday: string | null | undefined, nowMs: number): boolean {
+  const s = (birthday ?? "").trim();
+  if (!s) return false;
+  let month: number | undefined;
+  let day: number | undefined;
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+  const vn = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(s);
+  if (iso) {
+    month = Number(iso[2]);
+    day = Number(iso[3]);
+  } else if (vn) {
+    day = Number(vn[1]);
+    month = Number(vn[2]);
+  }
+  if (month === undefined || day === undefined) return false;
+  const now = new Date(nowMs + 7 * 3600_000);
+  return now.getUTCMonth() + 1 === month && now.getUTCDate() === day;
+}
+
 export function isEligibleAt(c: Campaign, ts: number): boolean {
   const s = c.schedule;
   if (s.absoluteStart != null && ts < s.absoluteStart) return false;
   if (s.absoluteEnd != null && ts > s.absoluteEnd) return false;
-  const dt = new Date(ts);
+  // Lịch luôn tính theo giờ Việt Nam (UTC+7, schedule.timezone = Asia/Ho_Chi_Minh), không phụ thuộc múi giờ máy chạy
+  const dt = new Date(ts + 7 * 3600_000);
   if (s.daysOfWeek.length > 0) {
-    const weekday = dt.getDay() === 0 ? 7 : dt.getDay();
+    const weekday = dt.getUTCDay() === 0 ? 7 : dt.getUTCDay();
     if (!s.daysOfWeek.includes(weekday)) return false;
   }
   if (s.timeSlots.length > 0) {
-    if (!s.timeSlots.some((slot) => slotContains(slot, dt.getHours(), dt.getMinutes()))) return false;
+    if (!s.timeSlots.some((slot) => slotContains(slot, dt.getUTCHours(), dt.getUTCMinutes()))) return false;
   }
   return true;
 }
@@ -225,6 +262,8 @@ export interface PricingLine {
 
 export interface PricingInput {
   branchId: string;
+  /** Ngày sinh khách gắn vào đơn (yyyy-MM-dd hoặc dd/MM/yyyy) */
+  customerBirthday?: string | null;
   guestCount?: number | null;
   nowMs: number;
   lines: PricingLine[];
@@ -424,6 +463,15 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
       addReason(campaign, "BRANCH_NOT_SUPPORTED", "Không áp dụng tại chi nhánh này");
       continue;
     }
+    if (campaign.birthdayOnly && !isBirthdayToday(input.customerBirthday, input.nowMs)) {
+      const has = !!(input.customerBirthday ?? "").trim();
+      addReason(
+        campaign,
+        has ? "NOT_BIRTHDAY" : "BIRTHDAY_CUSTOMER_REQUIRED",
+        has ? "Hôm nay không phải sinh nhật của khách" : "Gắn khách hàng có ngày sinh để áp dụng (chỉ đúng ngày sinh nhật)"
+      );
+      continue;
+    }
     const type = campaign.campaignType;
 
     if (isType(type, "BILLDISCOUNT")) {
@@ -440,17 +488,21 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
       for (const cond of campaign.buyConditions) {
         const buyIds = new Set(cond.buyItemIds);
         const rewardIds = new Set(cond.rewardItemIds);
+        const buyGroups = new Set(cond.buyGroupIds ?? []);
+        const rewardGroups = new Set(cond.rewardGroupIds ?? []);
+        const isBuy = (l: PricingLine) => buyIds.has(l.itemId) || (l.groupId != null && buyGroups.has(l.groupId));
+        const isReward = (l: PricingLine) => rewardIds.has(l.itemId) || (l.groupId != null && rewardGroups.has(l.groupId));
         const buyQty = cond.requiredBuyQty;
         const rewardQty = cond.rewardQty;
-        if (buyIds.size === 0 || rewardIds.size === 0 || buyQty <= 0 || rewardQty <= 0) {
+        if ((buyIds.size === 0 && buyGroups.size === 0) || (rewardIds.size === 0 && rewardGroups.size === 0) || buyQty <= 0 || rewardQty <= 0) {
           addReason(campaign, "INVALID_CONFIG", "Điều kiện Mua X tặng/giảm Y chưa cấu hình đủ");
           continue;
         }
         let xo = 0, yo = 0, bo = 0; // chỉ X, chỉ Y, vừa X vừa Y
         for (const l of input.lines) {
           if (l.isGift || campaign.excludedItemIds.includes(l.itemId)) continue;
-          const isX = buyIds.has(l.itemId);
-          const isY = rewardIds.has(l.itemId);
+          const isX = isBuy(l);
+          const isY = isReward(l);
           const a = Math.max(0, l.quantity - (rewardedUnits[l.lineId] ?? 0));
           if (isX && isY) bo += a;
           else if (isX) xo += a;
@@ -480,7 +532,7 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
           addReason(campaign, "REWARD_ITEM_NOT_IN_BILL", `Đủ điều kiện: thêm ${bestB * rewardQty} món Y vào đơn để được hưởng ưu đãi`);
           continue;
         }
-        const candidates = input.lines.filter((l) => !l.isGift && rewardIds.has(l.itemId) && !campaign.excludedItemIds.includes(l.itemId));
+        const candidates = input.lines.filter((l) => !l.isGift && isReward(l) && !campaign.excludedItemIds.includes(l.itemId));
         campaignDiscount += distributeReward({
           candidates,
           units: bestReward,
@@ -488,7 +540,7 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
           value: cond.value,
           campaignId: campaign.campaignId,
           tierId: cond.conditionId,
-          isBoth: (l) => buyIds.has(l.itemId),
+          isBoth: isBuy,
           maxFromBoth: bestBothAllowed,
         });
       }
@@ -513,12 +565,15 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
         continue;
       }
       const rewardIds = new Set(tier.rewardItemIds);
-      if (rewardIds.size === 0) {
+      const rewardGroups = new Set(tier.rewardGroupIds ?? []);
+      if (rewardIds.size === 0 && rewardGroups.size === 0) {
         addReason(campaign, "INVALID_CONFIG", "Chưa chọn món được tặng/giảm");
         continue;
       }
       const units = tier.maxRewardQty > 0 ? tier.maxRewardQty : 1;
-      const candidates = input.lines.filter((l) => !l.isGift && rewardIds.has(l.itemId) && !campaign.excludedItemIds.includes(l.itemId));
+      const candidates = input.lines.filter(
+        (l) => !l.isGift && (rewardIds.has(l.itemId) || (l.groupId != null && rewardGroups.has(l.groupId))) && !campaign.excludedItemIds.includes(l.itemId),
+      );
       if (candidates.length === 0) {
         addReason(campaign, "REWARD_ITEM_NOT_IN_BILL", "Đơn đủ điều kiện: thêm món được tặng/giảm vào đơn để áp dụng");
         continue;
@@ -533,21 +588,22 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
     } else if (isType(type, "ITEMPRICERULE")) {
       if (campaign.tiers.length > 0) {
         const tier = campaign.tiers[0];
-        const fixedPrice = tier.benefitMode === "FIXEDPRICE" ? tier.value : null;
+        // Đồng giá (FIXEDPRICE) hoặc đồng giảm: % / số tiền / tặng — tính theo từng phần của dòng
         let applied = false;
         for (const line of input.lines) {
           if (!inScope(campaign, line)) continue;
-          if (fixedPrice != null && line.unitPrice > fixedPrice) {
-            const remaining = Math.max(0, lineFinal[line.lineId] ?? 0);
-            const discount = Math.min((line.unitPrice - fixedPrice) * line.quantity, remaining);
-            if (discount <= 0) continue;
-            lineDisc[line.lineId] = (lineDisc[line.lineId] ?? 0) + discount;
-            lineFinal[line.lineId] = remaining - discount;
-            totalDiscount += discount;
-            applied = true;
-          }
+          const perUnit = unitBenefit(tier.benefitMode, tier.value, line.unitPrice);
+          if (perUnit <= 0) continue;
+          const remaining = Math.max(0, lineFinal[line.lineId] ?? 0);
+          const discount = Math.min(perUnit * line.quantity, remaining);
+          if (discount <= 0) continue;
+          lineDisc[line.lineId] = (lineDisc[line.lineId] ?? 0) + discount;
+          lineFinal[line.lineId] = remaining - discount;
+          totalDiscount += discount;
+          applied = true;
         }
         if (applied) markApplied(campaign.campaignId);
+        else if (!input.lines.some((l) => inScope(campaign, l))) addReason(campaign, "ITEM_NOT_IN_BILL", "Thêm món thuộc chương trình vào đơn để áp dụng");
       }
     }
   }
@@ -675,9 +731,9 @@ export function linesFromOrder(
 export function quoteCampaign(
   campaign: Campaign,
   lines: PricingLine[],
-  ctx: { branchId: string; guestCount?: number | null; nowMs: number }
+  ctx: { branchId: string; guestCount?: number | null; nowMs: number; customerBirthday?: string | null }
 ): PriceQuote {
-  return calculatePrice({ branchId: ctx.branchId, guestCount: ctx.guestCount, nowMs: ctx.nowMs, lines }, [campaign]);
+  return calculatePrice({ branchId: ctx.branchId, guestCount: ctx.guestCount, nowMs: ctx.nowMs, customerBirthday: ctx.customerBirthday, lines }, [campaign]);
 }
 
 export function quoteReason(quote: PriceQuote, campaign: Campaign): string | undefined {
@@ -724,7 +780,7 @@ export function recalculateDiscounts(
   applied: AppliedDiscount[],
   campaignsById: Record<string, Campaign>,
   lines: PricingLine[],
-  ctx: { branchId: string; guestCount?: number | null; nowMs: number }
+  ctx: { branchId: string; guestCount?: number | null; nowMs: number; customerBirthday?: string | null }
 ): { discounts: AppliedDiscount[]; dropped: string[] } {
   const out: AppliedDiscount[] = [];
   const dropped: string[] = [];
