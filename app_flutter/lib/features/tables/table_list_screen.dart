@@ -9,7 +9,6 @@ import '../../core/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/models/app_models.dart';
-import '../../data/models/zone_model.dart';
 import '../../data/services/firebase_service.dart';
 import '../cash_shift/cash_shift_dialog.dart';
 import '../auth/change_password_dialog.dart';
@@ -686,9 +685,7 @@ class _TableListScreenState extends State<TableListScreen> {
     }
 
     // 3. NẾU BÀN TRỐNG: VÀO THẲNG MÀN HÌNH CHỌN MÓN (XOÁ POPUP NHẬP SỐ KHÁCH)
-    if (table.openedAt == null) {
-      table.openedAt = DateTime.now().millisecondsSinceEpoch;
-    }
+    table.openedAt ??= DateTime.now().millisecondsSinceEpoch;
     if (table.guestCount == null || table.guestCount! <= 0) {
       table.guestCount = 2; // Số khách mặc định, nhân viên có thể sửa trong màn hình đơn
     }
@@ -1588,6 +1585,12 @@ class _TableListScreenState extends State<TableListScreen> {
               leading: const Icon(Icons.map_outlined),
               title: const Text('Khu vực & bàn'),
               onTap: () => _navigateTo('/zone-management'),
+            ),
+          if (_auth.isRootOwner || _auth.can(AppPermissions.manageStoreSettings))
+            ListTile(
+              leading: const Icon(Icons.storefront_outlined),
+              title: const Text('Cài đặt cửa hàng'),
+              onTap: () => _navigateTo('/store-settings'),
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.manageMenu) || _auth.can(AppPermissions.editMenu))
             ListTile(

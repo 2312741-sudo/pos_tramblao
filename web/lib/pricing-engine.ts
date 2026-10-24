@@ -76,6 +76,8 @@ export interface Campaign {
   blockPoints?: boolean;
   /** "ENABLED" | "DISABLED" (đã chuẩn hóa, "STACKABLE" cũ = ENABLED) */
   stackingMode: "ENABLED" | "DISABLED";
+  /** Số lượng CTKM tối đa trong 1 đơn (null/undefined = không giới hạn nếu ENABLED, 1 nếu DISABLED) */
+  maxCampaignsPerOrder?: number;
   priority: number;
   active: boolean;
   createdAt: number;
@@ -175,6 +177,7 @@ export function parseCampaign(id: string, raw: Record<string, unknown> | null | 
     birthdayOnly: r.birthdayOnly === true,
     blockPoints: r.blockPoints === true,
     stackingMode: normalizeStackingMode(r.stackingMode != null ? String(r.stackingMode) : null),
+    maxCampaignsPerOrder: optInt(r.maxCampaignsPerOrder),
     priority: toInt(r.priority),
     active: Boolean(r.active),
     createdAt: toInt(r.createdAt),
@@ -249,6 +252,9 @@ export function listEligibleCampaigns(campaigns: Campaign[], branchId: string, n
 export interface PricingLine {
   lineId: string;
   itemId: string;
+  itemName?: string | null;
+  itemCode?: string | null;
+  dbKey?: string | null;
   groupId?: string | null;
   quantity: number;
   unitPrice: number;
@@ -258,6 +264,33 @@ export interface PricingLine {
   discountUnitAmount?: number;
   /** Ghi đè giảm thủ công của dòng (dòng cũ chỉ có discountAmount cả dòng) */
   manualDiscount?: number;
+}
+
+export function stripAccents(str: string): string {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D");
+}
+
+export function lineMatchesTarget(l: PricingLine, target: string): boolean {
+  const t = target.trim().toLowerCase();
+  if (!t) return false;
+  if (l.itemId.toLowerCase() === t) return true;
+  if (l.itemName && l.itemName.trim().toLowerCase() === t) return true;
+  if (l.itemCode && l.itemCode.trim().toLowerCase() === t) return true;
+  if (l.dbKey && l.dbKey.trim().toLowerCase() === t) return true;
+  const tAscii = stripAccents(t);
+  if (l.itemName && stripAccents(l.itemName.trim().toLowerCase()) === tAscii) return true;
+  return false;
+}
+
+export function lineMatchesAnyTarget(l: PricingLine, targets: Iterable<string>): boolean {
+  for (const t of targets) {
+    if (lineMatchesTarget(l, t)) return true;
+  }
+  return false;
 }
 
 export interface PricingInput {
@@ -392,9 +425,9 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
   };
   const inScope = (c: Campaign, l: PricingLine) => {
     if (l.isGift) return false;
-    if (c.excludedItemIds.includes(l.itemId)) return false;
+    if (lineMatchesAnyTarget(l, c.excludedItemIds)) return false;
     if (c.includedItemIds.length === 0 && c.includedGroupIds.length === 0) return true;
-    return c.includedItemIds.includes(l.itemId) || (l.groupId != null && c.includedGroupIds.includes(l.groupId));
+    return lineMatchesAnyTarget(l, c.includedItemIds) || (l.groupId != null && c.includedGroupIds.includes(l.groupId));
   };
 
   const rewardUnitsOnLine = (line: PricingLine, units: number, mode: string, value: number, campaignId: string, tierId: string): number => {
@@ -490,8 +523,8 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
         const rewardIds = new Set(cond.rewardItemIds);
         const buyGroups = new Set(cond.buyGroupIds ?? []);
         const rewardGroups = new Set(cond.rewardGroupIds ?? []);
-        const isBuy = (l: PricingLine) => buyIds.has(l.itemId) || (l.groupId != null && buyGroups.has(l.groupId));
-        const isReward = (l: PricingLine) => rewardIds.has(l.itemId) || (l.groupId != null && rewardGroups.has(l.groupId));
+        const isBuy = (l: PricingLine) => lineMatchesAnyTarget(l, buyIds) || (l.groupId != null && buyGroups.has(l.groupId));
+        const isReward = (l: PricingLine) => lineMatchesAnyTarget(l, rewardIds) || (l.groupId != null && rewardGroups.has(l.groupId));
         const buyQty = cond.requiredBuyQty;
         const rewardQty = cond.rewardQty;
         if ((buyIds.size === 0 && buyGroups.size === 0) || (rewardIds.size === 0 && rewardGroups.size === 0) || buyQty <= 0 || rewardQty <= 0) {
@@ -500,7 +533,7 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
         }
         let xo = 0, yo = 0, bo = 0; // chỉ X, chỉ Y, vừa X vừa Y
         for (const l of input.lines) {
-          if (l.isGift || campaign.excludedItemIds.includes(l.itemId)) continue;
+          if (l.isGift || lineMatchesAnyTarget(l, campaign.excludedItemIds)) continue;
           const isX = isBuy(l);
           const isY = isReward(l);
           const a = Math.max(0, l.quantity - (rewardedUnits[l.lineId] ?? 0));
@@ -532,7 +565,7 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
           addReason(campaign, "REWARD_ITEM_NOT_IN_BILL", `Đủ điều kiện: thêm ${bestB * rewardQty} món Y vào đơn để được hưởng ưu đãi`);
           continue;
         }
-        const candidates = input.lines.filter((l) => !l.isGift && isReward(l) && !campaign.excludedItemIds.includes(l.itemId));
+        const candidates = input.lines.filter((l) => !l.isGift && isReward(l) && !lineMatchesAnyTarget(l, campaign.excludedItemIds));
         campaignDiscount += distributeReward({
           candidates,
           units: bestReward,
@@ -572,7 +605,7 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
       }
       const units = tier.maxRewardQty > 0 ? tier.maxRewardQty : 1;
       const candidates = input.lines.filter(
-        (l) => !l.isGift && (rewardIds.has(l.itemId) || (l.groupId != null && rewardGroups.has(l.groupId))) && !campaign.excludedItemIds.includes(l.itemId),
+        (l) => !l.isGift && (lineMatchesAnyTarget(l, rewardIds) || (l.groupId != null && rewardGroups.has(l.groupId))) && !lineMatchesAnyTarget(l, campaign.excludedItemIds),
       );
       if (candidates.length === 0) {
         addReason(campaign, "REWARD_ITEM_NOT_IN_BILL", "Đơn đủ điều kiện: thêm món được tặng/giảm vào đơn để áp dụng");
@@ -720,6 +753,8 @@ export function linesFromOrder(
   return items.map((it, i) => ({
     lineId: `L${i}`,
     itemId: String(it.productId ?? it.id ?? ""),
+    itemName: it.name != null ? String(it.name) : undefined,
+    itemCode: it.code != null ? String(it.code) : undefined,
     groupId: groupOf?.(it) ?? (typeof it.category === "string" && it.category ? it.category : null),
     quantity: lineQuantity(it),
     unitPrice: lineUnitPrice(it),
@@ -812,10 +847,27 @@ export function addWithStacking(
   const without = applied.filter((d) => d.campaignId !== incoming.campaign.campaignId);
   const stackable = (c: Campaign | undefined) => c == null || c.stackingMode === "ENABLED";
   let keep = without;
-  if (!allowStackPromotions || !stackable(incoming.campaign)) {
+  const incMax = incoming.campaign.maxCampaignsPerOrder;
+  if (!allowStackPromotions || !stackable(incoming.campaign) || incMax === 1) {
     keep = [];
   } else {
-    keep = without.filter((d) => stackable(campaignsById[d.campaignId]));
+    keep = without.filter((d) => {
+      const c = campaignsById[d.campaignId];
+      return stackable(c) && (c?.maxCampaignsPerOrder !== 1);
+    });
+    // Giới hạn số lượng CTKM tối đa trên đơn
+    const limits = [
+      incMax,
+      ...keep.map((d) => campaignsById[d.campaignId]?.maxCampaignsPerOrder),
+    ].filter((n): n is number => typeof n === "number" && n > 0);
+
+    if (limits.length > 0) {
+      const maxAllowed = Math.min(...limits);
+      const maxKeep = Math.max(0, maxAllowed - 1);
+      if (keep.length > maxKeep) {
+        keep = keep.slice(keep.length - maxKeep);
+      }
+    }
   }
   const removed = without.filter((d) => !keep.includes(d)).map((d) => d.description);
   return { discounts: [...keep, incoming.discount], removed };

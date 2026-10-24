@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tram_flutter/core/domain/pricing_engine.dart';
 import 'package:tram_flutter/data/models/campaign_models.dart';
+import 'package:tram_flutter/data/models/order_item_model.dart';
+import 'package:tram_flutter/data/models/product_model.dart';
 import 'package:tram_flutter/data/models/promotion_model.dart';
 import 'package:tram_flutter/features/orders/widgets/campaign_pricing.dart';
 import 'package:tram_flutter/features/promotions/voucher_check.dart';
@@ -275,5 +277,418 @@ void main() {
     final c = CampaignModel.fromMap(m);
     expect(c.stackingMode, 'ENABLED');
     expect(c.isStackable, true);
+  });
+
+  test('evaluateVoucher hỗ trợ nhập programCode của chương trình không phát hành mã voucher (hasCodes: false)', () {
+    final camp = _c(id: 'KM_G003', type: 'ITEMPRICERULE', hasCodes: false, items: ['Trà Olong - Xoài'], tiers: [
+      _t(mode: 'FIXEDPRICE', value: 14000)
+    ]);
+    final lines = [
+      PricingLineItem(lineId: '1', itemId: '2', itemName: 'Trà Olong - Xoài', quantity: 1, unitPrice: 30000),
+    ];
+    final quote = _q(camp, lines);
+    // Nhập code KM_KM_G003 trực tiếp (voucher == null)
+    final res = evaluateVoucher(code: 'KM_KM_G003', voucher: null, campaign: camp, nowMs: 1000, branchId: 'B', quote: quote);
+    expect(res.isValid, true);
+    expect(res.discount, 16000);
+  });
+
+  test('Tặng 1 trà chanh cho đơn trên 100k - rewardPlan tìm thấy món Trà Olong - Chanh tươi khớp theo tên', () {
+    final c = CampaignModel(
+      campaignId: 'CAM_1792678534437_g4b5',
+      programCode: 'KM/G-002',
+      name: 'Grab- Tặng 1 trà chanh cho hóa đơn trên 100K',
+      description: '',
+      campaignType: 'ORDERVALUEITEMBENEFIT',
+      schedule: CampaignSchedule(),
+      branchIds: const ['TRAM01'],
+      includedCustomerIds: const [],
+      excludedCustomerIds: const [],
+      includedItemIds: const [],
+      includedGroupIds: const [],
+      excludedItemIds: const [],
+      tiers: [
+        CampaignTier(
+          tierId: 'TIER_1',
+          conditionBasis: 'TOTALAMOUNT',
+          threshold: 100000,
+          benefitMode: 'FREEITEM',
+          value: 10000,
+          maxDiscountMoney: 0,
+          maxRewardQty: 1,
+          rewardItemIds: const ['Trà Olong - Chanh tươi'],
+          sortOrder: 1,
+        )
+      ],
+      buyConditions: const [],
+      warnRepeatedCustomer: false,
+      hasCodes: false,
+      autoApply: false,
+      stackingMode: 'ENABLED',
+      priority: 0,
+      active: true,
+      createdAt: 0,
+      updatedAt: 0,
+      createdBy: 'Admin',
+      version: 1,
+    );
+
+    final cart = [
+      OrderItemModel(productId: 200, name: 'Trà Olong - Quả mọng', price: 30000, quantity: 1),
+      OrderItemModel(productId: 201, name: 'Bánh lăn choco - vừa', price: 30000, quantity: 1),
+      OrderItemModel(productId: 202, name: 'Bánh lăn choco - nhỏ', price: 15000, quantity: 1),
+      OrderItemModel(productId: 203, name: 'Món khác', price: 50000, quantity: 1),
+    ];
+
+    final products = [
+      ProductModel(id: 1, name: 'Trà Olong - Chanh tươi', code: 'DR202500002', price: 20000, unit: 'Ly', category: 'TRÀ TRÁI CÂY'),
+      ProductModel(id: 200, name: 'Trà Olong - Quả mọng', code: 'DR202600200', price: 30000, unit: 'Ly', category: 'TRÀ TRÁI CÂY'),
+      ProductModel(id: 201, name: 'Bánh lăn choco - vừa', code: 'CK001', price: 30000, unit: 'Cái', category: 'BÁNH LĂN NƯỚNG'),
+      ProductModel(id: 202, name: 'Bánh lăn choco - nhỏ', code: 'CK002', price: 15000, unit: 'Cái', category: 'BÁNH LĂN NƯỚNG'),
+      ProductModel(id: 203, name: 'Món khác', code: 'OT001', price: 50000, unit: 'Phần', category: 'KHÁC'),
+    ];
+
+    final plan = CartCampaignPricing.rewardPlan(c, cart: cart, products: products);
+    expect(plan, isNotNull);
+    expect(plan!.units, 1);
+    expect(plan.candidates.first.name, 'Trà Olong - Chanh tươi');
+
+    // Sau khi tự động thêm món trà chanh vào đơn
+    cart.add(OrderItemModel(
+      productId: plan.candidates.first.id,
+      name: plan.candidates.first.name,
+      price: plan.candidates.first.price,
+      quantity: plan.units,
+    ));
+
+    final quote = CartCampaignPricing.quote(c, cart: cart, products: products, branchId: 'TRAM01');
+    expect(quote.totalPromotionDiscount, 20000); // Tặng 100% ly trà chanh 20k
+    expect(quote.appliedCampaignIds, contains('CAM_1792678534437_g4b5'));
+  });
+
+  test('Treo đơn qua giờ combo: đơn đã áp dụng combo khi tính lại giữ nguyên ưu đãi (ignoreSchedule: true)', () {
+    final c = CampaignModel(
+      campaignId: 'CAM_1792679049224_lzvb',
+      programCode: 'KM/HD0001',
+      name: 'Combo bánh và nước giảm 10K',
+      description: '',
+      campaignType: 'BUYXGETY',
+      schedule: CampaignSchedule(
+        timeSlots: [
+          CampaignTimeSlot(startTime: '18:00', endTime: '20:00'),
+        ],
+      ),
+      branchIds: const ['TRAM01', 'TRAM02', 'TRAM03', 'TRAM04'],
+      includedCustomerIds: const [],
+      excludedCustomerIds: const [],
+      includedItemIds: const [],
+      includedGroupIds: const [],
+      excludedItemIds: const [],
+      tiers: const [],
+      buyConditions: [
+        CampaignBuyCondition(
+          conditionId: 'COND_1',
+          buyItemIds: const [],
+          buyGroupIds: const ['TRÀ TRÁI CÂY'],
+          rewardItemIds: const [],
+          rewardGroupIds: const ['BÁNH LĂN NƯỚNG'],
+          requiredBuyQty: 1,
+          rewardQty: 1,
+          benefitMode: 'FIXED',
+          value: 10000,
+          multiplyByBundle: true,
+        ),
+      ],
+      warnRepeatedCustomer: false,
+      hasCodes: false,
+      autoApply: false,
+      stackingMode: 'DISABLED',
+      priority: 0,
+      active: true,
+      createdAt: 0,
+      updatedAt: 0,
+      createdBy: 'Admin',
+      version: 1,
+    );
+
+    final cart = [
+      OrderItemModel(productId: 10, name: 'Trà Olong - Xoài', price: 30000, quantity: 2),
+      OrderItemModel(productId: 20, name: 'Bánh lăn choco chip', price: 30000, quantity: 2),
+    ];
+
+    final products = [
+      ProductModel(id: 10, name: 'Trà Olong - Xoài', code: 'DR01', price: 30000, unit: 'Ly', category: 'TRÀ TRÁI CÂY'),
+      ProductModel(id: 20, name: 'Bánh lăn choco chip', code: 'CK01', price: 30000, unit: 'Cái', category: 'BÁNH LĂN NƯỚNG'),
+    ];
+
+    // Lúc 21:30 (ngoài khung giờ 18:00 - 20:00)
+    // Nếu là đơn mới bấm (ignoreSchedule: false) -> Bị chặn ngoài khung giờ
+    final nowMsOutside = DateTime(2026, 10, 24, 21, 30).millisecondsSinceEpoch;
+    final quoteNew = CartCampaignPricing.quote(
+      c,
+      cart: cart,
+      products: products,
+      branchId: 'TRAM01',
+      nowMs: nowMsOutside,
+      ignoreSchedule: false,
+    );
+    expect(quoteNew.totalPromotionDiscount, 0);
+    expect(quoteNew.reasons.first.reasonCode, 'OUTSIDE_SCHEDULE');
+
+    // Nếu là đơn đã áp dụng trước đó được treo qua giờ (ignoreSchedule: true) -> Giữ nguyên ưu đãi 20.000đ
+    final quoteExisting = CartCampaignPricing.quote(
+      c,
+      cart: cart,
+      products: products,
+      branchId: 'TRAM01',
+      nowMs: nowMsOutside,
+      ignoreSchedule: true,
+    );
+    expect(quoteExisting.totalPromotionDiscount, 20000); // 2 combo x 10k
+    expect(quoteExisting.appliedCampaignIds, contains('CAM_1792679049224_lzvb'));
+  });
+
+  test('Quy tắc độc quyền (stackingMode: DISABLED): Combo không cho phép cộng dồn với Sinh nhật', () {
+    final combo = CampaignModel(
+      campaignId: 'CAM_COMBO',
+      programCode: 'KM/HD0001',
+      name: 'Combo bánh và nước giảm 10K',
+      description: '',
+      campaignType: 'BUYXGETY',
+      schedule: CampaignSchedule(),
+      branchIds: const ['TRAM01', 'TRAM02', 'TRAM03', 'TRAM04'],
+      includedCustomerIds: const [],
+      excludedCustomerIds: const [],
+      includedItemIds: const [],
+      includedGroupIds: const [],
+      excludedItemIds: const [],
+      tiers: const [],
+      buyConditions: const [],
+      warnRepeatedCustomer: false,
+      hasCodes: false,
+      autoApply: false,
+      stackingMode: 'DISABLED', // Độc quyền
+      priority: 0,
+      active: true,
+      createdAt: 0,
+      updatedAt: 0,
+      createdBy: 'Admin',
+      version: 1,
+    );
+
+    final sinhNhat = CampaignModel(
+      campaignId: 'CAM_BDAY',
+      programCode: 'KM/D-008',
+      name: 'Giảm 30% sinh nhật khách hàng',
+      description: '',
+      campaignType: 'BILLDISCOUNT',
+      schedule: CampaignSchedule(),
+      branchIds: const ['TRAM01', 'TRAM02', 'TRAM03', 'TRAM04'],
+      includedCustomerIds: const [],
+      excludedCustomerIds: const [],
+      includedItemIds: const [],
+      includedGroupIds: const [],
+      excludedItemIds: const [],
+      tiers: [
+        CampaignTier(
+          tierId: 'T1',
+          conditionBasis: 'TOTALAMOUNT',
+          threshold: 0,
+          benefitMode: 'PERCENT',
+          value: 3000,
+          maxDiscountMoney: 0,
+          maxRewardQty: 0,
+          rewardItemIds: const [],
+          sortOrder: 1,
+        )
+      ],
+      buyConditions: const [],
+      warnRepeatedCustomer: false,
+      hasCodes: false,
+      autoApply: false,
+      stackingMode: 'ENABLED',
+      priority: 0,
+      active: true,
+      createdAt: 0,
+      updatedAt: 0,
+      createdBy: 'Admin',
+      version: 1,
+    );
+
+    final currentDiscounts = [
+      BillDiscountModel(
+        campaignId: 'CAM_COMBO',
+        promoCode: 'KM/HD0001',
+        description: 'Combo bánh và nước giảm 10K',
+        amount: 20000,
+      ),
+    ];
+
+    final check = CartCampaignPricing.checkStacking(
+      currentDiscounts: currentDiscounts,
+      incoming: sinhNhat,
+      campaignsById: {'CAM_COMBO': combo, 'CAM_BDAY': sinhNhat},
+      allowStackPromotions: true,
+    );
+
+    // Không thể cộng dồn vì Combo là độc quyền
+    expect(check.canStack, false);
+    expect(check.conflictingExclusiveCampaign?.name, 'Combo bánh và nước giảm 10K');
+  });
+
+  test('Khuyến mãi sinh nhật: chỉ áp dụng khi khách hàng có ngày sinh đúng hôm nay (birthdayOnly: true)', () {
+    final bdayCamp = CampaignModel(
+      campaignId: 'CAM_BDAY',
+      programCode: 'KM/D-008',
+      name: 'Giảm 30% sinh nhật khách hàng',
+      description: '',
+      campaignType: 'BILLDISCOUNT',
+      schedule: CampaignSchedule(),
+      branchIds: const ['TRAM01', 'TRAM02', 'TRAM03', 'TRAM04'],
+      includedCustomerIds: const [],
+      excludedCustomerIds: const [],
+      includedItemIds: const [],
+      includedGroupIds: const [],
+      excludedItemIds: const [],
+      tiers: [
+        CampaignTier(
+          tierId: 'T1',
+          conditionBasis: 'TOTALAMOUNT',
+          threshold: 0,
+          benefitMode: 'PERCENT',
+          value: 3000,
+          maxDiscountMoney: 0,
+          maxRewardQty: 0,
+          rewardItemIds: const [],
+          sortOrder: 1,
+        )
+      ],
+      buyConditions: const [],
+      warnRepeatedCustomer: false,
+      hasCodes: false,
+      autoApply: false,
+      birthdayOnly: true, // Chỉ đúng sinh nhật
+      stackingMode: 'ENABLED',
+      priority: 0,
+      active: true,
+      createdAt: 0,
+      updatedAt: 0,
+      createdBy: 'Admin',
+      version: 1,
+    );
+
+    final cart = [
+      OrderItemModel(productId: 10, name: 'Trà Olong - Xoài', price: 100000, quantity: 1),
+    ];
+    final products = [
+      ProductModel(id: 10, name: 'Trà Olong - Xoài', code: 'DR01', price: 100000, unit: 'Ly', category: 'TRÀ TRÁI CÂY'),
+    ];
+
+    // Ngày 24/10
+    final todayMs = DateTime(2026, 10, 24, 12, 0).millisecondsSinceEpoch;
+
+    // Trường hợp 1: Không có thông tin khách / ngày sinh -> Lỗi BIRTHDAY_CUSTOMER_REQUIRED
+    final qNoBday = CartCampaignPricing.quote(
+      bdayCamp,
+      cart: cart,
+      products: products,
+      branchId: 'TRAM01',
+      customerBirthday: null,
+      nowMs: todayMs,
+    );
+    expect(qNoBday.totalPromotionDiscount, 0);
+    expect(qNoBday.reasons.first.reasonCode, 'BIRTHDAY_CUSTOMER_REQUIRED');
+
+    // Trường hợp 2: Khách sinh nhật ngày 01/01 (không phải hôm nay) -> Lỗi NOT_BIRTHDAY
+    final qDiffBday = CartCampaignPricing.quote(
+      bdayCamp,
+      cart: cart,
+      products: products,
+      branchId: 'TRAM01',
+      customerBirthday: '1995-01-01',
+      nowMs: todayMs,
+    );
+    expect(qDiffBday.totalPromotionDiscount, 0);
+    expect(qDiffBday.reasons.first.reasonCode, 'NOT_BIRTHDAY');
+
+    // Trường hợp 3: Khách sinh nhật đúng ngày 24/10 -> Áp dụng giảm 30% (30.000đ)
+    final qSameBday = CartCampaignPricing.quote(
+      bdayCamp,
+      cart: cart,
+      products: products,
+      branchId: 'TRAM01',
+      customerBirthday: '1995-10-24',
+      nowMs: todayMs,
+    );
+    expect(qSameBday.totalPromotionDiscount, 30000);
+    expect(qSameBday.appliedCampaignIds, contains('CAM_BDAY'));
+  });
+
+  test('Combo bánh nước: ca 2h sáng (02:00-04:00) không được kích hoạt lúc 00:55 hay 01:00, đúng 02:00 mới bật', () {
+    final combo = CampaignModel(
+      campaignId: 'CAM_1792679049224_lzvb',
+      programCode: 'KM/HD0001',
+      name: 'Combo bánh và nước giảm 10K',
+      description: '',
+      campaignType: 'BUYXGETY',
+      schedule: CampaignSchedule(
+        timeSlots: [
+          CampaignTimeSlot(startTime: '18:00', endTime: '20:00'),
+          CampaignTimeSlot(startTime: '22:00', endTime: '00:00'),
+          CampaignTimeSlot(startTime: '02:00', endTime: '04:00'),
+        ],
+      ),
+      branchIds: const ['TRAM01'],
+      includedCustomerIds: const [],
+      excludedCustomerIds: const [],
+      includedItemIds: const [],
+      includedGroupIds: const [],
+      excludedItemIds: const [],
+      tiers: const [],
+      buyConditions: [
+        CampaignBuyCondition(
+          conditionId: 'COND_1',
+          buyItemIds: const [],
+          buyGroupIds: const ['TRÀ TRÁI CÂY'],
+          rewardItemIds: const [],
+          rewardGroupIds: const ['BÁNH LĂN NƯỚNG'],
+          requiredBuyQty: 1,
+          rewardQty: 1,
+          benefitMode: 'FIXED',
+          value: 10000,
+          multiplyByBundle: true,
+        ),
+      ],
+      warnRepeatedCustomer: false,
+      hasCodes: false,
+      autoApply: false,
+      stackingMode: 'DISABLED',
+      priority: 0,
+      active: true,
+      createdAt: 0,
+      updatedAt: 0,
+      createdBy: 'Admin',
+      version: 1,
+    );
+
+    // Thời điểm 00:55 sáng ngày 25/10/2026 (UTC+7)
+    final time0055 = DateTime.utc(2026, 10, 24, 17, 55).millisecondsSinceEpoch; // 17:55 UTC = 00:55 VN
+    expect(combo.isEligibleAt(time0055), isFalse);
+
+    // Thời điểm 01:00 sáng ngày 25/10/2026 (UTC+7)
+    final time0100 = DateTime.utc(2026, 10, 24, 18, 0).millisecondsSinceEpoch; // 18:00 UTC = 01:00 VN
+    expect(combo.isEligibleAt(time0100), isFalse);
+
+    // Thời điểm 02:00 sáng ngày 25/10/2026 (UTC+7) -> ĐÚNG 2H SÁNG MỚI BẬT!
+    final time0200 = DateTime.utc(2026, 10, 24, 19, 0).millisecondsSinceEpoch; // 19:00 UTC = 02:00 VN
+    expect(combo.isEligibleAt(time0200), isTrue);
+
+    // Thời điểm 03:30 sáng ngày 25/10/2026 (UTC+7)
+    final time0330 = DateTime.utc(2026, 10, 24, 20, 30).millisecondsSinceEpoch;
+    expect(combo.isEligibleAt(time0330), isTrue);
+
+    // Thời điểm 04:05 sáng ngày 25/10/2026 (UTC+7) -> Hết ca
+    final time0405 = DateTime.utc(2026, 10, 24, 21, 5).millisecondsSinceEpoch;
+    expect(combo.isEligibleAt(time0405), isFalse);
   });
 }

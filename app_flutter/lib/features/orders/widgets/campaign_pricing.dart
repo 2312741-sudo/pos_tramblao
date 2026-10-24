@@ -12,10 +12,88 @@ class CartCampaignPricing {
   /// Dựng dòng tính giá từ giỏ hàng (lineId = vị trí dòng, groupId = tên nhóm món)
   static List<PricingLineItem> lines(List<OrderItemModel> cart, List<ProductModel> products) {
     final cat = {for (final p in products) p.id: p.category};
+    final prodByNumId = {for (final p in products) p.id: p};
+    final prodByName = {for (final p in products) p.name.trim().toLowerCase(): p};
     return [
       for (int i = 0; i < cart.length; i++)
-        PricingLineItem.fromOrderItem(cart[i], lineId: 'L$i', groupId: cat[cart[i].productId]),
+        (() {
+          final item = cart[i];
+          final p = prodByNumId[item.productId] ?? prodByName[item.name.trim().toLowerCase()];
+          return PricingLineItem.fromOrderItem(
+            item,
+            lineId: 'L$i',
+            groupId: p?.category ?? cat[item.productId],
+            itemCode: p?.code,
+            dbKey: p?.dbKey,
+          );
+        })(),
     ];
+  }
+
+  /// Tính toán chi tiết số tiền giảm giá do khuyến mãi áp dụng trên từng dòng món trong giỏ hàng.
+  /// Trả về map: lineIndex -> danh sách các ưu đãi khuyến mãi áp dụng trên dòng đó.
+  static Map<int, List<({String campaignName, int discountAmount, int quantity, bool isGift})>>
+      computeLinePromotionDiscounts({
+    required List<OrderItemModel> cart,
+    required List<BillDiscountModel> appliedDiscounts,
+    required Map<String, CampaignModel> campaignsById,
+    required List<ProductModel> products,
+    required String branchId,
+    String? customerBirthday,
+    int? guestCount,
+    int? orderTimestampMs,
+    bool isExistingOrder = true,
+  }) {
+    final result = <int, List<({String campaignName, int discountAmount, int quantity, bool isGift})>>{};
+    if (cart.isEmpty || appliedDiscounts.isEmpty) return result;
+
+    for (final d in appliedDiscounts) {
+      final c = d.campaignId != null ? campaignsById[d.campaignId] : null;
+      if (c == null) continue;
+
+      final q = quote(
+        c,
+        cart: cart,
+        products: products,
+        branchId: branchId,
+        guestCount: guestCount,
+        customerBirthday: customerBirthday,
+        nowMs: orderTimestampMs,
+        ignoreSchedule: isExistingOrder,
+      );
+
+      final seenLines = <String>{};
+      for (final rb in q.rewardBenefits) {
+        if (rb.discountMoney <= 0) continue;
+        final idxStr = rb.lineId.replaceAll(RegExp(r'[^0-9]'), '');
+        final lineIdx = int.tryParse(idxStr);
+        if (lineIdx != null && lineIdx >= 0 && lineIdx < cart.length) {
+          seenLines.add(rb.lineId);
+          result.putIfAbsent(lineIdx, () => []).add((
+            campaignName: c.name,
+            discountAmount: rb.discountMoney,
+            quantity: rb.quantity > 0 ? rb.quantity : cart[lineIdx].quantity,
+            isGift: rb.isGift,
+          ));
+        }
+      }
+
+      for (final lb in q.lineBenefits) {
+        if (seenLines.contains(lb.lineId) || lb.discountMoney <= 0) continue;
+        final idxStr = lb.lineId.replaceAll(RegExp(r'[^0-9]'), '');
+        final lineIdx = int.tryParse(idxStr);
+        if (lineIdx != null && lineIdx >= 0 && lineIdx < cart.length) {
+          result.putIfAbsent(lineIdx, () => []).add((
+            campaignName: c.name,
+            discountAmount: lb.discountMoney,
+            quantity: cart[lineIdx].quantity,
+            isGift: lb.isGift,
+          ));
+        }
+      }
+    }
+
+    return result;
   }
 
   /// Tính riêng 1 chương trình trên giỏ hàng hiện tại
@@ -27,6 +105,7 @@ class CartCampaignPricing {
     int? guestCount,
     String? customerBirthday,
     int? nowMs,
+    bool ignoreSchedule = false,
   }) {
     return calculatePrice(
       input: PricingInput(
@@ -35,6 +114,7 @@ class CartCampaignPricing {
         guestCount: guestCount,
         serverNowMs: nowMs ?? DateTime.now().millisecondsSinceEpoch,
         lines: lines(cart, products),
+        ignoreSchedule: ignoreSchedule,
       ),
       activeCampaigns: [campaign],
       counters: const {},
@@ -42,12 +122,13 @@ class CartCampaignPricing {
     );
   }
 
-  /// Chương trình "tặng/giảm món theo giá trị đơn" đủ điều kiện nhưng món thưởng chưa có trong đơn?
-  /// CHỈ loại này mới cho bấm để tự thêm món thưởng. "Mua X tặng/giảm Y" KHÔNG tự thêm món:
-  /// nhân viên tự gọi món Y, mỗi món X ghép với món Y thực tế có trong đơn.
-  static bool needsRewardItems(PriceQuoteModel quote, CampaignModel campaign) =>
-      campaign.campaignType.toUpperCase().replaceAll('_', '') == 'ORDERVALUEITEMBENEFIT' &&
-      quote.reasons.any((r) => r.campaignId == campaign.campaignId && r.reasonCode == 'REWARD_ITEM_NOT_IN_BILL');
+  /// Chương trình "tặng/giảm món theo giá trị đơn" hoặc "Mua X tặng/giảm Y" đủ điều kiện nhưng món thưởng chưa có trong đơn?
+  /// Cho phép bấm để tự thêm món thưởng vào đơn.
+  static bool needsRewardItems(PriceQuoteModel quote, CampaignModel campaign) {
+    final type = campaign.campaignType.toUpperCase().replaceAll('_', '');
+    return (type == 'ORDERVALUEITEMBENEFIT' || type == 'BUYXGETY') &&
+        quote.reasons.any((r) => r.campaignId == campaign.campaignId && r.reasonCode == 'REWARD_ITEM_NOT_IN_BILL');
+  }
 
   /// Kế hoạch tự thêm món thưởng: số phần cần thêm + các món có thể chọn (theo món và theo nhóm món).
   /// Trả null nếu chưa đủ điều kiện hoặc không có món thưởng nào trong thực đơn.
@@ -57,15 +138,19 @@ class CartCampaignPricing {
     required List<ProductModel> products,
   }) {
     final lns = lines(cart, products);
-    bool matches(PricingLineItem l, Set<String> ids, Set<String> groups) =>
-        ids.contains(l.itemId) || (l.groupId != null && groups.contains(l.groupId));
+    bool matches(PricingLineItem l, Set<String> ids, Set<String> groups) {
+      if (l.matchesAnyTarget(ids)) return true;
+      if (l.groupId == null || groups.isEmpty) return false;
+      final gNorm = l.groupId!.trim().toLowerCase();
+      return groups.any((g) => g.trim().toLowerCase() == gNorm);
+    }
 
     List<ProductModel> pick(Set<String> ids, Set<String> groups) => products
         .where((p) =>
             !p.isTopping &&
             p.isAvailable &&
-            !c.excludedItemIds.contains(p.id.toString()) &&
-            (ids.contains(p.id.toString()) || groups.contains(p.category)))
+            !c.excludedItemIds.any((ex) => p.matchesTarget(ex)) &&
+            (ids.any((id) => p.matchesTarget(id)) || groups.any((g) => g.trim().toLowerCase() == p.category.trim().toLowerCase())))
         .toList();
 
     final type = c.campaignType.toUpperCase().replaceAll('_', '');
@@ -86,8 +171,8 @@ class CartCampaignPricing {
       final inScopeAll = c.includedItemIds.isEmpty && c.includedGroupIds.isEmpty;
       int base = 0;
       for (final l in lns) {
-        if (l.isGift || c.excludedItemIds.contains(l.itemId)) continue;
-        final inScope = inScopeAll || c.includedItemIds.contains(l.itemId) || (l.groupId != null && c.includedGroupIds.contains(l.groupId));
+        if (l.isGift || l.matchesAnyTarget(c.excludedItemIds)) continue;
+        final inScope = inScopeAll || l.matchesAnyTarget(c.includedItemIds) || (l.groupId != null && c.includedGroupIds.contains(l.groupId));
         if (inScope) base += l.unitPrice * l.quantity - l.manualLineDiscount;
       }
       final tiers = List<CampaignTier>.from(c.tiers)..sort((a, b) => b.threshold.compareTo(a.threshold));
@@ -104,12 +189,99 @@ class CartCampaignPricing {
   static String? reason(PriceQuoteModel quote, CampaignModel campaign) =>
       quote.reasons.where((r) => r.campaignId == campaign.campaignId).map((r) => r.reasonMessage).firstOrNull;
 
+  /// Lấy thông tin chi tiết về combo Mua X tặng/giảm Y:
+  /// - [buyUnits]: Tổng số lượng món mua (nước) trong giỏ hàng
+  /// - [rewardUnitsInCart]: Số lượng món giảm giá (bánh) hiện có trong giỏ hàng
+  /// - [maxRewardAllowed]: Số lượng món giảm giá tối đa được phép theo số món nước
+  /// - [remainingRewardUnits]: Số lượng món giảm giá còn được phép chọn thêm
+  /// - [candidates]: Danh sách các món thuộc nhóm hoặc món được giảm giá
+  /// - [benefitMode]: Cách tính giảm (FIXED, PERCENT, FREE, FIXED_PRICE)
+  /// - [discountPerUnit]: Số tiền giảm ước tính mỗi phần
+  static ({
+    int buyUnits,
+    int rewardUnitsInCart,
+    int maxRewardAllowed,
+    int remainingRewardUnits,
+    int requiredBuyQty,
+    int rewardQty,
+    List<ProductModel> candidates,
+    int discountPerUnit,
+    String benefitMode,
+  })? getComboInfo(
+    CampaignModel c, {
+    required List<OrderItemModel> cart,
+    required List<ProductModel> products,
+  }) {
+    final type = c.campaignType.toUpperCase().replaceAll('_', '');
+    final lns = lines(cart, products);
+
+    bool matches(PricingLineItem l, Set<String> ids, Set<String> groups) {
+      if (l.matchesAnyTarget(ids)) return true;
+      if (l.groupId == null || groups.isEmpty) return false;
+      final gNorm = l.groupId!.trim().toLowerCase();
+      return groups.any((g) => g.trim().toLowerCase() == gNorm);
+    }
+
+    List<ProductModel> pick(Set<String> ids, Set<String> groups) => products
+        .where((p) =>
+            !p.isTopping &&
+            p.isAvailable &&
+            !c.excludedItemIds.any((ex) => p.matchesTarget(ex)) &&
+            (ids.any((id) => p.matchesTarget(id)) || groups.any((g) => g.trim().toLowerCase() == p.category.trim().toLowerCase())))
+        .toList();
+
+    if (type == 'BUYXGETY') {
+      for (final cond in c.buyConditions) {
+        final buyIds = cond.buyItemIds.toSet(), buyGroups = cond.buyGroupIds.toSet();
+        final rewardIds = cond.rewardItemIds.toSet(), rewardGroups = cond.rewardGroupIds.toSet();
+        if (cond.requiredBuyQty <= 0 || cond.rewardQty <= 0) continue;
+
+        // Số lượng nước trong giỏ hàng
+        final buyUnits = lns
+            .where((l) => !l.isGift && matches(l, buyIds, buyGroups))
+            .fold<int>(0, (s, l) => s + l.quantity);
+
+        // Số lượng bánh hiện có trong giỏ hàng
+        final rewardUnitsInCart = lns
+            .where((l) => !l.isGift && matches(l, rewardIds, rewardGroups))
+            .fold<int>(0, (s, l) => s + l.quantity);
+
+        final bundles = cond.multiplyByBundle ? buyUnits ~/ cond.requiredBuyQty : (buyUnits >= cond.requiredBuyQty ? 1 : 0);
+        final maxRewardAllowed = bundles * cond.rewardQty;
+        final remainingRewardUnits = (maxRewardAllowed - rewardUnitsInCart).clamp(0, 9999);
+
+        final candidates = pick(rewardIds, rewardGroups);
+        int discountPerUnit = 0;
+        final mode = cond.benefitMode.toUpperCase().replaceAll('_', '');
+        if (mode == 'FIXED' || mode == 'DISCOUNTAMOUNT') {
+          discountPerUnit = cond.value;
+        } else if (mode == 'FREE' || mode == 'FREEITEM') {
+          discountPerUnit = candidates.isNotEmpty ? candidates.first.price : 0;
+        }
+
+        return (
+          buyUnits: buyUnits,
+          rewardUnitsInCart: rewardUnitsInCart,
+          maxRewardAllowed: maxRewardAllowed,
+          remainingRewardUnits: remainingRewardUnits,
+          requiredBuyQty: cond.requiredBuyQty,
+          rewardQty: cond.rewardQty,
+          candidates: candidates,
+          discountPerUnit: discountPerUnit,
+          benefitMode: cond.benefitMode,
+        );
+      }
+    }
+    return null;
+  }
+
   /// Bản ghi giảm giá lưu vào bill.discounts (giữ promoId/promoCode cho tương thích + trường mới cho báo cáo)
   static BillDiscountModel discount(
     CampaignModel campaign,
     int amount, {
     String? voucherCode,
     String? staffNote,
+    int? comboCount,
   }) {
     final code = (voucherCode != null && voucherCode.trim().isNotEmpty) ? voucherCode.trim().toUpperCase() : null;
     return BillDiscountModel(
@@ -123,6 +295,7 @@ class CartCampaignPricing {
       programCode: campaign.programCode,
       campaignType: campaign.campaignType,
       voucherCode: code,
+      comboCount: comboCount,
     );
   }
 
@@ -136,6 +309,8 @@ class CartCampaignPricing {
     required String branchId,
     int? guestCount,
     String? customerBirthday,
+    int? orderTimestampMs,
+    bool isExistingOrder = true,
   }) {
     final out = <BillDiscountModel>[];
     final dropped = <String>[];
@@ -145,14 +320,171 @@ class CartCampaignPricing {
         out.add(d);
         continue;
       }
-      final q = quote(c, cart: cart, products: products, branchId: branchId, guestCount: guestCount, customerBirthday: customerBirthday);
+      // Với đơn đã áp dụng CTKM (khi treo đơn qua giờ combo):
+      // Bỏ qua giới hạn khung giờ (ignoreSchedule: true), chỉ tính toán dựa trên món thực tế trong giỏ.
+      final q = quote(
+        c,
+        cart: cart,
+        products: products,
+        branchId: branchId,
+        guestCount: guestCount,
+        customerBirthday: customerBirthday,
+        nowMs: orderTimestampMs,
+        ignoreSchedule: isExistingOrder,
+      );
       final amt = q.totalPromotionDiscount;
       if (amt > 0) {
-        out.add(d.copyWith(amount: amt));
+        final comboCnt = q.rewardBenefits
+            .where((b) => b.campaignId == c.campaignId)
+            .fold<int>(0, (s, b) => s + b.quantity);
+        out.add(d.copyWith(amount: amt, comboCount: comboCnt > 0 ? comboCnt : d.comboCount));
       } else {
         dropped.add(d.description);
       }
     }
     return (discounts: out, dropped: dropped);
+  }
+
+  /// Kiểm tra xem CTKM [incoming] có thể áp dụng vào đơn hiện tại (đang có [currentDiscounts]) hay không
+  static ({
+    bool canStack,
+    bool requiresClearingExisting,
+    CampaignModel? conflictingExclusiveCampaign,
+    int? maxAllowedCampaigns,
+    String? reason,
+  }) checkStacking({
+    required List<BillDiscountModel> currentDiscounts,
+    required CampaignModel incoming,
+    required Map<String, CampaignModel> campaignsById,
+    bool allowStackPromotions = true,
+  }) {
+    final otherDiscounts = currentDiscounts.where((d) => d.campaignId != incoming.campaignId).toList();
+    if (otherDiscounts.isEmpty) {
+      return (
+        canStack: true,
+        requiresClearingExisting: false,
+        conflictingExclusiveCampaign: null,
+        maxAllowedCampaigns: incoming.effectiveMaxCampaignsPerOrder,
+        reason: null,
+      );
+    }
+
+    if (!allowStackPromotions) {
+      return (
+        canStack: false,
+        requiresClearingExisting: true,
+        conflictingExclusiveCampaign: null,
+        maxAllowedCampaigns: 1,
+        reason: 'Cửa hàng đang cài đặt không cho phép cộng dồn khuyến mãi.',
+      );
+    }
+
+    if (!incoming.isStackable || incoming.effectiveMaxCampaignsPerOrder == 1) {
+      return (
+        canStack: false,
+        requiresClearingExisting: true,
+        conflictingExclusiveCampaign: null,
+        maxAllowedCampaigns: 1,
+        reason: 'Chương trình "${incoming.name}" áp dụng độc quyền (không cho phép cộng dồn với CTKM khác).',
+      );
+    }
+
+    // Kiểm tra xem trong các ưu đãi đã có, có CTKM độc quyền nào không
+    for (final d in otherDiscounts) {
+      if (d.campaignId != null) {
+        final existingC = campaignsById[d.campaignId];
+        if (existingC != null && (!existingC.isStackable || existingC.effectiveMaxCampaignsPerOrder == 1)) {
+          return (
+            canStack: false,
+            requiresClearingExisting: false,
+            conflictingExclusiveCampaign: existingC,
+            maxAllowedCampaigns: 1,
+            reason: 'Đơn đang áp dụng "${existingC.name}" (chương trình độc quyền, không cho phép cộng dồn).',
+          );
+        }
+      }
+    }
+
+    // Kiểm tra giới hạn số lượng tối đa trên đơn
+    final limits = <int>[
+      incoming.effectiveMaxCampaignsPerOrder,
+      for (final d in otherDiscounts)
+        if (d.campaignId != null && campaignsById.containsKey(d.campaignId))
+          campaignsById[d.campaignId]!.effectiveMaxCampaignsPerOrder,
+    ].where((n) => n > 0 && n < 999).toList();
+
+    if (limits.isNotEmpty) {
+      final maxAllowed = limits.reduce((a, b) => a < b ? a : b);
+      if (otherDiscounts.length >= maxAllowed) {
+        return (
+          canStack: false,
+          requiresClearingExisting: false,
+          conflictingExclusiveCampaign: null,
+          maxAllowedCampaigns: maxAllowed,
+          reason: 'Đơn đã đạt giới hạn tối đa $maxAllowed chương trình khuyến mãi theo cài đặt.',
+        );
+      }
+      return (
+        canStack: true,
+        requiresClearingExisting: false,
+        conflictingExclusiveCampaign: null,
+        maxAllowedCampaigns: maxAllowed,
+        reason: null,
+      );
+    }
+
+    return (
+      canStack: true,
+      requiresClearingExisting: false,
+      conflictingExclusiveCampaign: null,
+      maxAllowedCampaigns: null,
+      reason: null,
+    );
+  }
+
+  /// Thực hiện cộng dồn hoặc thay thế khi thêm một khuyến mãi mới vào giỏ
+  static ({List<BillDiscountModel> discounts, List<String> removed}) addWithStacking({
+    required List<BillDiscountModel> currentDiscounts,
+    required BillDiscountModel incomingDiscount,
+    CampaignModel? incomingCampaign,
+    required Map<String, CampaignModel> campaignsById,
+    bool allowStackPromotions = true,
+  }) {
+    final without = currentDiscounts.where((d) =>
+        (incomingDiscount.campaignId != null && d.campaignId != incomingDiscount.campaignId) ||
+        (incomingDiscount.promoId != null && d.promoId != incomingDiscount.promoId) ||
+        (incomingDiscount.voucherCode != null && d.voucherCode != incomingDiscount.voucherCode)).toList();
+
+    bool isStackable(CampaignModel? c) => c == null || (c.isStackable && c.effectiveMaxCampaignsPerOrder > 1);
+
+    List<BillDiscountModel> keep;
+    if (!allowStackPromotions || (incomingCampaign != null && !isStackable(incomingCampaign))) {
+      keep = [];
+    } else {
+      keep = without.where((d) {
+        final c = d.campaignId == null ? null : campaignsById[d.campaignId];
+        return isStackable(c);
+      }).toList();
+
+      final limits = <int>[
+        if (incomingCampaign != null && incomingCampaign.effectiveMaxCampaignsPerOrder < 999)
+          incomingCampaign.effectiveMaxCampaignsPerOrder,
+        for (final d in keep)
+          if (d.campaignId != null && campaignsById.containsKey(d.campaignId))
+            if (campaignsById[d.campaignId]!.effectiveMaxCampaignsPerOrder < 999)
+              campaignsById[d.campaignId]!.effectiveMaxCampaignsPerOrder,
+      ];
+
+      if (limits.isNotEmpty) {
+        final maxAllowed = limits.reduce((a, b) => a < b ? a : b);
+        final maxKeep = (maxAllowed - 1).clamp(0, 999);
+        if (keep.length > maxKeep) {
+          keep = keep.sublist(keep.length - maxKeep);
+        }
+      }
+    }
+
+    final removed = without.where((d) => !keep.contains(d)).map((d) => d.description).toList();
+    return (discounts: [...keep, incomingDiscount], removed: removed);
   }
 }

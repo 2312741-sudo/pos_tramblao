@@ -141,7 +141,14 @@ class PromotionModel {
     if (!isActive) return false;
     final now = DateTime.now().millisecondsSinceEpoch;
     if (startDate > 0 && now < startDate) return false;
-    if (endDate > 0 && now > endDate) return false;
+    if (endDate > 0) {
+      var end = endDate;
+      final endDt = DateTime.fromMillisecondsSinceEpoch(end, isUtc: true).add(const Duration(hours: 7));
+      if (endDt.hour == 0 && endDt.minute == 0 && endDt.second == 0 && endDt.millisecond == 0) {
+        end += 86399999;
+      }
+      if (now > end) return false;
+    }
     if (maxUsage > 0 && usageCount >= maxUsage) return false;
     if (minBillAmount > 0 && subTotal < minBillAmount) return false;
     return true;
@@ -216,6 +223,7 @@ class BillDiscountModel {
   final String? programCode;
   final String? campaignType;
   final String? voucherCode;
+  final int? comboCount; // Số lượng combo được hưởng (ví dụ: 1 bánh + 1 nước = 1 combo, 3 bánh = 3 combo)
 
   BillDiscountModel({
     this.promoId,
@@ -228,6 +236,7 @@ class BillDiscountModel {
     this.programCode,
     this.campaignType,
     this.voucherCode,
+    this.comboCount,
   });
 
   factory BillDiscountModel.fromMap(Map<dynamic, dynamic> map) {
@@ -247,6 +256,7 @@ class BillDiscountModel {
       programCode: str('programCode'),
       campaignType: str('campaignType'),
       voucherCode: str('voucherCode'),
+      comboCount: (map['comboCount'] as num?)?.toInt(),
     );
   }
 
@@ -261,9 +271,15 @@ class BillDiscountModel {
     if (programCode != null) 'programCode': programCode,
     if (campaignType != null) 'campaignType': campaignType,
     if (voucherCode != null) 'voucherCode': voucherCode,
+    if (comboCount != null && comboCount! > 0) 'comboCount': comboCount,
   };
 
-  BillDiscountModel copyWith({int? amount, String? description, String? campaignName}) => BillDiscountModel(
+  BillDiscountModel copyWith({
+    int? amount,
+    String? description,
+    String? campaignName,
+    int? comboCount,
+  }) => BillDiscountModel(
         promoId: promoId,
         promoCode: promoCode,
         description: description ?? this.description,
@@ -274,5 +290,6 @@ class BillDiscountModel {
         programCode: programCode,
         campaignType: campaignType,
         voucherCode: voucherCode,
+        comboCount: comboCount ?? this.comboCount,
       );
 }

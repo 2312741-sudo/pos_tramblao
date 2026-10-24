@@ -1,3 +1,4 @@
+import '../../core/domain/business_day.dart';
 import '../../core/domain/customer_search.dart';
 import '../../core/domain/shift_scope.dart';
 import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth;
@@ -41,16 +42,27 @@ class ReportRepository {
   CashShiftModel? get activeShiftCache {
     final id = shiftIdentity;
     final fromList = findOwnOpenShift(_cachedCashShiftsList ?? const <CashShiftModel>[], uid: id.uid, username: id.username);
-    if (fromList != null) return fromList;
+    if (fromList != null) {
+      if (fromList.storeCode.isNotEmpty && fromList.storeCode != _currentStoreCode) return null;
+      return fromList;
+    }
     final o = _optimisticOpenShift;
-    if (o != null && o.isOpen && shiftOwnedBy(o, uid: id.uid, username: id.username)) return o;
+    if (o != null && o.isOpen && shiftOwnedBy(o, uid: id.uid, username: id.username)) {
+      if (o.storeCode.isNotEmpty && o.storeCode != _currentStoreCode) return null;
+      return o;
+    }
     return null;
   }
 
   /// Ca đang mở của tài khoản hiện tại trong một danh sách ca bất kỳ.
   CashShiftModel? ownOpenShiftIn(Iterable<CashShiftModel> shifts) {
     final id = shiftIdentity;
-    return findOwnOpenShift(shifts, uid: id.uid, username: id.username) ?? activeShiftCache;
+    final own = findOwnOpenShift(shifts, uid: id.uid, username: id.username);
+    if (own != null) {
+      if (own.storeCode.isNotEmpty && own.storeCode != _currentStoreCode) return null;
+      return own;
+    }
+    return activeShiftCache;
   }
 
   /// Chỉ giữ những ca tài khoản hiện tại được phép thấy.
@@ -61,7 +73,6 @@ class ReportRepository {
 
   List<CashShiftModel>? _cachedCashShiftsList; // TOÀN BỘ ca của chi nhánh (thô); luôn lọc qua scopeVisibleShifts khi trả ra
   Stream<List<CashShiftModel>>? _cachedCashShiftsStream;
-  Stream<List<CashShiftModel>>? _underlyingBroadcastStream;
   StreamSubscription<List<CashShiftModel>>? _underlyingCashShiftsSub;
   String? _cachedCashShiftsStoreCode;
 
@@ -93,12 +104,15 @@ class ReportRepository {
   /// Mặc định: false (POS hoàn toàn dùng Realtime Database tại stores/{storeCode}/customers).
   static bool useFirestoreCustomers = false;
 
+  void clearSession() {
+    clearShiftCache();
+  }
+
   void clearShiftCache() {
     _optimisticOpenShift = null;
     _cachedCashShiftsList = null;
     _underlyingCashShiftsSub?.cancel();
     _underlyingCashShiftsSub = null;
-    _underlyingBroadcastStream = null;
     _cachedCashShiftsStream = null;
     _cachedCashShiftsStoreCode = null;
   }
@@ -128,6 +142,8 @@ class ReportRepository {
 
   /// Cấu hình điểm toàn chuỗi (loyalty_config) ưu tiên hơn cấu hình riêng của chi nhánh; không đọc được → giữ nguyên.
   Future<StoreInfoModel> _withChainLoyalty(StoreInfoModel info) async {
+    // Cửa hàng đang dùng: nạp giờ bắt đầu ngày kinh doanh cho mọi báo cáo / bộ lọc theo ngày
+    BusinessDay.startMinutes = info.businessDayStartMinute;
     try {
       final snap = await storeInfoRef.root.child('loyalty_config').get().timeout(const Duration(seconds: 2));
       return info.withChainLoyalty(snap.value);
@@ -169,6 +185,26 @@ class ReportRepository {
     await storeInfoRef.update(info.toMap());
   }
 
+  /// Cài đặt cửa hàng: ghi các trường chỉnh được ở màn Cài đặt cửa hàng (thông tin, VietQR, tùy chọn bán hàng,
+  /// giờ bắt đầu ngày kinh doanh). Dùng update() nên không đụng các trường khác (máy in, điểm, Chấm Công…).
+  Future<void> saveStoreSettings(StoreInfoModel info, {required int businessDayStartMinute}) async {
+    final start = BusinessDay.normalize(businessDayStartMinute);
+    await storeInfoRef.update({
+      'storeName': info.storeName,
+      'address': info.address,
+      'phone': info.phone,
+      'wifiName': info.wifiName,
+      'bankId': info.bankId,
+      'bankAccount': info.bankAccount,
+      'accountName': info.accountName,
+      'defaultVatRate': info.defaultVatRate,
+      'allowStackPromotions': info.allowStackPromotions,
+      'allowStaffViewShiftDifference': info.allowStaffViewShiftDifference,
+      'businessDayStartMinute': start,
+    });
+    BusinessDay.startMinutes = start;
+  }
+
   Future<void> updateStoreShiftDifferenceSetting(bool allow, {String? storeCode}) async {
     final targetRef = storeCode != null && storeCode.isNotEmpty
         ? _root.child('stores').child(storeCode).child('storeInfo')
@@ -200,18 +236,30 @@ class ReportRepository {
           if (v == true) codes.add(k.toString().toUpperCase());
         });
       }
-      if (!codes.contains(_currentStoreCode)) codes.add(_currentStoreCode);
+      if (codes.isEmpty && _currentStoreCode.isNotEmpty) {
+        codes.add(_currentStoreCode);
+      }
       codes.sort();
-      final result = await Future.wait(codes.map((code) async {
+      final storeList = await Future.wait(codes.map((code) async {
         try {
-          final snap = await _root.child('stores').child(code).child('storeInfo').get().timeout(const Duration(seconds: 5));
+          final snap = await _root.child('stores').child(code).child('storeInfo').get().timeout(const Duration(seconds: 4));
           if (snap.exists && snap.value is Map) {
             return StoreInfoModel.fromMap(Map<dynamic, dynamic>.from(snap.value as Map), code);
           }
-        } catch (_) {}
-        return StoreInfoModel(storeCode: code, storeName: 'POS Trạm BLAO - $code');
+          final userSnap = await _root.child('stores').child(code).child('users').child(uid).get().timeout(const Duration(seconds: 2));
+          if (userSnap.exists && userSnap.value != null) {
+            return StoreInfoModel(storeCode: code, storeName: 'POS Trạm BLAO - $code');
+          }
+        } catch (_) {
+          // Bị permission denied hoặc không thể truy cập -> loại bỏ cửa hàng này
+        }
+        return null;
       }));
-      return result;
+      final result = storeList.whereType<StoreInfoModel>().toList();
+      if (result.isNotEmpty && _currentStoreCode.isNotEmpty && !result.any((s) => s.storeCode == _currentStoreCode)) {
+        _onSwitchStore?.call(result.first.storeCode);
+      }
+      return result.isNotEmpty ? result : fallback;
     } catch (_) {
       return fallback;
     }
@@ -315,7 +363,6 @@ class ReportRepository {
     }).handleError((_) => _cachedCashShiftsList ?? <CashShiftModel>[]);
 
     final broadcast = rawStream.asBroadcastStream();
-    _underlyingBroadcastStream = broadcast;
     _underlyingCashShiftsSub = broadcast.listen((list) {
       _cachedCashShiftsList = list;
     }, onError: (_) {});
@@ -704,6 +751,30 @@ class ReportRepository {
           }
         }
       }
+
+      // 3. Nếu thuộc chuỗi 4 cửa hàng Trạm và chưa có ở chi nhánh này, tra cứu ở các chi nhánh Trạm khác
+      const tramChain = ['TRAM01', 'TRAM02', 'TRAM03', 'TRAM04'];
+      if (tramChain.contains(_currentStoreCode)) {
+        for (final other in tramChain) {
+          if (other == _currentStoreCode) continue;
+          try {
+            final otherSnap = await _root.child('stores').child(other).child('customers').get().timeout(const Duration(seconds: 2));
+            if (otherSnap.exists && otherSnap.value != null) {
+              final map = Map<dynamic, dynamic>.from(otherSnap.value as Map);
+              for (final entry in map.entries) {
+                final c = KmtCustomerModel.fromMap(Map<dynamic, dynamic>.from(entry.value), entry.key.toString());
+                if (c.phone == clean ||
+                    (normalizedPhone.isNotEmpty && c.phone.replaceAll(RegExp(r'[^0-9]'), '') == normalizedPhone) ||
+                    c.code.toLowerCase() == clean.toLowerCase()) {
+                  // Tự động đồng bộ sang chi nhánh hiện tại để các lần tra cứu sau tức thì
+                  customersRef.child(c.id).set(c.toMap()).catchError((_) {});
+                  return c;
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      }
       return null;
     } catch (_) {
       return null;
@@ -724,42 +795,69 @@ class ReportRepository {
   static const Set<String> _pointFields = {'diem_hien_tai', 'currentPoints', 'totalPoints'};
 
   /// Lưu thông tin khách vào RTDB stores/{storeCode}/customers (nguồn chuẩn).
-  /// - KHÔNG ghi Firestore: Cloud Function mirrorCustomerToFirestore đồng bộ sang kmt_customers.
+  /// Nếu thuộc chuỗi 4 cửa hàng Trạm (TRAM01-04), đồng bộ sang cả 4 chi nhánh.
   /// - KHÔNG đổi điểm: điểm chỉ thay đổi qua LoyaltyService (thao tác hóa đơn) hoặc Quản lý.
   /// - Khách mới có điểm (lấy từ Firestore) → nhập qua importCustomerToStore để giữ số dư thật.
   Future<void> saveCustomer(KmtCustomerModel customer) async {
     try {
-      final ref = customersRef.child(customer.id);
+      const tramChain = ['TRAM01', 'TRAM02', 'TRAM03', 'TRAM04'];
+      final targetStores = tramChain.contains(_currentStoreCode) ? tramChain : [_currentStoreCode];
       final info = Map<String, dynamic>.from(customer.toMap())..removeWhere((k, _) => _pointFields.contains(k));
-      final snap = await ref.get().timeout(const Duration(seconds: 3));
-      if (snap.exists) {
-        await ref.update(info);
-        return;
+
+      for (final sCode in targetStores) {
+        try {
+          final ref = _root.child('stores').child(sCode).child('customers').child(customer.id);
+          final snap = await ref.get().timeout(const Duration(seconds: 2));
+          if (snap.exists) {
+            await ref.update(info);
+          } else {
+            if (customer.currentPoints == 0 && customer.totalPoints == 0) {
+              await ref.set(customer.toMap());
+            } else {
+              await CustomerImportService.importToStore(storeCode: sCode, customerId: customer.id);
+              await ref.update(info);
+            }
+          }
+        } catch (_) {}
       }
-      if (customer.currentPoints == 0 && customer.totalPoints == 0) {
-        await ref.set(customer.toMap());
-        return;
-      }
-      await CustomerImportService.importToStore(storeCode: _currentStoreCode, customerId: customer.id);
-      await ref.update(info);
     } catch (_) {}
   }
 
   /// Khách của chi nhánh (RTDB, điểm là bản sao số dư dùng chung) cho ô "Tìm khách" - nhẹ hơn [getAllCustomers].
+  /// Tự động dùng chung khách giữa 4 chi nhánh Trạm (TRAM01, TRAM02, TRAM03, TRAM04).
   Future<List<CustomerCandidate>> getBranchCandidates() async {
     try {
-      final snap = await customersRef.get().timeout(const Duration(seconds: 4));
-      if (snap.value is! Map) return [];
-      final out = <CustomerCandidate>[];
-      for (final e in Map<dynamic, dynamic>.from(snap.value as Map).entries) {
-        if (e.value is! Map) continue;
-        final m = Map<dynamic, dynamic>.from(e.value as Map);
-        final c = KmtCustomerModel.fromMap(m, e.key.toString());
-        int t(Object? v) => v is num ? v.toInt() : 0;
-        final last = [t(m['ngay_cap_nhat']), t(m['lastVisitAt']), c.createdAt ?? 0].reduce((a, b) => a > b ? a : b);
-        out.add(CustomerCandidate(id: c.id, name: c.fullName, phone: c.phone, points: c.currentPoints, totalPoints: c.totalPoints, lastVisitAt: last));
+      const tramChain = ['TRAM01', 'TRAM02', 'TRAM03', 'TRAM04'];
+      final targetStores = tramChain.contains(_currentStoreCode) ? tramChain : [_currentStoreCode];
+      final Map<String, CustomerCandidate> map = {};
+
+      for (final sCode in targetStores) {
+        try {
+          final snap = await _root.child('stores').child(sCode).child('customers').get().timeout(const Duration(seconds: 2));
+          if (snap.value is! Map) continue;
+          for (final e in Map<dynamic, dynamic>.from(snap.value as Map).entries) {
+            if (e.value is! Map) continue;
+            final m = Map<dynamic, dynamic>.from(e.value as Map);
+            final c = KmtCustomerModel.fromMap(m, e.key.toString());
+            final dedupKey = c.phone.isNotEmpty ? 'p_${c.phone}' : 'id_${c.id}';
+            if (!map.containsKey(dedupKey)) {
+              int t(Object? v) => v is num ? v.toInt() : 0;
+              final last = [t(m['ngay_cap_nhat']), t(m['lastVisitAt']), c.createdAt ?? 0].reduce((a, b) => a > b ? a : b);
+              map[dedupKey] = CustomerCandidate(
+                id: c.id,
+                name: c.fullName,
+                phone: c.phone,
+                points: c.currentPoints,
+                totalPoints: c.totalPoints,
+                lastVisitAt: last,
+                gender: c.gender,
+                birthday: c.birthday,
+              );
+            }
+          }
+        } catch (_) {}
       }
-      return out;
+      return map.values.toList();
     } catch (_) {
       return [];
     }
@@ -781,18 +879,22 @@ class ReportRepository {
       }
     } catch (_) {}
 
-    // 2. Đọc RTDB (ưu tiên hơn Firestore)
-    try {
-      final snap = await customersRef.get().timeout(const Duration(seconds: 3));
-      if (snap.exists && snap.value != null) {
-        final rawMap = Map<dynamic, dynamic>.from(snap.value as Map);
-        for (final entry in rawMap.entries) {
-          final id = entry.key.toString();
-          // RTDB là nguồn chuẩn của điểm → ghi đè bản Firestore (có thể trễ)
-          map[id] = KmtCustomerModel.fromMap(Map<dynamic, dynamic>.from(entry.value), id);
+    // 2. Đọc RTDB (ưu tiên hơn Firestore). Nếu thuộc chuỗi Trạm, gom từ cả 4 chi nhánh
+    const tramChain = ['TRAM01', 'TRAM02', 'TRAM03', 'TRAM04'];
+    final targetStores = tramChain.contains(_currentStoreCode) ? tramChain : [_currentStoreCode];
+    for (final sCode in targetStores) {
+      try {
+        final snap = await _root.child('stores').child(sCode).child('customers').get().timeout(const Duration(seconds: 2));
+        if (snap.exists && snap.value != null) {
+          final rawMap = Map<dynamic, dynamic>.from(snap.value as Map);
+          for (final entry in rawMap.entries) {
+            final id = entry.key.toString();
+            // RTDB là nguồn chuẩn của điểm → ghi đè bản Firestore (có thể trễ)
+            map[id] = KmtCustomerModel.fromMap(Map<dynamic, dynamic>.from(entry.value), id);
+          }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
     final list = map.values.toList();
     list.sort((a, b) => b.currentPoints.compareTo(a.currentPoints));

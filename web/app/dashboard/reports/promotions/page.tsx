@@ -3,7 +3,8 @@ import { Fragment, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { BadgePercent, Calendar, ChevronDown, ChevronRight, Download, Receipt, Store, Ticket, TrendingUp } from "lucide-react";
 import { useDashboardData } from "@/lib/data-context";
-import { formatNumber, formatVND, getBillTimestamp, getUTC7Date } from "@/lib/reports";
+import { businessDayStartFor } from "@/lib/business-day";
+import { formatNumber, formatVND, getBusinessBillTimestamp, getUTC7Date } from "@/lib/reports";
 import { calculateCampaignReport } from "@/lib/promotion-report";
 import { exportCampaignReportExcel, type ReportStoreInfo } from "@/lib/export";
 
@@ -43,7 +44,8 @@ export default function PromotionReportPage() {
 
   // Khoảng thời gian (UTC+7) — giống các báo cáo khác
   const range = useMemo(() => {
-    const now = new Date().getTime();
+    // Ngày kinh doanh: mốc "bây giờ" lùi theo giờ bắt đầu ngày; hóa đơn lọc bằng mốc đã lùi tương ứng
+    const now = new Date().getTime() - businessDayStartFor(currentStoreCode) * 60_000;
     const n = getUTC7Date(now);
     const y = n.getUTCFullYear();
     const m = n.getUTCMonth();
@@ -68,7 +70,7 @@ export default function PromotionReportPage() {
         return { start: s, end: e };
       }
     }
-  }, [dateRange, customStart, customEnd]);
+  }, [dateRange, customStart, customEnd, currentStoreCode]);
 
   const rangeLabel = useMemo(() => {
     if (dateRange === "CUSTOM" && !customStart) return "Tất cả thời gian";
@@ -80,7 +82,7 @@ export default function PromotionReportPage() {
     () =>
       historyData.filter((b) => {
         if (currentStoreCode !== "ALL" && b.storeCode && b.storeCode !== currentStoreCode) return false;
-        const ts = getBillTimestamp(b);
+        const ts = getBusinessBillTimestamp(b);
         return ts >= range.start && ts <= range.end;
       }),
     [historyData, currentStoreCode, range]
@@ -101,6 +103,9 @@ export default function PromotionReportPage() {
   const kpis = [
     { label: "Tổng giảm giá khuyến mãi", value: formatVND(report.totalDiscount), icon: BadgePercent, color: "var(--danger)" },
     { label: "Hóa đơn có khuyến mãi", value: `${report.billCount} đơn`, icon: Receipt, color: "var(--primary)" },
+    ...(report.comboCount > 0
+      ? [{ label: "Số lượng combo đã bán", value: `${formatNumber(report.comboCount)} combo`, icon: Ticket, color: "var(--accent)" }]
+      : []),
     { label: "Doanh thu các hóa đơn này", value: formatVND(report.revenue), icon: TrendingUp, color: "var(--success)" },
     { label: "Lượt dùng voucher", value: `${report.vouchersUsed} lượt`, icon: Ticket, color: "var(--warning)" },
     { label: "Điểm tích lũy đã đổi", value: `${formatNumber(report.pointsUsed)} điểm`, icon: BadgePercent, color: "var(--primary)" },
@@ -172,6 +177,7 @@ export default function PromotionReportPage() {
               <th>Mã</th>
               <th>Loại</th>
               <th style={{ textAlign: "right" }}>Số HĐ</th>
+              <th style={{ textAlign: "right" }}>Số combo</th>
               <th style={{ textAlign: "right" }}>Tổng giảm</th>
               <th style={{ textAlign: "right" }}>Doanh thu HĐ</th>
               <th style={{ textAlign: "right" }}>Voucher đã dùng</th>
@@ -181,13 +187,13 @@ export default function PromotionReportPage() {
           <tbody>
             {!historyLoaded && historyData.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ textAlign: "center", padding: "40px" }}>
+                <td colSpan={10} style={{ textAlign: "center", padding: "40px" }}>
                   <div className="spinner" style={{ margin: "0 auto" }} />
                 </td>
               </tr>
             ) : report.campaigns.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ textAlign: "center", padding: "40px", color: "var(--muted)" }}>
+                <td colSpan={10} style={{ textAlign: "center", padding: "40px", color: "var(--muted)" }}>
                   Không có hóa đơn nào áp dụng khuyến mãi trong khoảng thời gian này
                 </td>
               </tr>
@@ -215,6 +221,7 @@ export default function PromotionReportPage() {
                       <td style={{ fontFamily: "monospace", fontSize: "12px" }}>{c.code || "—"}</td>
                       <td style={{ fontSize: "12px", color: "var(--subtext)" }}>{c.typeLabel}</td>
                       <td style={{ textAlign: "right" }}>{c.billCount}</td>
+                      <td style={{ textAlign: "right", fontWeight: c.comboCount > 0 ? 600 : 400 }}>{c.comboCount > 0 ? `${formatNumber(c.comboCount)} combo` : "—"}</td>
                       <td style={{ textAlign: "right", fontWeight: 700, color: "var(--danger)" }}>{formatVND(c.totalDiscount)}</td>
                       <td style={{ textAlign: "right", fontWeight: 700, color: "var(--success)" }}>{formatVND(c.revenue)}</td>
                       <td style={{ textAlign: "right" }}>{c.vouchersUsed}</td>
@@ -222,13 +229,14 @@ export default function PromotionReportPage() {
                     </tr>
                     {open && (
                       <tr>
-                        <td colSpan={9} style={{ background: "var(--surface-muted)", padding: "12px 16px" }}>
+                        <td colSpan={10} style={{ background: "var(--surface-muted)", padding: "12px 16px" }}>
                           <table style={{ margin: 0 }}>
                             <thead>
                               <tr>
                                 <th>Mã hóa đơn</th>
                                 <th>Thời gian</th>
                                 <th>Bàn</th>
+                                <th style={{ textAlign: "right" }}>Số combo</th>
                                 <th>Mã voucher</th>
                                 <th style={{ textAlign: "right" }}>Giảm giá</th>
                                 <th style={{ textAlign: "right" }}>Tổng tiền HĐ</th>
@@ -242,6 +250,7 @@ export default function PromotionReportPage() {
                                   <td style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--primary)", fontSize: "12px" }}>{b.billCode}</td>
                                   <td style={{ fontSize: "12px" }}>{b.timestamp ? format(new Date(b.timestamp), "dd/MM/yyyy HH:mm") : "—"}</td>
                                   <td>{b.tableName || "—"}</td>
+                                  <td style={{ textAlign: "right", fontWeight: b.comboCount ? 600 : 400 }}>{b.comboCount ? `${b.comboCount} combo` : "—"}</td>
                                   <td style={{ fontFamily: "monospace", fontSize: "12px" }}>{b.voucherCode || "—"}</td>
                                   <td style={{ textAlign: "right", color: "var(--danger)", fontWeight: 700 }}>{formatVND(b.discount)}</td>
                                   <td style={{ textAlign: "right" }}>{formatVND(b.finalAmount)}</td>

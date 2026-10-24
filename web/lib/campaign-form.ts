@@ -110,6 +110,8 @@ export interface CampaignFormState {
   /** Khóa tích điểm: đơn dùng chương trình này không được tích điểm */
   blockPoints: boolean;
   stackingMode: string;
+  /** Giới hạn số lượng CTKM tối đa trên 1 đơn ("" = không giới hạn nếu ENABLED, 1 nếu DISABLED) */
+  maxCampaignsPerOrder: string;
   priority: string;
   // BILLDISCOUNT
   discountType: "PERCENT" | "AMOUNT";
@@ -139,18 +141,21 @@ export interface CampaignFormState {
   includedGroupIds: string[];
   daysOfWeek: number[];
   timeSlots: { startTime: string; endTime: string }[];
+  /** Chi nhánh áp dụng */
+  branchIds: string[];
 }
 
 export function emptyCampaignForm(): CampaignFormState {
   return {
     name: "", programCode: "", description: "", campaignType: "BILLDISCOUNT",
     active: true, startDate: "", endDate: "", budgetMoney: "", maxUses: "",
-    hasCodes: false, autoApply: true, requireStaffNote: false, birthdayOnly: false, blockPoints: false, stackingMode: "ENABLED", priority: "0",
+    hasCodes: false, autoApply: true, requireStaffNote: false, birthdayOnly: false, blockPoints: false, stackingMode: "ENABLED", maxCampaignsPerOrder: "", priority: "0",
     discountType: "PERCENT", discountValue: "", maxDiscount: "", threshold: "",
     fixedPriceValue: "",
     rewardItemIds: [], rewardGroupIds: [], rewardQty: "1", rewardBenefit: "FREEITEM", rewardValue: "",
     buyItemIds: [], buyGroupIds: [], buyQty: "1", multiplyByBundle: true,
     includedItemIds: [], includedGroupIds: [], daysOfWeek: [], timeSlots: [],
+    branchIds: ["TRAM01", "TRAM02", "TRAM03", "TRAM04"],
   };
 }
 
@@ -170,11 +175,13 @@ export interface StoredCampaign {
   birthdayOnly?: boolean;
   blockPoints?: boolean;
   stackingMode?: string;
+  maxCampaignsPerOrder?: number;
   priority?: number;
   tiers?: RawTier[];
   buyConditions?: RawBuyCondition[];
   includedItemIds?: string[];
   includedGroupIds?: string[];
+  branchIds?: string[];
 }
 
 const posStr = (n: number) => (n > 0 ? String(n) : "");
@@ -220,11 +227,13 @@ export function campaignToForm(cam: StoredCampaign): CampaignFormState {
     birthdayOnly: cam.birthdayOnly === true,
     blockPoints: cam.blockPoints === true,
     stackingMode: normalizeStackingMode(cam.stackingMode),
+    maxCampaignsPerOrder: posStr(num(cam.maxCampaignsPerOrder)),
     priority: String(cam.priority || 0),
     includedItemIds: strList(cam.includedItemIds),
     includedGroupIds: strList(cam.includedGroupIds),
     daysOfWeek: Array.isArray(cam.schedule?.daysOfWeek) ? [...cam.schedule.daysOfWeek] : [],
     timeSlots: Array.isArray(cam.schedule?.timeSlots) ? cam.schedule.timeSlots.map((s) => ({ ...s })) : [],
+    branchIds: Array.isArray(cam.branchIds) && cam.branchIds.length > 0 ? [...cam.branchIds] : ["TRAM01", "TRAM02", "TRAM03", "TRAM04"],
   };
 
   if (tier) {

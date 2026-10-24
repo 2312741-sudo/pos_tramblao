@@ -496,6 +496,7 @@ class CampaignModel {
 
   // Cộng dồn
   final String stackingMode; // DISABLED, ENABLED
+  final int? maxCampaignsPerOrder; // Giới hạn số CTKM tối đa trong 1 đơn (null/0 = không giới hạn nếu ENABLED, 1 nếu DISABLED)
   final int priority; // Ưu tiên (số nhỏ = cao hơn)
 
   // Trạng thái
@@ -533,6 +534,7 @@ class CampaignModel {
     this.birthdayOnly = false,
     this.blockPoints = false,
     required this.stackingMode,
+    this.maxCampaignsPerOrder,
     required this.priority,
     required this.active,
     required this.createdAt,
@@ -543,6 +545,15 @@ class CampaignModel {
   });
 
   bool get isStackable => normalizeStackingMode(stackingMode) == StackingMode.enabled.toMap();
+
+  /// Số CTKM tối đa cho phép trên đơn khi dùng chương trình này (mặc định 1 nếu không cộng dồn, 999 nếu không giới hạn)
+  int get effectiveMaxCampaignsPerOrder {
+    if (!isStackable) return 1;
+    if (maxCampaignsPerOrder != null && maxCampaignsPerOrder! > 0) {
+      return maxCampaignsPerOrder!;
+    }
+    return 999;
+  }
 
   bool get isUpcoming {
     if (schedule.absoluteStart == null) return false;
@@ -587,8 +598,16 @@ class CampaignModel {
     if (schedule.absoluteStart != null && timestampMs < schedule.absoluteStart!) {
       return false;
     }
-    if (schedule.absoluteEnd != null && timestampMs > schedule.absoluteEnd!) {
-      return false;
+    if (schedule.absoluteEnd != null) {
+      // Nếu absoluteEnd rơi vào 00:00:00 (do chọn ngày không chọn giờ), tính đến hết ngày (23:59:59.999)
+      var endMs = schedule.absoluteEnd!;
+      final endDt = DateTime.fromMillisecondsSinceEpoch(endMs, isUtc: true).add(const Duration(hours: 7));
+      if (endDt.hour == 0 && endDt.minute == 0 && endDt.second == 0 && endDt.millisecond == 0) {
+        endMs += 86399999;
+      }
+      if (timestampMs > endMs) {
+        return false;
+      }
     }
 
     // Lịch luôn tính theo giờ Việt Nam (UTC+7), không phụ thuộc múi giờ của máy
@@ -649,6 +668,7 @@ class CampaignModel {
       'birthdayOnly': birthdayOnly,
       'blockPoints': blockPoints,
       'stackingMode': stackingMode,
+      'maxCampaignsPerOrder': maxCampaignsPerOrder,
       'priority': priority,
       'active': active,
       'createdAt': createdAt,
@@ -688,6 +708,9 @@ class CampaignModel {
       birthdayOnly: map['birthdayOnly'] == true,
       blockPoints: map['blockPoints'] == true,
       stackingMode: normalizeStackingMode(map['stackingMode']?.toString()),
+      maxCampaignsPerOrder: map['maxCampaignsPerOrder'] != null
+          ? int.tryParse(map['maxCampaignsPerOrder'].toString())
+          : null,
       priority: map['priority']?.toInt() ?? 0,
       active: map['active'] ?? false,
       createdAt: map['createdAt']?.toInt() ?? 0,
@@ -723,6 +746,8 @@ class CampaignModel {
     bool? birthdayOnly,
     bool? blockPoints,
     String? stackingMode,
+    int? maxCampaignsPerOrder,
+    bool clearMaxCampaignsPerOrder = false,
     int? priority,
     bool? active,
     int? createdAt,
@@ -756,6 +781,7 @@ class CampaignModel {
       birthdayOnly: birthdayOnly ?? this.birthdayOnly,
       blockPoints: blockPoints ?? this.blockPoints,
       stackingMode: stackingMode ?? this.stackingMode,
+      maxCampaignsPerOrder: clearMaxCampaignsPerOrder ? null : (maxCampaignsPerOrder ?? this.maxCampaignsPerOrder),
       priority: priority ?? this.priority,
       active: active ?? this.active,
       createdAt: createdAt ?? this.createdAt,

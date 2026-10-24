@@ -31,11 +31,13 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
   late TextEditingController _maxUsesController;
   late TextEditingController _maxUsesPerCustomerController;
   late TextEditingController _priorityController;
+  late TextEditingController _maxCampaignsPerOrderController;
 
   // Discount config controllers
   late TextEditingController _thresholdController;
   late TextEditingController _discountValueController;
   late TextEditingController _maxDiscountController;
+  late TextEditingController _fixedPriceController;
   String _discountType = 'PERCENT'; // 'PERCENT' | 'AMOUNT'
 
   CampaignType _campaignType = CampaignType.billDiscount;
@@ -77,6 +79,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
     _maxUsesController = TextEditingController(text: widget.campaign?.maxUses?.toString() ?? '');
     _maxUsesPerCustomerController = TextEditingController(text: widget.campaign?.maxUsesPerCustomer?.toString() ?? '');
     _priorityController = TextEditingController(text: widget.campaign?.priority.toString() ?? '1');
+    _maxCampaignsPerOrderController = TextEditingController(text: widget.campaign?.maxCampaignsPerOrder?.toString() ?? '');
 
     if (widget.campaign != null) {
       _campaignType = CampaignType.fromMap(widget.campaign!.campaignType);
@@ -109,15 +112,23 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
         _discountValueController = TextEditingController(text: val > 0 ? val.toString() : '');
         _thresholdController = TextEditingController(text: tier.threshold > 0 ? tier.threshold.toString() : '');
         _maxDiscountController = TextEditingController(text: tier.maxDiscountMoney > 0 ? tier.maxDiscountMoney.toString() : '');
+        _fixedPriceController = TextEditingController();
+      } else if (_tiers.isNotEmpty && _campaignType == CampaignType.itemPriceRule) {
+        _thresholdController = TextEditingController();
+        _discountValueController = TextEditingController();
+        _maxDiscountController = TextEditingController();
+        _fixedPriceController = TextEditingController(text: _tiers.first.value > 0 ? _tiers.first.value.toString() : '');
       } else {
         _thresholdController = TextEditingController();
         _discountValueController = TextEditingController();
         _maxDiscountController = TextEditingController();
+        _fixedPriceController = TextEditingController();
       }
     } else {
       _thresholdController = TextEditingController();
       _discountValueController = TextEditingController();
       _maxDiscountController = TextEditingController();
+      _fixedPriceController = TextEditingController();
       _generateCode();
     }
 
@@ -155,9 +166,11 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
     _maxUsesController.dispose();
     _maxUsesPerCustomerController.dispose();
     _priorityController.dispose();
+    _maxCampaignsPerOrderController.dispose();
     _thresholdController.dispose();
     _discountValueController.dispose();
     _maxDiscountController.dispose();
+    _fixedPriceController.dispose();
     _codesController.dispose();
     super.dispose();
   }
@@ -177,6 +190,19 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Vui lòng thêm điều kiện: chọn món mua (X) và món được tặng/giảm (Y)')));
       return;
+    }
+    if (_campaignType == CampaignType.itemPriceRule) {
+      final fixedVal = int.tryParse(_fixedPriceController.text.trim()) ?? -1;
+      if (fixedVal < 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Vui lòng nhập mức giá cố định hợp lệ (VND)')));
+        return;
+      }
+      if (_includedItemIds.isEmpty && _includedGroupIds.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Vui lòng chọn ít nhất 1 món hoặc nhóm món áp dụng đồng giá')));
+        return;
+      }
     }
     final parsedCodes = parseVoucherCodes(_codesController.text);
     if (_hasCodes && parsedCodes.invalid.isNotEmpty) {
@@ -220,6 +246,21 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
         finalTiers = [
           for (int i = 0; i < _tiers.length; i++) _tiers[i].copyWith(sortOrder: i + 1),
         ];
+      } else if (_campaignType == CampaignType.itemPriceRule) {
+        final fixedVal = int.tryParse(_fixedPriceController.text.trim()) ?? 0;
+        finalTiers = [
+          CampaignTier(
+            tierId: _tiers.isNotEmpty ? _tiers.first.tierId : 'TIER_1',
+            conditionBasis: ConditionBasis.totalAmount.toMap(),
+            threshold: 0,
+            benefitMode: 'FIXEDPRICE',
+            value: fixedVal,
+            maxDiscountMoney: 0,
+            maxRewardQty: 0,
+            rewardItemIds: const [],
+            sortOrder: 1,
+          )
+        ];
       }
       // Giảm giá đơn hàng / theo giá trị hóa đơn: áp dụng toàn bộ hóa đơn (không chọn món/nhóm)
       final scoped = _campaignType == CampaignType.itemPriceRule;
@@ -249,6 +290,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
         birthdayOnly: _birthdayOnly,
         blockPoints: _blockPoints,
         stackingMode: _stackingMode ? 'ENABLED' : 'DISABLED',
+        maxCampaignsPerOrder: _stackingMode ? int.tryParse(_maxCampaignsPerOrderController.text.trim()) : 1,
         priority: int.tryParse(_priorityController.text) ?? 1,
         active: _active,
         createdAt: widget.campaign?.createdAt ?? DateTime.now().millisecondsSinceEpoch,
@@ -637,8 +679,22 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
             ],
 
             if (_campaignType == CampaignType.itemPriceRule) ...[
-            const SizedBox(height: 16),
-            _buildSectionTitle('Phạm vi áp dụng (Nhóm & Món)'),
+              const SizedBox(height: 16),
+              _buildSectionTitle('Cấu hình mức đồng giá'),
+              _buildCard([
+                TextFormField(
+                  controller: _fixedPriceController,
+                  decoration: const InputDecoration(
+                    labelText: 'Mức giá cố định sau giảm (VND) *',
+                    hintText: 'VD: 19000 (Món sẽ được giảm về mức giá này)',
+                    border: OutlineInputBorder(),
+                    suffixText: 'VND',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ]),
+              const SizedBox(height: 16),
+              _buildSectionTitle('Phạm vi áp dụng (Nhóm & Món)'),
             _buildCard([
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -797,7 +853,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
                     lastDate: DateTime(2030),
                   );
                   if (date != null) {
-                    setState(() => _startDate = date);
+                    setState(() => _startDate = DateTime(date.year, date.month, date.day, 0, 0, 0, 0));
                   }
                 },
               ),
@@ -814,7 +870,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
                     lastDate: DateTime(2030),
                   );
                   if (date != null) {
-                    setState(() => _endDate = date);
+                    setState(() => _endDate = DateTime(date.year, date.month, date.day, 23, 59, 59, 999));
                   }
                 },
               ),
@@ -883,11 +939,27 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
                 onChanged: _hasCodes ? null : (val) => setState(() => _autoApply = val),
               ),
               SwitchListTile(
-                title: const Text('Cho phép cộng dồn'),
-                subtitle: const Text('Được áp dụng chung với KM khác'),
+                title: const Text('Cho phép cộng dồn với CTKM khác'),
+                subtitle: Text(_stackingMode
+                    ? 'Được áp dụng chung với các CTKM khác trong cùng hóa đơn'
+                    : 'Áp dụng độc quyền: Đơn dùng CTKM này không được cộng dồn với bất kỳ CTKM nào khác (ví dụ: Combo không đi cùng giảm giá sinh nhật)'),
                 value: _stackingMode,
                 onChanged: (val) => setState(() => _stackingMode = val),
               ),
+              if (_stackingMode)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: TextFormField(
+                    controller: _maxCampaignsPerOrderController,
+                    decoration: const InputDecoration(
+                      labelText: 'Số lượng CTKM tối đa trên 1 đơn',
+                      hintText: 'Để trống = không giới hạn',
+                      helperText: 'Giới hạn tối đa số CTKM áp dụng trên mỗi hóa đơn để tránh giảm giá quá nhiều',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
               SwitchListTile(
                 title: const Text('Kích hoạt chương trình'),
                 subtitle: const Text('Bật để chương trình hoạt động ngay'),

@@ -1,4 +1,5 @@
 // lib/features/orders/order_cart_screen.dart
+import 'package:intl/intl.dart';
 import '../../core/domain/order_integrity.dart';
 import '../../core/domain/product_availability.dart';
 import '../crm/customer_management_screen.dart';
@@ -27,9 +28,11 @@ import '../../data/services/campaign_service.dart';
 import '../../data/services/loyalty_service.dart';
 import '../promotions/voucher_check.dart';
 import 'widgets/campaign_pricing.dart';
+import 'widgets/combo_reward_picker_sheet.dart';
 import '../../core/domain/deleted_items.dart';
 import '../cash_shift/cash_shift_dialog.dart';
 import 'widgets/cart_item_card.dart';
+import 'widgets/cart_tree_group_card.dart';
 import 'widgets/delete_reason_dialog.dart';
 import 'widgets/cart_panels.dart';
 import '../../core/domain/table_customer.dart';
@@ -63,6 +66,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
   bool _isLoading = false;
   bool _isShiftOpen = false;
   bool _autoPrintBill = true;
+  // Chế độ hiển thị giỏ hàng: dạng cây phân cấp (mặc định) hay danh sách phẳng
+  bool _treeViewMode = true;
 
   // Products, Categories and Backend Note Presets for Toppings & Notes editing
   List<ProductModel> _products = [];
@@ -101,6 +106,11 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     widget.table.ensureCodes();
     _cart = List.from(widget.initialProducts.isNotEmpty ? widget.initialProducts : widget.table.currentItems);
     _guestCount = widget.table.guestCount ?? 2;
+    // Phục hồi ưu đãi khuyến mãi đã áp dụng từ bàn (giúp treo đơn qua giờ combo không bị mất)
+    _appliedDiscounts = List.from(widget.table.currentDiscounts);
+    if (_cart.isNotEmpty) {
+      widget.table.openedAt ??= DateTime.now().millisecondsSinceEpoch;
+    }
     _selectedCustomer = TableCustomerLogic.restore(widget.table);
     if (_selectedCustomer != null) {
       _customerPointsUnknown = true;
@@ -112,6 +122,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     _storeInfo = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _fb.currentStoreCode, storeName: 'POS Trạm BLAO');
     _loadStoreAndPromotions();
     _loadAutoPrintSetting();
+    _loadTreeViewSetting();
 
     final storeCode = _fb.currentStoreCode;
     _subscriptions.add(_fb.productsStream(storeCode: storeCode).listen((products) {
@@ -169,6 +180,25 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     } catch (_) {}
   }
 
+  Future<void> _loadTreeViewSetting() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mounted) {
+        setState(() {
+          _treeViewMode = prefs.getBool('cart_tree_view_mode') ?? true;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _setTreeViewMode(bool mode) async {
+    setState(() => _treeViewMode = mode);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('cart_tree_view_mode', mode);
+    } catch (_) {}
+  }
+
   Future<void> _loadStoreAndPromotions() async {
     try {
       final info = await _fb.getStoreInfo();
@@ -196,6 +226,15 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         debugPrint('Error loading campaigns into cart: $e');
       }
 
+      if (_products.isEmpty) {
+        try {
+          final prods = await _fb.getProducts(storeCode: _fb.currentStoreCode);
+          if (mounted && prods.isNotEmpty && _products.isEmpty) {
+            setState(() => _products = prods);
+          }
+        } catch (_) {}
+      }
+
       if (mounted) {
         setState(() {
           _storeInfo = info;
@@ -206,6 +245,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
             _campaignById[c.campaignId] = c;
           }
         });
+        _recalculateDiscounts();
       }
     } catch (_) {}
   }
@@ -497,6 +537,126 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     }
   }
 
+  Future<void> _confirmRemoveGroup(CartProductGroup group) async {
+    if (!await _ensureShiftOpen() || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.delete_sweep_outlined, color: context.tc.danger, size: 24),
+            const SizedBox(width: 8),
+            Text('Xóa toàn bộ món', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Text(
+          'Bạn có chắc muốn xóa tất cả ${group.totalQuantity} phần của món "${group.productName}" (${group.branches.length} nhánh biến thể) khỏi bàn ${widget.table.name}?',
+          style: GoogleFonts.beVietnamPro(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Bỏ qua'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: context.tc.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xóa tất cả', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final sortedIndices = group.branches.expand((b) => b.cartIndices).toSet().toList()..sort((a, b) => b.compareTo(a));
+    for (final idx in sortedIndices) {
+      if (idx < _cart.length) {
+        await _removeItem(idx, kitchenGatePassed: true);
+      }
+    }
+  }
+
+  Future<void> _confirmRemoveBranch(CartBranchItem branch) async {
+    if (!await _ensureShiftOpen() || !mounted) return;
+    if (branch.cartIndices.length <= 1) {
+      await _confirmRemoveItem(branch.cartIndex);
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.delete_outline, color: context.tc.danger, size: 24),
+            const SizedBox(width: 8),
+            Text('Xác nhận xóa món', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Text(
+          'Bạn có chắc muốn xóa tất cả ${branch.totalQuantity} phần của nhánh "${branch.item.name}" khỏi bàn ${widget.table.name}?',
+          style: GoogleFonts.beVietnamPro(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Bỏ qua'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: context.tc.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final sortedIndices = List<int>.from(branch.cartIndices)..sort((a, b) => b.compareTo(a));
+    for (final idx in sortedIndices) {
+      if (idx < _cart.length) {
+        await _removeItem(idx, kitchenGatePassed: true);
+      }
+    }
+  }
+
+  Future<void> _incrementBranch(CartBranchItem branch) async {
+    if (!await _ensureShiftOpen() || !mounted) return;
+    final unsentIdx = branch.cartIndices.lastWhere(
+      (idx) => idx < _cart.length && !_cart[idx].isSentKitchen && !_cart[idx].hasDiscount,
+      orElse: () => -1,
+    );
+    if (unsentIdx >= 0) {
+      await _incrementItem(unsentIdx);
+    } else {
+      final targetIdx = branch.cartIndices.lastWhere((idx) => idx < _cart.length, orElse: () => branch.cartIndex);
+      await _incrementItem(targetIdx);
+    }
+  }
+
+  Future<void> _decrementBranch(CartBranchItem branch) async {
+    if (!await _ensureShiftOpen() || !mounted) return;
+    final unsentIdx = branch.cartIndices.lastWhere(
+      (idx) => idx < _cart.length && !_cart[idx].isSentKitchen,
+      orElse: () => -1,
+    );
+    if (unsentIdx >= 0) {
+      await _decrementItem(unsentIdx);
+    } else {
+      final targetIdx = branch.cartIndices.lastWhere((idx) => idx < _cart.length, orElse: () => branch.cartIndex);
+      await _decrementItem(targetIdx);
+    }
+  }
+
+  Future<void> _showEditBranchNoteAndToppingDialog(CartBranchItem branch) async {
+    await _showEditItemNoteAndToppingDialog(branch.cartIndex, syncIndices: branch.cartIndices);
+  }
+
   Future<void> _removeItem(int index, {bool kitchenGatePassed = false}) async {
     if (!await _ensureShiftOpen() || !mounted) return;
     final item = _cart[index];
@@ -777,6 +937,14 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
   /// Tự thêm món được tặng/giảm vào đơn khi đơn đã đủ điều kiện nhưng món thưởng chưa có.
   /// Một món thưởng → thêm luôn; nhiều món → hỏi chọn. Trả true khi đã thêm.
   Future<bool> _addRewardItems(CampaignModel c) async {
+    if (_products.isEmpty) {
+      try {
+        final prods = await _fb.getProducts(storeCode: _fb.currentStoreCode);
+        if (prods.isNotEmpty && mounted) {
+          setState(() => _products = prods);
+        }
+      } catch (_) {}
+    }
     final plan = CartCampaignPricing.rewardPlan(c, cart: _cart, products: _products);
     if (plan == null) {
       if (mounted) {
@@ -822,15 +990,107 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     return true;
   }
 
+  /// Mở màn hình chọn món giảm giá Combo (chỉ hiển thị món/nhóm món được chọn giảm giá,
+  /// giới hạn số lượng món được chọn theo số lượng món điều kiện (nước) trong giỏ hàng).
+  Future<bool> _pickComboRewardItems(CampaignModel c) async {
+    if (_products.isEmpty) {
+      try {
+        final prods = await _fb.getProducts(storeCode: _fb.currentStoreCode);
+        if (prods.isNotEmpty && mounted) {
+          setState(() => _products = prods);
+        }
+      } catch (_) {}
+    }
+    final combo = CartCampaignPricing.getComboInfo(c, cart: _cart, products: _products);
+    if (combo == null) {
+      return _addRewardItems(c);
+    }
+
+    if (combo.buyUnits <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đơn chưa có món nước nào đủ điều kiện của "${c.name}". Vui lòng chọn nước trước.'),
+            backgroundColor: AppColors.accent,
+          ),
+        );
+      }
+      return false;
+    }
+
+    if (combo.candidates.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chương trình chưa cấu hình món giảm giá hoặc các món đã hết hàng.')),
+        );
+      }
+      return false;
+    }
+
+    final maxToSelect = combo.remainingRewardUnits > 0 ? combo.remainingRewardUnits : combo.maxRewardAllowed;
+    if (maxToSelect <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đơn đã đủ số món giảm giá (${combo.rewardUnitsInCart} món) theo ${combo.buyUnits} món nước.')),
+        );
+      }
+      return true;
+    }
+
+    final chosen = await showModalBottomSheet<Map<ProductModel, int>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ComboRewardPickerSheet(
+        campaign: c,
+        maxAllowedUnits: maxToSelect,
+        waterCount: combo.buyUnits,
+        candidateProducts: combo.candidates,
+        discountPerUnit: combo.discountPerUnit,
+        benefitDescription: describeCampaignBenefit(c),
+      ),
+    );
+
+    if (chosen == null || chosen.isEmpty) return false;
+
+    final staffUser = _auth.currentUser?.username ?? 'staff';
+    final staffName = _auth.currentUser?.fullName ?? 'Nhân viên';
+    setState(() {
+      for (final entry in chosen.entries) {
+        final p = entry.key;
+        final qty = entry.value;
+        if (qty <= 0) continue;
+        _cart.add(OrderItemModel(
+          productId: p.id,
+          name: p.name,
+          price: p.price,
+          quantity: qty,
+          orderedBy: staffUser,
+          orderedByName: staffName,
+          orderedAt: DateTime.now().millisecondsSinceEpoch,
+          isSentKitchen: false,
+        ));
+      }
+    });
+    widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
+    await _fb.saveTable(widget.table).catchError((_) {});
+    return true;
+  }
+
   /// Pricing Engine cho 1 chương trình trên giỏ hàng hiện tại
-  PriceQuoteModel _quoteCampaign(CampaignModel c) => CartCampaignPricing.quote(
-        c,
-        cart: _cart,
-        products: _products,
-        branchId: _fb.currentStoreCode,
-        guestCount: _guestCount,
-        customerBirthday: _selectedCustomer?.birthday,
-      );
+  PriceQuoteModel _quoteCampaign(CampaignModel c) {
+    final isApplied = _appliedDiscounts.any((d) => d.campaignId == c.campaignId);
+    return CartCampaignPricing.quote(
+      c,
+      cart: _cart,
+      products: _products,
+      branchId: _fb.currentStoreCode,
+      guestCount: _guestCount,
+      customerBirthday: _selectedCustomer?.birthday,
+      nowMs: widget.table.openedAt,
+      ignoreSchedule: isApplied,
+    );
+  }
 
   /// Đơn đang dùng chương trình KM khóa tích điểm?
   bool get _pointsBlockedByPromo => _appliedDiscounts.any((d) {
@@ -846,11 +1106,20 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     for (final c in _campaigns) {
       if (!c.birthdayOnly || c.hasCodes || !c.isEligibleAt(DateTime.now().millisecondsSinceEpoch)) continue;
       if (_appliedDiscounts.any((d) => d.campaignId == c.campaignId)) continue;
-      final amt = _quoteCampaign(c).totalPromotionDiscount;
+      final q = _quoteCampaign(c);
+      final amt = q.totalPromotionDiscount;
       if (amt <= 0) continue;
       final allowStack = _storeInfo?.allowStackPromotions ?? true;
+      final check = CartCampaignPricing.checkStacking(
+        currentDiscounts: _appliedDiscounts,
+        incoming: c,
+        campaignsById: _campaignById,
+        allowStackPromotions: allowStack,
+      );
+      if (!check.canStack) continue;
       if (!allowStack) _appliedDiscounts.clear();
-      _appliedDiscounts.add(CartCampaignPricing.discount(c, amt));
+      final comboCnt = q.rewardBenefits.where((b) => b.campaignId == c.campaignId).fold<int>(0, (s, b) => s + b.quantity);
+      _appliedDiscounts.add(CartCampaignPricing.discount(c, amt, comboCount: comboCnt > 0 ? comboCnt : null));
       added.add(c.name);
     }
     if (added.isNotEmpty) {
@@ -873,14 +1142,73 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     } catch (_) {}
   }
 
+  /// Tự áp dụng các chương trình khuyến mãi tự động (autoApply: true, không có mã, không bắt buộc ghi chú)
+  void _autoApplyEligibleCampaigns() {
+    _autoApplyBirthdayCampaigns();
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final allowStack = _storeInfo?.allowStackPromotions ?? true;
+    final newlyApplied = <String>[];
+
+    for (final c in _campaigns) {
+      if (!c.autoApply || c.hasCodes || c.requireStaffNote || c.birthdayOnly) continue;
+      if (!c.isEligibleAt(now)) continue;
+      if (_appliedDiscounts.any((d) => d.campaignId == c.campaignId)) continue;
+
+      final q = _quoteCampaign(c);
+      final amt = q.totalPromotionDiscount;
+      if (amt <= 0) continue;
+
+      final comboCnt = q.rewardBenefits.where((b) => b.campaignId == c.campaignId).fold<int>(0, (s, b) => s + b.quantity);
+      final check = CartCampaignPricing.checkStacking(
+        currentDiscounts: _appliedDiscounts,
+        incoming: c,
+        campaignsById: _campaignById,
+        allowStackPromotions: allowStack,
+      );
+      if (!check.canStack) {
+        if (!allowStack && _appliedDiscounts.isNotEmpty) {
+          final currentMax = _appliedDiscounts.fold<int>(0, (max, d) => d.amount > max ? d.amount : max);
+          if (amt > currentMax) {
+            _appliedDiscounts.clear();
+            _appliedDiscounts.add(CartCampaignPricing.discount(c, amt, comboCount: comboCnt > 0 ? comboCnt : null));
+            newlyApplied.add(c.name);
+          }
+        }
+        continue;
+      }
+      _appliedDiscounts.add(CartCampaignPricing.discount(c, amt, comboCount: comboCnt > 0 ? comboCnt : null));
+      newlyApplied.add(c.name);
+    }
+
+    if (newlyApplied.isNotEmpty && mounted) {
+      setState(() {});
+    }
+  }
+
+  void _syncTableDiscounts() {
+    widget.table.discountsJson = _appliedDiscounts.isEmpty
+        ? null
+        : jsonEncode(_appliedDiscounts.map((e) => e.toMap()).toList());
+  }
+
   void _recalculateDiscounts() {
     final List<BillDiscountModel> valid = [];
     final List<String> dropped = [];
     for (final d in _appliedDiscounts) {
       if (d.campaignId != null && _campaignById.containsKey(d.campaignId)) {
-        // Chương trình KM mới: tính lại bằng Pricing Engine
-        final r = CartCampaignPricing.recalculate([d], _campaignById,
-            cart: _cart, products: _products, branchId: _fb.currentStoreCode, guestCount: _guestCount, customerBirthday: _selectedCustomer?.birthday);
+        // Chương trình KM mới: tính lại bằng Pricing Engine (bỏ qua khung giờ nếu đơn đã áp dụng trước đó)
+        final r = CartCampaignPricing.recalculate(
+          [d],
+          _campaignById,
+          cart: _cart,
+          products: _products,
+          branchId: _fb.currentStoreCode,
+          guestCount: _guestCount,
+          customerBirthday: _selectedCustomer?.birthday,
+          orderTimestampMs: widget.table.openedAt,
+          isExistingOrder: true,
+        );
         valid.addAll(r.discounts);
         dropped.addAll(r.dropped);
       } else if (d.promoId != null) {
@@ -906,11 +1234,16 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       }
     }
     setState(() => _appliedDiscounts = valid);
+    _syncTableDiscounts();
+    if (widget.table.currentOrderJson.isNotEmpty) {
+      _fb.saveTable(widget.table).catchError((_) {});
+    }
     if (dropped.isNotEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Đã gỡ khuyến mãi không còn đủ điều kiện: ${dropped.join(", ")}')),
       );
     }
+    _autoApplyEligibleCampaigns();
   }
 
   // ==================== SEND TO KITCHEN ====================
@@ -1254,6 +1587,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
             phone: c?.phone ?? m.phone,
             points: m.found ? m.points : (c?.currentPoints ?? 0),
             totalPoints: m.found ? m.totalPoints : (c?.totalPoints ?? 0),
+            gender: c?.gender ?? 'Khác',
+            birthday: c?.birthday ?? '',
           );
         },
         createCustomer: (name, phone, {gender = 'Khác', birthday = ''}) async {
@@ -1268,6 +1603,16 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           );
           await _fb.saveCustomer(c); // 0 điểm; nếu SĐT đã có điểm chung, máy chủ gắn vào bản ghi đó
           return c;
+        },
+        updateCustomer: (updated) async {
+          await _fb.saveCustomer(updated);
+          if (_selectedCustomer?.id == updated.id) {
+            setState(() => _selectedCustomer = updated);
+            TableCustomerLogic.writeToTable(widget.table, updated);
+            await _fb.saveTable(widget.table);
+            _recalculateDiscounts();
+            _autoApplyEligibleCampaigns();
+          }
         },
       ),
     );
@@ -1305,6 +1650,253 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     }
     if (!mounted) return;
     await _setCustomer(picked);
+  }
+
+  static DateTime? _parseBirthday(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return null;
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(t)) {
+      return DateTime.tryParse(t);
+    }
+    if (RegExp(r'^\d{1,2}/\d{1,2}/\d{4}$').hasMatch(t)) {
+      final parts = t.split('/');
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+    return DateTime.tryParse(t);
+  }
+
+  Future<void> _showEditCustomerDialog(KmtCustomerModel customer) async {
+    final nameCtrl = TextEditingController(text: customer.fullName);
+    final phoneCtrl = TextEditingController(text: customer.phone);
+    String gender = ['Nam', 'Nữ', 'Khác'].contains(customer.gender) ? customer.gender : 'Khác';
+    DateTime? birthday = _parseBirthday(customer.birthday);
+    final bdayCtrl = TextEditingController(
+      text: birthday != null ? DateFormat('dd/MM/yyyy').format(birthday) : '',
+    );
+    String? formError;
+    bool isSaving = false;
+
+    final tiers = _storeInfo?.loyaltyTiers ?? LoyaltyTier.defaults;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.edit_outlined, color: context.tc.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Chỉnh Sửa Khách Hàng',
+                  style: GoogleFonts.beVietnamPro(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (formError != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline, size: 16, color: Colors.red.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              formError!,
+                              style: TextStyle(fontSize: 12, color: Colors.red.shade800),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: context.tc.cardElevated,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: context.tc.borderLight),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Mã: ${customer.code.isNotEmpty ? customer.code : customer.id}',
+                            style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.w600, color: context.tc.textSecondary)),
+                        Text('${customer.currentPoints} pt (${customer.tierName(tiers)})',
+                            style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.bold, color: context.ink(Colors.blue.shade800))),
+                      ],
+                    ),
+                  ),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Họ và tên *',
+                      prefixIcon: Icon(Icons.person_outline),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) {
+                      if (formError != null) setDialogState(() => formError = null);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Số điện thoại *',
+                      prefixIcon: Icon(Icons.phone_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) {
+                      if (formError != null) setDialogState(() => formError = null);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Giới tính',
+                    style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.w600, color: context.tc.textPrimary),
+                  ),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'Nam', label: Text('Nam'), icon: Icon(Icons.male, size: 16)),
+                        ButtonSegment(value: 'Nữ', label: Text('Nữ'), icon: Icon(Icons.female, size: 16)),
+                        ButtonSegment(value: 'Khác', label: Text('Khác'), icon: Icon(Icons.person_outline, size: 16)),
+                      ],
+                      selected: {gender},
+                      onSelectionChanged: (set) => setDialogState(() => gender = set.first),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: bdayCtrl,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: 'Ngày sinh',
+                      hintText: 'Chọn ngày sinh (dd/MM/yyyy)',
+                      prefixIcon: const Icon(Icons.cake_outlined),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: birthday != null
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                setDialogState(() {
+                                  birthday = null;
+                                  bdayCtrl.clear();
+                                });
+                              },
+                            )
+                          : const Icon(Icons.calendar_today, size: 18),
+                    ),
+                    onTap: () async {
+                      final now = DateTime.now();
+                      final initial = birthday ?? DateTime(2000, 1, 1);
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        initialDate: initial.isAfter(now) ? now : initial,
+                        firstDate: DateTime(1920),
+                        lastDate: now,
+                        helpText: 'CHỌN NGÀY SINH KHÁCH HÀNG',
+                      );
+                      if (picked != null) {
+                        setDialogState(() {
+                          birthday = picked;
+                          bdayCtrl.text = DateFormat('dd/MM/yyyy').format(picked);
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(ctx, false),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: context.tc.primary),
+              onPressed: isSaving
+                  ? null
+                  : () {
+                      final name = nameCtrl.text.trim();
+                      final phone = phoneCtrl.text.trim();
+                      final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+
+                      if (name.isEmpty) {
+                        setDialogState(() => formError = 'Vui lòng nhập họ và tên khách hàng');
+                        return;
+                      }
+                      if (digits.length < 9) {
+                        setDialogState(() => formError = 'Số điện thoại phải có ít nhất 9 chữ số');
+                        return;
+                      }
+                      setDialogState(() => isSaving = true);
+                      Navigator.pop(ctx, true);
+                    },
+              child: const Text('Lưu thay đổi'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (ok != true || !mounted) return;
+    final name = nameCtrl.text.trim();
+    final phone = phoneCtrl.text.trim();
+    final bdayStr = birthday != null ? DateFormat('yyyy-MM-dd').format(birthday!) : '';
+
+    final updated = customer.copyWith(
+      name: name,
+      phone: phone,
+      gender: gender,
+      birthday: bdayStr,
+    );
+
+    try {
+      await _fb.saveCustomer(updated);
+      if (!mounted) return;
+      setState(() => _selectedCustomer = updated);
+      TableCustomerLogic.writeToTable(widget.table, updated);
+      await _fb.saveTable(widget.table);
+      if (!mounted) return;
+      _recalculateDiscounts();
+      _autoApplyEligibleCampaigns();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã cập nhật thông tin khách hàng "${updated.fullName}"')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi khi cập nhật khách hàng: $e'), backgroundColor: AppColors.danger),
+        );
+      }
+    }
   }
 
   // ==================== ITEM DISCOUNT & MANAGER APPROVAL ====================
@@ -1625,7 +2217,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
   }
 
   // ==================== EDIT ITEM NOTE & TOPPING DIALOG ====================
-  Future<void> _showEditItemNoteAndToppingDialog(int index) async {
+  Future<void> _showEditItemNoteAndToppingDialog(int index, {List<int>? syncIndices}) async {
     if (!await _ensureShiftOpen() || !mounted) return;
     final item = _cart[index];
 
@@ -2031,15 +2623,20 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       ),
                       onPressed: () async {
                         setState(() {
-                          _cart[index] = _cart[index].copyWith(
-                            note: noteCtrl.text.trim(),
-                            selectedToppings: selectedToppings,
-                            toppingPrice: calcToppingPrice,
-                            selectedSize: selectedSize,
-                            sizeExtraPrice: sizeExtra,
-                            selectedSugar: isDrinkOrTea ? selectedSugar : '',
-                            selectedIce: isDrinkOrTea ? selectedIce : '',
-                          );
+                          final targetIndices = (syncIndices != null && syncIndices.isNotEmpty) ? syncIndices : [index];
+                          for (final idx in targetIndices) {
+                            if (idx < _cart.length) {
+                              _cart[idx] = _cart[idx].copyWith(
+                                note: noteCtrl.text.trim(),
+                                selectedToppings: selectedToppings,
+                                toppingPrice: calcToppingPrice,
+                                selectedSize: selectedSize,
+                                sizeExtraPrice: sizeExtra,
+                                selectedSugar: isDrinkOrTea ? selectedSugar : '',
+                                selectedIce: isDrinkOrTea ? selectedIce : '',
+                              );
+                            }
+                          }
                         });
 
                         widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
@@ -2309,6 +2906,17 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             }
                             if (campaign != null) _campaignById[campaign.campaignId] = campaign;
 
+                            // 2b. Nếu không tìm thấy mã voucher cá thể, kiểm tra xem có khớp với mã chương trình (programCode) không
+                            if (campaign == null) {
+                              final cleanCode = code.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+                              campaign = _campaigns.where((c) {
+                                if (c.programCode.toUpperCase() == code) return true;
+                                final cleanProg = c.programCode.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+                                return cleanProg.isNotEmpty && cleanProg == cleanCode;
+                              }).firstOrNull;
+                            }
+                            if (campaign != null) _campaignById[campaign.campaignId] = campaign;
+
                             final result = evaluateVoucher(
                               code: code,
                               voucher: voucher,
@@ -2317,8 +2925,26 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                               branchId: _fb.currentStoreCode,
                               quote: campaign != null ? _quoteCampaign(campaign) : null,
                             );
-                            setDlgState(() => voucherResult = result);
-                            if (!result.isValid || campaign == null) return;
+                            var currentResult = result;
+                            if ((!currentResult.isValid || currentResult.discount <= 0) && campaign != null) {
+                              final combo = CartCampaignPricing.getComboInfo(campaign, cart: _cart, products: _products);
+                              if (combo != null && combo.buyUnits > 0 && combo.remainingRewardUnits > 0) {
+                                final added = await _pickComboRewardItems(campaign);
+                                if (added) {
+                                  final newQuote = _quoteCampaign(campaign);
+                                  currentResult = evaluateVoucher(
+                                    code: code,
+                                    voucher: voucher,
+                                    campaign: campaign,
+                                    nowMs: DateTime.now().millisecondsSinceEpoch,
+                                    branchId: _fb.currentStoreCode,
+                                    quote: newQuote,
+                                  );
+                                }
+                              }
+                            }
+                            setDlgState(() => voucherResult = currentResult);
+                            if (!currentResult.isValid || campaign == null || currentResult.discount <= 0) return;
 
                             // Bắt buộc nhân viên nhập ghi chú nếu requireStaffNote = true
                             String? staffNote;
@@ -2336,11 +2962,87 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             }
 
                             final applied = campaign;
+                            final stackCheck = CartCampaignPricing.checkStacking(
+                              currentDiscounts: _appliedDiscounts,
+                              incoming: applied,
+                              campaignsById: _campaignById,
+                              allowStackPromotions: allowStack,
+                            );
+                            if (!stackCheck.canStack) {
+                              if (stackCheck.conflictingExclusiveCampaign != null) {
+                                if (!context.mounted) return;
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Xung Đột Khuyến Mãi'),
+                                    content: Text(
+                                      'Đơn hàng đang áp dụng "${stackCheck.conflictingExclusiveCampaign!.name}" (áp dụng độc quyền, không cộng dồn).\n\n'
+                                      'Bạn có muốn gỡ "${stackCheck.conflictingExclusiveCampaign!.name}" để áp dụng mã "${applied.name}" không?'
+                                    ),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: const Text('Đổi sang mã mới', style: TextStyle(color: Colors.white)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm != true) return;
+                                _appliedDiscounts.removeWhere((d) => d.campaignId == stackCheck.conflictingExclusiveCampaign!.campaignId);
+                              } else if (stackCheck.requiresClearingExisting && _appliedDiscounts.isNotEmpty) {
+                                if (!context.mounted) return;
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Áp Dụng Độc Quyền'),
+                                    content: Text(
+                                      'Chương trình "${applied.name}" áp dụng độc quyền (không cho phép cộng dồn với CTKM khác).\n\n'
+                                      'Áp dụng mã này sẽ gỡ các khuyến mãi hiện có trên đơn:\n'
+                                      '${_appliedDiscounts.map((d) => "• ${d.description}").join("\n")}\n\n'
+                                      'Bạn có muốn tiếp tục?'
+                                    ),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: const Text('Đồng ý gỡ & áp dụng', style: TextStyle(color: Colors.white)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm != true) return;
+                                _appliedDiscounts.clear();
+                              } else if (stackCheck.reason != null) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(stackCheck.reason!), backgroundColor: AppColors.danger));
+                                }
+                                return;
+                              }
+                            }
+
+                            final quote = _quoteCampaign(applied);
+                            final comboCnt = quote.rewardBenefits
+                                .where((b) => b.campaignId == applied.campaignId)
+                                .fold<int>(0, (s, b) => s + b.quantity);
+
                             setDlgState(() {
-                              if (!allowStack) _appliedDiscounts.clear();
-                              _appliedDiscounts.removeWhere((d) => d.campaignId == applied.campaignId);
-                              _appliedDiscounts.add(CartCampaignPricing.discount(applied, result.discount,
-                                  voucherCode: code, staffNote: staffNote));
+                              final added = CartCampaignPricing.addWithStacking(
+                                currentDiscounts: _appliedDiscounts,
+                                incomingDiscount: CartCampaignPricing.discount(
+                                  applied,
+                                  currentResult.discount,
+                                  voucherCode: code,
+                                  staffNote: staffNote,
+                                  comboCount: comboCnt > 0 ? comboCnt : null,
+                                ),
+                                incomingCampaign: applied,
+                                campaignsById: _campaignById,
+                                allowStackPromotions: allowStack,
+                              );
+                              _appliedDiscounts = added.discounts;
                             });
                             voucherCtrl.clear();
                           },
@@ -2382,7 +3084,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     Text('Chương trình khuyến mãi khả dụng:', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 8),
                     if (!_allPromotions.any((p) => p.isActive && p.code.isEmpty) &&
-                        !_campaigns.any((c) => !c.hasCodes && c.isEligibleAt(nowMs)))
+                        !_campaigns.any((c) => !c.hasCodes && (c.isEligibleAt(nowMs) || _appliedDiscounts.any((d) => d.campaignId == c.campaignId))))
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Text(
@@ -2436,38 +3138,164 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       );
                     }),
                     // Chương trình KM mới (không phát hành mã) - tính bằng Pricing Engine
-                    ..._campaigns.where((c) => !c.hasCodes && c.isEligibleAt(nowMs)).map((c) {
+                    ..._campaigns.where((c) => !c.hasCodes && (c.isEligibleAt(nowMs) || _appliedDiscounts.any((d) => d.campaignId == c.campaignId))).map((c) {
                       final isSelected = _appliedDiscounts.any((d) => d.campaignId == c.campaignId);
                       final q = _quoteCampaign(c);
                       final amt = q.totalPromotionDiscount;
                       final reason = CartCampaignPricing.reason(q, c);
-                      // Đủ điều kiện nhưng chưa có món thưởng trong đơn → cho bấm để tự thêm món
-                      final canAutoAdd = amt <= 0 && CartCampaignPricing.needsRewardItems(q, c);
+                      final combo = CartCampaignPricing.getComboInfo(c, cart: _cart, products: _products);
+                      final isCombo = combo != null;
+                      final hasWater = isCombo && combo.buyUnits > 0;
+                      final needsCakes = isCombo && hasWater && combo.remainingRewardUnits > 0;
+                      final canAutoAdd = !isCombo && amt <= 0 && CartCampaignPricing.needsRewardItems(q, c);
+
+                      String sub = '${c.typeDisplay} • ${describeCampaignBenefit(c)}';
+                      if (!c.isStackable) {
+                        sub += ' • 🔒 Độc quyền';
+                      } else if (c.effectiveMaxCampaignsPerOrder < 999) {
+                        sub += ' • Tối đa ${c.effectiveMaxCampaignsPerOrder} CTKM/đơn';
+                      }
+                      if (isCombo) {
+                        if (!hasWater) {
+                          sub += ' • Chưa có nước trong đơn (chọn nước trước)';
+                        } else if (needsCakes) {
+                          sub += ' • Đơn có ${combo.buyUnits} nước → Bấm để chọn tối đa ${combo.remainingRewardUnits} món giảm giá';
+                        } else {
+                          sub += ' • Đã đủ ${combo.maxRewardAllowed} combo → -${FormatUtils.vnd(amt)}';
+                        }
+                      } else {
+                        if (amt > 0) {
+                          sub += ' → -${FormatUtils.vnd(amt)}';
+                        } else if (canAutoAdd) {
+                          sub += ' • Đơn đủ điều kiện — bấm để tự thêm món được tặng/giảm';
+                        } else if (reason != null) {
+                          sub += ' • $reason';
+                        }
+                      }
+
                       return CheckboxListTile(
                         value: isSelected,
-                        enabled: amt > 0 || isSelected || canAutoAdd,
+                        enabled: isCombo ? hasWater : (amt > 0 || isSelected || canAutoAdd),
                         title: Text(c.name, style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600, fontSize: 13)),
-                        subtitle: Text(
-                          '${c.typeDisplay} • ${describeCampaignBenefit(c)}'
-                          '${amt > 0 ? " → -${FormatUtils.vnd(amt)}" : (canAutoAdd ? " • Đơn đủ điều kiện — bấm để tự thêm món được tặng/giảm" : (reason != null ? " • $reason" : ""))}',
-                          style: GoogleFonts.beVietnamPro(fontSize: 11),
-                        ),
+                        subtitle: Text(sub, style: GoogleFonts.beVietnamPro(fontSize: 11)),
+                        secondary: (isCombo && hasWater && isSelected && combo.remainingRewardUnits > 0)
+                            ? TextButton.icon(
+                                icon: const Icon(Icons.add_circle_outline, size: 16),
+                                label: Text('Thêm ${combo.remainingRewardUnits} món', style: GoogleFonts.beVietnamPro(fontSize: 11)),
+                                onPressed: () async {
+                                  final added = await _pickComboRewardItems(c);
+                                  if (added) {
+                                    final newQ = _quoteCampaign(c);
+                                    final newAmt = newQ.totalPromotionDiscount;
+                                    final comboCnt = newQ.rewardBenefits
+                                        .where((b) => b.campaignId == c.campaignId)
+                                        .fold<int>(0, (s, b) => s + b.quantity);
+                                    setDlgState(() {
+                                      _appliedDiscounts.removeWhere((d) => d.campaignId == c.campaignId);
+                                      _appliedDiscounts.add(CartCampaignPricing.discount(
+                                        c,
+                                        newAmt,
+                                        comboCount: comboCnt > 0 ? comboCnt : null,
+                                      ));
+                                    });
+                                  }
+                                },
+                              )
+                            : null,
                         onChanged: (val) async {
                           if (val == true) {
-                            var applyAmt = amt;
-                            if (canAutoAdd) {
-                              final added = await _addRewardItems(c);
-                              if (!added) return;
-                              applyAmt = _quoteCampaign(c).totalPromotionDiscount;
-                              if (applyAmt <= 0) {
+                            final stackCheck = CartCampaignPricing.checkStacking(
+                              currentDiscounts: _appliedDiscounts,
+                              incoming: c,
+                              campaignsById: _campaignById,
+                              allowStackPromotions: allowStack,
+                            );
+                            if (!stackCheck.canStack) {
+                              if (stackCheck.conflictingExclusiveCampaign != null) {
+                                if (!context.mounted) return;
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Xung Đột Khuyến Mãi'),
+                                    content: Text(
+                                      'Đơn hàng đang áp dụng "${stackCheck.conflictingExclusiveCampaign!.name}" (áp dụng độc quyền, không cộng dồn).\n\n'
+                                      'Bạn có muốn gỡ "${stackCheck.conflictingExclusiveCampaign!.name}" để áp dụng "${c.name}" không?'
+                                    ),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: const Text('Đổi sang KM mới', style: TextStyle(color: Colors.white)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm != true) return;
+                                _appliedDiscounts.removeWhere((d) => d.campaignId == stackCheck.conflictingExclusiveCampaign!.campaignId);
+                              } else if (stackCheck.requiresClearingExisting && _appliedDiscounts.isNotEmpty) {
+                                if (!context.mounted) return;
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Áp Dụng Độc Quyền'),
+                                    content: Text(
+                                      'Chương trình "${c.name}" được cài đặt áp dụng độc quyền (không cho phép cộng dồn với CTKM khác).\n\n'
+                                      'Áp dụng chương trình này sẽ gỡ các khuyến mãi hiện có trên đơn:\n'
+                                      '${_appliedDiscounts.map((d) => "• ${d.description}").join("\n")}\n\n'
+                                      'Bạn có muốn tiếp tục?'
+                                    ),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: const Text('Đồng ý gỡ & áp dụng', style: TextStyle(color: Colors.white)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm != true) return;
+                                _appliedDiscounts.clear();
+                              } else if (stackCheck.reason != null) {
                                 if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Đã thêm món nhưng chưa tính được ưu đãi.')));
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(stackCheck.reason!), backgroundColor: AppColors.danger));
                                 }
-                                setDlgState(() {});
                                 return;
                               }
                             }
+
+                            if (isCombo) {
+                              if (!hasWater) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Vui lòng chọn món nước vào đơn trước khi áp dụng combo này.')),
+                                  );
+                                }
+                                return;
+                              }
+                              if (needsCakes) {
+                                final added = await _pickComboRewardItems(c);
+                                if (!added) return;
+                              }
+                            } else if (canAutoAdd) {
+                              final added = await _addRewardItems(c);
+                              if (!added) return;
+                            }
+
+                            final newQ = _quoteCampaign(c);
+                            final applyAmt = newQ.totalPromotionDiscount;
+                            if (applyAmt <= 0) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Chưa tính được ưu đãi cho chương trình này.')),
+                                );
+                              }
+                              setDlgState(() {});
+                              return;
+                            }
+
+                            if (!context.mounted) return;
                             String? staffNote;
                             if (c.requireStaffNote) {
                               staffNote = await _promptStaffNote(context);
@@ -2480,10 +3308,25 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                 return;
                               }
                             }
+
+                            final comboCnt = newQ.rewardBenefits
+                                .where((b) => b.campaignId == c.campaignId)
+                                .fold<int>(0, (s, b) => s + b.quantity);
+
                             setDlgState(() {
-                              if (!allowStack) _appliedDiscounts.clear();
-                              _appliedDiscounts.removeWhere((d) => d.campaignId == c.campaignId);
-                              _appliedDiscounts.add(CartCampaignPricing.discount(c, applyAmt, staffNote: staffNote));
+                              final added = CartCampaignPricing.addWithStacking(
+                                currentDiscounts: _appliedDiscounts,
+                                incomingDiscount: CartCampaignPricing.discount(
+                                  c,
+                                  applyAmt,
+                                  staffNote: staffNote,
+                                  comboCount: comboCnt > 0 ? comboCnt : null,
+                                ),
+                                incomingCampaign: c,
+                                campaignsById: _campaignById,
+                                allowStackPromotions: allowStack,
+                              );
+                              _appliedDiscounts = added.discounts;
                             });
                           } else {
                             setDlgState(() {
@@ -2567,6 +3410,11 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       _appliedDiscounts
         ..clear()
         ..addAll(originalDiscounts);
+    } else {
+      _syncTableDiscounts();
+      if (widget.table.currentOrderJson.isNotEmpty) {
+        _fb.saveTable(widget.table).catchError((_) {});
+      }
     }
     if (mounted) setState(() {});
   }
@@ -3321,9 +4169,103 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     );
   }
 
+  Widget _buildCartViewToggleHeader(int uniqueProductsCount) {
+    final totalQty = _cart.fold(0, (s, i) => s + i.quantity);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: context.tc.cardElevated,
+        border: Border(bottom: BorderSide(color: context.tc.borderLight)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.shopping_bag_outlined, size: 15, color: context.tc.textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            'Món đã chọn ($totalQty phần • $uniqueProductsCount món)',
+            style: GoogleFonts.beVietnamPro(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: context.tc.textSecondary,
+            ),
+          ),
+          const Spacer(),
+          Container(
+            height: 28,
+            decoration: BoxDecoration(
+              color: context.tc.card,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: context.tc.borderLight),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildViewModeButton(
+                  title: 'Nhánh',
+                  icon: Icons.account_tree_outlined,
+                  isSelected: _treeViewMode,
+                  onTap: () => _setTreeViewMode(true),
+                ),
+                Container(width: 1, height: 16, color: context.tc.borderLight),
+                _buildViewModeButton(
+                  title: 'Danh sách',
+                  icon: Icons.format_list_bulleted,
+                  isSelected: !_treeViewMode,
+                  onTap: () => _setTreeViewMode(false),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewModeButton({
+    required String title,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final fg = isSelected ? context.tc.primaryDark : context.tc.textSecondary;
+    final bg = isSelected ? context.tc.primaryLight : Colors.transparent;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(5),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        color: bg,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: fg),
+            const SizedBox(width: 4),
+            Text(
+              title,
+              style: GoogleFonts.beVietnamPro(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: fg,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        _syncTableDiscounts();
+        if (widget.table.currentOrderJson.isNotEmpty) {
+          _fb.saveTable(widget.table).catchError((_) {});
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3438,6 +4380,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 final customerBar = CartCustomerBar(
                   pointsBlocked: _pointsBlockedByPromo,
                   customer: _selectedCustomer,
+                  onEdit: _selectedCustomer == null ? null : () => _showEditCustomerDialog(_selectedCustomer!),
                   pointsUsed: _pointsUsed,
                   earnPoints: _earnPreview,
                   earnRate: _earnRate,
@@ -3449,6 +4392,24 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                   pointsUnknown: _customerPointsUnknown,
                   onRetryPoints: _refreshCustomerPoints,
                   onClear: () => _setCustomer(null),
+                );
+
+                final linePromoDiscounts = CartCampaignPricing.computeLinePromotionDiscounts(
+                  cart: _cart,
+                  appliedDiscounts: _appliedDiscounts,
+                  campaignsById: _campaignById,
+                  products: _products,
+                  branchId: _fb.currentStoreCode,
+                  customerBirthday: _selectedCustomer?.birthday,
+                  guestCount: _guestCount,
+                  orderTimestampMs: widget.table.openedAt,
+                  isExistingOrder: true,
+                );
+
+                final groups = buildCartProductGroups(
+                  cart: _cart,
+                  linePromoDiscounts: linePromoDiscounts,
+                  isSoldOutFn: _isCartItemSoldOut,
                 );
 
                 final cartList = _cart.isEmpty
@@ -3465,20 +4426,40 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                           ),
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-                        itemCount: _cart.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) => CartItemCard(
-                          item: _cart[index],
-                          onRemove: () => _confirmRemoveItem(index),
-                          onEditNote: () => _showEditItemNoteAndToppingDialog(index),
-                          onDiscount: () => _showItemDiscountDialog(index),
-                          onIncrement: () => _incrementItem(index),
-                          onDecrement: () => _decrementItem(index),
-                          soldOut: _isCartItemSoldOut(_cart[index]),
-                        ),
-                      );
+                    : _treeViewMode
+                        ? ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
+                            itemCount: groups.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            itemBuilder: (context, index) => CartTreeGroupCard(
+                              group: groups[index],
+                              onRemove: _confirmRemoveItem,
+                              onEditNote: _showEditItemNoteAndToppingDialog,
+                              onDiscount: _showItemDiscountDialog,
+                              onIncrement: _incrementItem,
+                              onDecrement: _decrementItem,
+                              onRemoveGroup: _confirmRemoveGroup,
+                              onRemoveBranch: _confirmRemoveBranch,
+                              onIncrementBranch: _incrementBranch,
+                              onDecrementBranch: _decrementBranch,
+                              onEditNoteBranch: _showEditBranchNoteAndToppingDialog,
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
+                            itemCount: _cart.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) => CartItemCard(
+                              item: _cart[index],
+                              onRemove: () => _confirmRemoveItem(index),
+                              onEditNote: () => _showEditItemNoteAndToppingDialog(index),
+                              onDiscount: () => _showItemDiscountDialog(index),
+                              onIncrement: () => _incrementItem(index),
+                              onDecrement: () => _decrementItem(index),
+                              soldOut: _isCartItemSoldOut(_cart[index]),
+                              promoDiscounts: linePromoDiscounts[index] ?? const [],
+                            ),
+                          );
 
                 final leftColumn = Column(
                   children: [
@@ -3491,6 +4472,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       onIncrementGuests: () => _updateGuestCount(_guestCount + 1),
                       onAddItems: _goToAddItems,
                     ),
+                    if (_cart.isNotEmpty) _buildCartViewToggleHeader(groups.length),
                     Expanded(child: cartList),
                     if (!wide) customerBar,
                     if (!wide) summary,
@@ -3536,6 +4518,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 );
               },
             ),
+      ),
     );
   }
 
