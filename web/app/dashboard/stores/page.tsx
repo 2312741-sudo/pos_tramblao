@@ -15,6 +15,8 @@ import {
   Search,
   TrendingUp,
   X,
+  Lock,
+  Mail,
 } from "lucide-react";
 import { useDashboardData, StoreItem } from "@/lib/data-context";
 import { useAuth } from "@/lib/auth";
@@ -514,177 +516,158 @@ export default function StoresManagementPage() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-              <h2 style={{ fontSize: "19px", fontWeight: "800", color: "var(--text)", display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
-                <Store size={22} style={{ color: "var(--primary)" }} />
-                Mở Chi Nhánh Mới Trong Hệ Sinh Thái
-              </h2>
-              <button onClick={() => setShowCreateModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div
+                  style={{
+                    width: "44px",
+                    height: "44px",
+                    borderRadius: "12px",
+                    background: "rgba(245, 158, 11, 0.12)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#D97706",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Lock size={22} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: "18px", fontWeight: "800", color: "var(--text)", margin: 0 }}>
+                    Tạm Khóa Tính Năng Tạo Chi Nhánh
+                  </h2>
+                  <p style={{ fontSize: "13px", color: "var(--subtext)", margin: "2px 0 0 0" }}>
+                    Hệ thống BLAO POS & Quản lý
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "4px" }}
+                aria-label="Đóng"
+              >
                 <X size={20} />
               </button>
             </div>
 
-            {actionError && (
-              <div style={{ background: "var(--danger-bg)", color: "var(--danger)", padding: "10px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: "600", marginBottom: "16px" }}>
-                ⚠️ {actionError}
-              </div>
-            )}
+            <div
+              style={{
+                background: "rgba(245, 158, 11, 0.08)",
+                border: "1px solid rgba(245, 158, 11, 0.25)",
+                borderRadius: "12px",
+                padding: "16px",
+                marginBottom: "20px",
+                fontSize: "13.5px",
+                lineHeight: "1.6",
+                color: "var(--text)",
+              }}
+            >
+              Chức năng tự tạo chi nhánh mới trên giao diện quản trị hiện đang tạm khóa để đảm bảo quy hoạch dữ liệu, phân quyền và bản quyền hệ sinh thái BLAO.
+              <br /><br />
+              Nếu bạn muốn <strong>mở thêm chi nhánh</strong> hoặc <strong>thiết lập cửa hàng mới</strong>, vui lòng liên hệ trực tiếp với quản trị viên hệ thống để được hỗ trợ kích hoạt:
+            </div>
 
-            <form onSubmit={handleCreateSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              <div className="grid-stack-sm" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "12px" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: "700", marginBottom: "4px" }}>
-                    Mã chi nhánh *
-                  </label>
-                  <input
-                    className="input-field"
-                    placeholder="VD: TRAM03"
-                    value={newStoreCode}
-                    onChange={(e) => setNewStoreCode(e.target.value.toUpperCase())}
-                    style={{ textTransform: "uppercase", fontWeight: "700" }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: "700", marginBottom: "4px" }}>
-                    Tên cửa hàng / chi nhánh *
-                  </label>
-                  <input
-                    className="input-field"
-                    placeholder="VD: Trạm F&B - Chi nhánh Cầu Giấy"
-                    value={newStoreName}
-                    onChange={(e) => setNewStoreName(e.target.value)}
-                    required
-                  />
-                </div>
+            {/* Admin Contact Card */}
+            <div
+              style={{
+                background: "var(--bg)",
+                border: "1px solid var(--border)",
+                borderRadius: "12px",
+                padding: "16px 18px",
+                marginBottom: "22px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "13px", color: "var(--subtext)", fontWeight: "600" }}>Quản trị viên:</span>
+                <span style={{ fontSize: "14px", fontWeight: "700", color: "var(--text)" }}>Nguyễn Thanh Tâm</span>
               </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", marginBottom: "4px" }}>
-                  Địa chỉ chi nhánh
-                </label>
-                <input
-                  className="input-field"
-                  placeholder="VD: 123 Đường Cầu Giấy, Hà Nội"
-                  value={newAddress}
-                  onChange={(e) => setNewAddress(e.target.value)}
-                />
-              </div>
-
-              <div className="grid-stack-sm" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: "700", marginBottom: "4px" }}>
-                    Số điện thoại
-                  </label>
-                  <input
-                    className="input-field"
-                    placeholder="0987xxxxxx"
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: "700", marginBottom: "4px" }}>
-                    Tên WiFi cửa hàng
-                  </label>
-                  <input
-                    className="input-field"
-                    placeholder="Tram_FnB_Free"
-                    value={newWifi}
-                    onChange={(e) => setNewWifi(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* VietQR section */}
-              <div style={{ background: "var(--bg)", padding: "14px", borderRadius: "10px", border: "1px solid var(--border)" }}>
-                <div style={{ fontSize: "12px", fontWeight: "800", color: "var(--primary)", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <CreditCard size={15} /> THÔNG TIN THANH TOÁN VIETQR TẠI QUẦY
-                </div>
-                <div className="grid-stack-sm" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: "600", marginBottom: "3px" }}>Ngân hàng</label>
-                    <select
-                      className="input-field"
-                      value={newBankId}
-                      onChange={(e) => setNewBankId(e.target.value)}
-                      style={{ fontSize: "13px" }}
-                    >
-                      {BANK_OPTIONS.map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: "600", marginBottom: "3px" }}>Số tài khoản</label>
-                    <input
-                      className="input-field"
-                      placeholder="0987654321"
-                      value={newBankAccount}
-                      onChange={(e) => setNewBankAccount(e.target.value)}
-                      style={{ fontSize: "13px" }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: "600", marginBottom: "3px" }}>Tên chủ tài khoản (In hoa không dấu)</label>
-                  <input
-                    className="input-field"
-                    placeholder="CHU CUA HANG TRAM FNB"
-                    value={newAccountName}
-                    onChange={(e) => setNewAccountName(e.target.value.toUpperCase())}
-                    style={{ fontSize: "13px", textTransform: "uppercase" }}
-                  />
-                </div>
-              </div>
-
-              {/* Ecosystem Seed Option */}
-              <div style={{ background: "var(--success-bg)", padding: "12px 14px", borderRadius: "10px", border: "1px solid #A3D9D2" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "700", color: "var(--success)", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(copyMenuFrom)}
-                    onChange={(e) => setCopyMenuFrom(e.target.checked ? (stores[0]?.storeCode || "") : "")}
-                  />
-                  <span>Sao chép toàn bộ thực đơn & danh mục món từ chi nhánh khác</span>
-                </label>
-                {copyMenuFrom && (
-                  <select
-                    className="input-field"
-                    value={copyMenuFrom}
-                    onChange={(e) => setCopyMenuFrom(e.target.value)}
-                    style={{ marginTop: "8px", marginLeft: "22px", width: "auto", minWidth: "220px", fontSize: "13px" }}
-                  >
-                    {stores.map((st) => (
-                      <option key={st.storeCode} value={st.storeCode}>
-                        {st.storeCode} - {st.storeName}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <div style={{ fontSize: "11px", color: "var(--subtext)", marginTop: "4px", marginLeft: "22px" }}>
-                  Chi nhánh mới sẽ có sẵn món, danh mục, ghi chú mẫu của chi nhánh nguồn và 6 bàn phân bổ theo Tầng 1, Tầng 2, Sân Vườn.
-                </div>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowCreateModal(false)}
-                  disabled={submitting}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "13px", color: "var(--subtext)", fontWeight: "600" }}>Hotline / Zalo:</span>
+                <a
+                  href="tel:0865062205"
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "700",
+                    color: "var(--primary)",
+                    textDecoration: "none",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
                 >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={submitting}
-                >
-                  {submitting ? "Đang khởi tạo..." : "Xác nhận tạo chi nhánh"}
-                </button>
+                  <Phone size={14} /> 0865.062.205
+                </a>
               </div>
-            </form>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "13px", color: "var(--subtext)", fontWeight: "600" }}>Email:</span>
+                <a
+                  href="mailto:nthanhtam.402@gmail.com"
+                  style={{
+                    fontSize: "13.5px",
+                    fontWeight: "600",
+                    color: "var(--primary)",
+                    textDecoration: "none",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <Mail size={14} /> nthanhtam.402@gmail.com
+                </a>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "10px" }}>
+              <a
+                href="mailto:nthanhtam.402@gmail.com"
+                className="btn-secondary"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  textDecoration: "none",
+                  padding: "9px 16px",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  borderRadius: "8px",
+                }}
+              >
+                <Mail size={15} /> Gửi Email
+              </a>
+              <a
+                href="tel:0865062205"
+                className="btn-primary"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  textDecoration: "none",
+                  padding: "9px 18px",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  borderRadius: "8px",
+                }}
+              >
+                <Phone size={15} /> Gọi 0865.062.205
+              </a>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowCreateModal(false)}
+                style={{
+                  padding: "9px 18px",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  borderRadius: "8px",
+                }}
+              >
+                Đã hiểu
+              </button>
+            </div>
           </div>
         </div>
       )}

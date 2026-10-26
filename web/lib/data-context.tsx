@@ -1270,27 +1270,10 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
   // Store Management Actions
   const createStore = useCallback(async (storeData: Partial<StoreItem>, copyMenuFrom?: string) => {
-    try {
-      // Tạo chi nhánh qua Cloud Function (máy chủ ghi storeInfo/khu/bàn/userIndex/hồ sơ chủ quán + nhật ký
-      // trong MỘT lần ghi; client không ghi trực tiếp vì rules chặn chi nhánh chưa có quyền).
-      const payload = buildCreateStorePayload(storeData);
-      if (!payload.storeCode) return { success: false, error: "Mã chi nhánh không được để trống và chỉ gồm chữ cái, số." };
-      await httpsCallable<CreateStorePayload, { success: boolean; storeCode: string }>(functions, "createStore")(payload);
-      const cleanCode = payload.storeCode;
-
-      // Sao chép thực đơn từ chi nhánh khác (cùng thư viện với màn Thực đơn → Sao chép thực đơn).
-      // Chạy sau khi máy chủ trả về: chủ quán đã có quyền ghi trên chi nhánh mới.
-      if (copyMenuFrom) {
-        const copied = await copyWholeMenu(db, copyMenuFrom.trim().toUpperCase(), cleanCode, { username: "admin", role: "MANAGER" });
-        if (!copied.ok) {
-          return { success: false, error: `Đã tạo chi nhánh nhưng sao chép thực đơn lỗi: ${copied.error}` };
-        }
-      }
-
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: errorMessage(e) || "Lỗi khi tạo chi nhánh mới." };
-    }
+    return {
+      success: false,
+      error: "Tính năng tạo chi nhánh mới đang tạm khóa. Vui lòng liên hệ quản trị viên: Nguyễn Thanh Tâm (Hotline/Zalo: 0865.062.205, Email: nthanhtam.402@gmail.com) để được hỗ trợ khởi tạo chi nhánh.",
+    };
   }, []);
 
   const updateStore = useCallback(async (storeCode: string, data: Partial<StoreItem>) => {

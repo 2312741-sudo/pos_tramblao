@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/services/app_update_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
@@ -324,6 +325,34 @@ class AboutAppScreen extends StatelessWidget {
             _buildInfoRow(context, 'Đồng bộ dữ liệu', 'Firebase Realtime (Trực tuyến)'),
             const Divider(height: 18),
             _buildInfoRow(context, 'Bản quyền phát hành', copyright, isHighlight: true),
+            const Divider(height: 18),
+            InkWell(
+              onTap: () => AppUpdateService().checkAppVersion(context, isManualCheck: true),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: context.tc.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: context.tc.primary.withValues(alpha: 0.28)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.system_update_rounded, size: 18, color: context.tc.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Kiểm tra bản cập nhật mới',
+                      style: GoogleFonts.beVietnamPro(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: context.tc.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

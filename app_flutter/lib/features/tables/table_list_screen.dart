@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/permissions/app_permissions.dart';
+import '../../core/services/app_update_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
@@ -167,6 +168,7 @@ class _TableListScreenState extends State<TableListScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkInitialCashShift();
+      AppUpdateService().checkAppVersion(context);
     });
   }
 
