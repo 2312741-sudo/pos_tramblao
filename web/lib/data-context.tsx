@@ -390,7 +390,22 @@ interface DashboardContextType {
   /** Đánh dấu bàn đã in phiếu tạm tính (prePrintedAt/prePrintedBy) */
   markTablePrePrinted: (table: TableItem, username?: string) => Promise<{ success: boolean; error?: string }>;
   saveProduct: (
-    productData: { id?: string; name: string; code?: string; price: number; costPrice?: number; unit?: string; category?: string; imageBase64?: string; isTopping?: boolean; noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null },
+    productData: {
+      id?: string;
+      name: string;
+      code?: string;
+      price: number;
+      costPrice?: number;
+      unit?: string;
+      category?: string;
+      imageBase64?: string;
+      isTopping?: boolean;
+      sizes?: Record<string, number>;
+      hasIceSugarOptions?: boolean;
+      allowedToppings?: string[];
+      noteGroupIds?: string[] | null;
+      toppingGroupIds?: string[] | null;
+    },
     storeCode?: string
   ) => Promise<{ success: boolean; error?: string }>;
   deleteProduct: (productId: string, storeCode?: string) => Promise<{ success: boolean; error?: string }>;
@@ -1957,7 +1972,22 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
   const saveProduct = useCallback(
     async (
-      productData: { id?: string; name: string; code?: string; price: number; costPrice?: number; unit?: string; category?: string; imageBase64?: string; isTopping?: boolean; noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null },
+      productData: {
+        id?: string;
+        name: string;
+        code?: string;
+        price: number;
+        costPrice?: number;
+        unit?: string;
+        category?: string;
+        imageBase64?: string;
+        isTopping?: boolean;
+        sizes?: Record<string, number>;
+        hasIceSugarOptions?: boolean;
+        allowedToppings?: string[];
+        noteGroupIds?: string[] | null;
+        toppingGroupIds?: string[] | null;
+      },
       storeCode?: string
     ) => {
       try {
@@ -1971,6 +2001,9 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
           category: (productData.category || "").trim(),
           isTopping: Boolean(productData.isTopping),
         };
+        if (productData.sizes !== undefined) payload.sizes = productData.sizes;
+        if (productData.hasIceSugarOptions !== undefined) payload.hasIceSugarOptions = Boolean(productData.hasIceSugarOptions);
+        if (productData.allowedToppings !== undefined) payload.allowedToppings = productData.allowedToppings;
         // Gắn danh mục note/topping: undefined = không đụng; null = xóa trường (kế thừa nhóm món); mảng rỗng = "không có"
         if (productData.noteGroupIds !== undefined) payload.noteGroupIds = encodeGroupIds(productData.noteGroupIds);
         if (productData.toppingGroupIds !== undefined) payload.toppingGroupIds = encodeGroupIds(productData.toppingGroupIds);

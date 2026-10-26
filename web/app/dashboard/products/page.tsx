@@ -33,6 +33,7 @@ import CopyMenuDialog from "./copy-menu-dialog";
 import { errorMessage } from "@/lib/errors";
 import { useItemCatalog } from "@/lib/note-catalog";
 import { canManageNoteCatalog } from "@/lib/note-catalog-access";
+import { DEFAULT_BLAO_CATEGORIES, DEFAULT_BLAO_PRODUCTS } from "@/lib/default-menu";
 import { isLegacyCatalog } from "@/lib/item-options";
 import GroupAttachmentPicker from "@/components/GroupAttachmentPicker";
 
@@ -523,6 +524,55 @@ export default function ProductsPage() {
     exportProducts(filteredProducts);
   };
 
+  const [seedingMenu, setSeedingMenu] = useState(false);
+
+  const handleSeedBLaOMenu = async () => {
+    const targetStore = currentStoreCode === "ALL" ? stores[0]?.storeCode : currentStoreCode;
+    if (!targetStore) {
+      alert("Vui lòng chọn chi nhánh cụ thể để nạp thực đơn chuẩn.");
+      return;
+    }
+    const confirmed = confirm(
+      `Bạn có muốn nạp toàn bộ thực đơn chuẩn Trạm BLAO (19 món & 6 danh mục) vào chi nhánh ${targetStore} không?`
+    );
+    if (!confirmed) return;
+
+    setSeedingMenu(true);
+    try {
+      // 1. Ghi categories
+      for (const cat of DEFAULT_BLAO_CATEGORIES) {
+        await saveCategory(cat.name, targetStore, undefined, cat.allowedToppingIds || []);
+      }
+      await saveCategoryOrder(DEFAULT_BLAO_CATEGORIES.map((c) => c.name), targetStore);
+
+      // 2. Ghi products
+      for (const prod of DEFAULT_BLAO_PRODUCTS) {
+        await saveProduct(
+          {
+            code: prod.code,
+            name: prod.name,
+            price: prod.price,
+            costPrice: 0,
+            unit: prod.unit,
+            category: prod.category,
+            sizes: prod.sizes,
+            hasIceSugarOptions: prod.hasIceSugarOptions,
+            allowedToppings: prod.allowedToppings,
+            isTopping: prod.isTopping,
+            imageBase64: "",
+          },
+          targetStore
+        );
+      }
+      alert(`Đã nạp thành công 19 món & 6 danh mục chuẩn Trạm BLAO cho chi nhánh ${targetStore}!`);
+    } catch (e) {
+      console.error(e);
+      alert("Lỗi khi nạp thực đơn chuẩn: " + errorMessage(e));
+    } finally {
+      setSeedingMenu(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
@@ -549,6 +599,16 @@ export default function ProductsPage() {
               <button className="btn-secondary" onClick={handleExport}>
                 <Download size={16} />
                 Xuất Excel
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={handleSeedBLaOMenu}
+                disabled={seedingMenu}
+                title="Nạp toàn bộ 19 món & 6 danh mục chuẩn Trạm BLAO"
+                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+              >
+                <Sparkles size={16} style={{ color: "var(--primary)" }} />
+                {seedingMenu ? "Đang nạp menu..." : "Nạp menu BLAO"}
               </button>
               {allowCopyMenu && (
                 <button className="btn-secondary" onClick={() => setShowCopyMenu(true)}>

@@ -14,6 +14,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/models/app_models.dart';
+import '../../data/repositories/seed_data.dart';
 import '../../data/services/firebase_service.dart';
 import '../../widgets/common_widgets.dart';
 import 'attachment_picker.dart';
@@ -414,6 +415,45 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     }
   }
 
+  Future<void> _seedBLaOMenu() async {
+    final confirm = await showConfirmDialog(
+      context,
+      title: 'Nạp thực đơn Trạm BLAO',
+      message: 'Nạp toàn bộ 19 món & 6 danh mục chuẩn của Trạm BLAO vào chi nhánh $_selectedStoreCode?',
+      confirmText: 'Xác nhận nạp',
+    );
+    if (confirm != true) return;
+
+    setState(() => _loading = true);
+    try {
+      for (final c in SeedData.defaultCategories) {
+        await _fb.saveCategory(c, storeCode: _selectedStoreCode);
+      }
+      for (final p in SeedData.defaultProducts) {
+        await _fb.saveProduct(p, storeCode: _selectedStoreCode);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Đã nạp thành công 19 món & 6 danh mục chuẩn Trạm BLAO!'),
+            backgroundColor: context.tc.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi nạp thực đơn: $e'),
+            backgroundColor: context.tc.danger,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final Set<String> catSet = {'Tất cả'};
@@ -446,10 +486,21 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white),
             onSelected: (val) {
+              if (val == 'SEED_BLAO') _seedBLaOMenu();
               if (val == 'COPY') _showCopyMenuDialog();
               if (val == 'CLEAR') _showClearMenuDialog();
             },
             itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'SEED_BLAO',
+                child: Row(
+                  children: [
+                    Icon(Icons.restaurant_menu, size: 18, color: context.tc.primary),
+                    const SizedBox(width: 8),
+                    const Text('Nạp thực đơn chuẩn Trạm BLAO'),
+                  ],
+                ),
+              ),
               if (_canCopyMenu)
               PopupMenuItem(
                 value: 'COPY',
@@ -603,20 +654,27 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     icon: Icons.restaurant_menu_outlined,
                     title: 'Chưa có sản phẩm cho chi nhánh $_selectedStoreCode',
                     subtitle: 'Thêm món mới hoặc sao chép từ chi nhánh khác.',
-                    action: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    action: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
                       children: [
                         ElevatedButton.icon(
-                          onPressed: () => _showProductDialog(),
-                          icon: const Icon(Icons.add, color: Colors.white),
-                          label: Text('Thêm sản phẩm', style: GoogleFonts.beVietnamPro(color: Colors.white, fontWeight: FontWeight.w600)),
+                          onPressed: _seedBLaOMenu,
+                          icon: const Icon(Icons.restaurant_menu, color: Colors.white),
+                          label: Text('Nạp thực đơn BLAO', style: GoogleFonts.beVietnamPro(color: Colors.white, fontWeight: FontWeight.w600)),
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size(64, AppSpacing.minTapTarget),
                             backgroundColor: context.tc.primary,
                             foregroundColor: Colors.white,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () => _showProductDialog(),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Thêm thủ công'),
+                          style: OutlinedButton.styleFrom(minimumSize: const Size(64, AppSpacing.minTapTarget)),
+                        ),
                         if (_canCopyMenu) OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(minimumSize: const Size(64, AppSpacing.minTapTarget)),
                           onPressed: _showCopyMenuDialog,
