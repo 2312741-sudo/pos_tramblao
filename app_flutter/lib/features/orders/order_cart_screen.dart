@@ -2233,10 +2233,11 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     }
 
     final hasSizes = (originalProduct != null && originalProduct.sizes.isNotEmpty);
+    final sortedSizes = originalProduct?.sortedSizes ?? const [];
     String selectedSize = item.selectedSize.isNotEmpty
         ? item.selectedSize
-        : (hasSizes ? (originalProduct.sizes.containsKey('M') ? 'M' : originalProduct.sizes.keys.first) : '');
-    int sizeExtra = hasSizes ? (originalProduct.sizes[selectedSize] ?? item.sizeExtraPrice) : item.sizeExtraPrice;
+        : (hasSizes ? originalProduct!.defaultSmallestSize : '');
+    int sizeExtra = hasSizes ? (originalProduct!.sizes[selectedSize] ?? item.sizeExtraPrice) : item.sizeExtraPrice;
 
     String selectedSugar = item.selectedSugar.isNotEmpty ? item.selectedSugar : '100% đường';
     String selectedIce = item.selectedIce.isNotEmpty ? item.selectedIce : '100% đá';
@@ -2253,17 +2254,6 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         }
       }
     }
-
-    final defaultFnbToppings = [
-      ProductModel(id: 9001, name: 'Trân châu đen', price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9002, name: 'Trân châu trắng', price: 6000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9003, name: 'Thạch phô mai', price: 8000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9004, name: 'Thạch củ năng', price: 7000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9005, name: 'Kem Cheese', price: 10000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9006, name: 'Pudding trứng', price: 7000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9007, name: 'Đào miếng', price: 8000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9008, name: 'Thạch chanh', price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
-    ];
 
     final resolved = resolveItemOptions(
       productNoteGroupIds: originalProduct?.noteGroupIds,
@@ -2295,10 +2285,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           (p) => p.id.toString() == tId ||
               (p.code.isNotEmpty && p.code.toLowerCase() == tId.toLowerCase()) ||
               p.name.toLowerCase() == tId.toLowerCase(),
-          orElse: () => defaultFnbToppings.firstWhere(
-            (p) => p.id.toString() == tId || p.name.toLowerCase() == tId.toLowerCase(),
-            orElse: () => ProductModel(name: tId, price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
-          ),
+          orElse: () => ProductModel(name: tId, price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
         );
         toppingItemMap[match.name] = match;
         if (!availableToppingNames.contains(match.name)) availableToppingNames.add(match.name);
@@ -2307,10 +2294,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       for (final topName in originalProduct.allowedToppings) {
         final match = _products.firstWhere(
           (p) => p.name.toLowerCase() == topName.toLowerCase(),
-          orElse: () => defaultFnbToppings.firstWhere(
-            (p) => p.name.toLowerCase() == topName.toLowerCase(),
-            orElse: () => ProductModel(name: topName, price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
-          ),
+          orElse: () => ProductModel(name: topName, price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
         );
         toppingItemMap[match.name] = match;
         if (!availableToppingNames.contains(match.name)) availableToppingNames.add(match.name);
@@ -2320,12 +2304,6 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         if (p.isTopping || p.category.toLowerCase().contains('topping')) {
           toppingItemMap[p.name] = p;
           if (!availableToppingNames.contains(p.name)) availableToppingNames.add(p.name);
-        }
-      }
-      for (final top in defaultFnbToppings) {
-        if (!availableToppingNames.contains(top.name)) {
-          toppingItemMap[top.name] = top;
-          availableToppingNames.add(top.name);
         }
       }
     }
@@ -2416,11 +2394,14 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children: originalProduct!.sizes.entries.map((entry) {
+                      children: sortedSizes.map((entry) {
                         final isSel = selectedSize == entry.key;
                         final extraText = entry.value > 0 ? ' (+${FormatUtils.vnd(entry.value)})' : '';
+                        final labelText = entry.key.toLowerCase().startsWith('size')
+                            ? '${entry.key}$extraText'
+                            : 'Size ${entry.key}$extraText';
                         return ChoiceChip(
-                          label: Text('Size ${entry.key}$extraText'),
+                          label: Text(labelText),
                           selected: isSel,
                           selectedColor: context.tc.primaryLight,
                           labelStyle: TextStyle(

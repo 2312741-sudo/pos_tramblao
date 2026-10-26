@@ -85,6 +85,21 @@ function isDrinkCategory(category: string | undefined): boolean {
   return ["trà", "tea", "cà phê", "cafe", "coffee", "nước", "uống", "sinh tố", "đá xay", "sữa", "matcha"].some((k) => c.includes(k));
 }
 
+export function sortSizes(sizes: SizeOption[]): SizeOption[] {
+  return [...sizes].sort((a, b) => {
+    if (a.extra !== b.extra) return a.extra - b.extra;
+    const rank = (name: string) => {
+      const s = name.trim().toLowerCase();
+      if (s.includes("nhỏ") || s === "s" || s.startsWith("s ") || s.includes("small")) return 1;
+      if (s.includes("vừa") || s === "m" || s.startsWith("m ") || s.includes("medium")) return 2;
+      if (s.includes("lớn") || s.includes("to") || s === "l" || s.startsWith("l ") || s.includes("large")) return 3;
+      if (s === "xl" || s.startsWith("xl")) return 4;
+      return 5;
+    };
+    return rank(a.name) - rank(b.name);
+  });
+}
+
 export function getProductOptions(
   product: OptionProduct,
   categories: OptionCategory[],
@@ -93,36 +108,38 @@ export function getProductOptions(
 ): ProductOptions {
   if (product.isTopping) return { sizes: [], toppings: [], iceSugar: false, catalogMode: false, toppingGroups: [], noteChips: [], hasAny: false };
 
-  // --- size
+  // --- size (luôn sắp xếp từ nhỏ nhất đến lớn nhất)
   let sizeMap: Record<string, number> = {};
   if (product.sizes && typeof product.sizes === "object") {
     for (const [k, v] of Object.entries(product.sizes)) sizeMap[k] = Math.max(0, Math.trunc(Number(v)) || 0);
   }
   if (Object.keys(sizeMap).length === 0 && isDefaultDrink(product.category)) sizeMap = { S: 0, M: 5000, L: 10000 };
-  const sizes = Object.entries(sizeMap).map(([name, extra]) => ({ name, extra }));
+  const sizes = sortSizes(Object.entries(sizeMap).map(([name, extra]) => ({ name, extra })));
 
-  // --- topping
+  // --- topping (không tự động inject danh sách ảo 8 loại topping)
   const toppingProducts = allProducts.filter((p) => p.isTopping || lc(p.category).includes("topping"));
   const resolve = (ref: string): ToppingOption => {
     const r = lc(ref);
     const hit =
-      allProducts.find((p) => p.id === ref || (p.code && lc(p.code) === r) || lc(p.name) === r) ??
+      allProducts.find((p) => String(p.id) === ref || (p.code && lc(p.code) === r) || lc(p.name) === r) ??
       undefined;
     if (hit) return { name: hit.name, price: Math.max(0, Math.trunc(hit.price) || 0) };
-    const def = DEFAULT_FNB_TOPPINGS.find((t) => lc(t.name) === r);
-    return def ?? { name: ref, price: 5000 };
+    return { name: ref, price: 5000 };
   };
   const cat = categories.find((c) => lc(c.name) === lc(product.category));
-  const rawToppings = isDefaultDrink(product.category) && !(product.allowedToppings?.length) ? DEFAULT_FNB_TOPPINGS.map((t) => t.name) : product.allowedToppings ?? [];
   let toppings: ToppingOption[];
-  if (cat?.allowedToppingIds && cat.allowedToppingIds.length > 0) toppings = cat.allowedToppingIds.map(resolve);
-  else if (rawToppings.length > 0) toppings = rawToppings.map(resolve);
-  else {
+  if (cat?.allowedToppingIds && cat.allowedToppingIds.length > 0) {
+    toppings = cat.allowedToppingIds.map(resolve);
+  } else if (product.allowedToppings && product.allowedToppings.length > 0) {
+    toppings = product.allowedToppings.map(resolve);
+  } else {
     toppings = toppingProducts.map((p) => ({ name: p.name, price: Math.max(0, Math.trunc(p.price) || 0) }));
-    for (const t of DEFAULT_FNB_TOPPINGS) if (!toppings.some((x) => lc(x.name) === lc(t.name))) toppings.push(t);
   }
-  // Chỉ hỏi topping với món đồ uống/có cấu hình topping — món ăn khác không bị hỏi topping mặc định
-  const wantsToppings = isDrinkCategory(product.category) || isDefaultDrink(product.category) || !!cat?.allowedToppingIds?.length || !!product.allowedToppings?.length || sizes.length > 0;
+  // Chỉ hỏi topping khi có cấu hình cụ thể hoặc quán có tạo món topping riêng cho đồ uống
+  const wantsToppings =
+    !!cat?.allowedToppingIds?.length ||
+    !!product.allowedToppings?.length ||
+    (toppingProducts.length > 0 && (isDrinkCategory(product.category) || isDefaultDrink(product.category)));
   let uniq: ToppingOption[] = [];
   for (const t of wantsToppings ? toppings : []) if (!uniq.some((x) => lc(x.name) === lc(t.name))) uniq.push(t);
 
@@ -155,7 +172,8 @@ export interface OptionSelection {
 
 /** Lựa chọn mặc định: size nhỏ nhất (extra thấp nhất), 100% đường/đá */
 export function defaultSelection(opts: ProductOptions): OptionSelection {
-  const size = [...opts.sizes].sort((a, b) => a.extra - b.extra)[0]?.name ?? "";
+  const sorted = sortSizes(opts.sizes);
+  const size = sorted[0]?.name ?? "";
   return { size, sugar: opts.iceSugar ? DEFAULT_SUGAR : "", ice: opts.iceSugar ? DEFAULT_ICE : "", toppings: [] };
 }
 

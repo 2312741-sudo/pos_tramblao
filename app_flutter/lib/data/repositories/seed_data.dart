@@ -36,7 +36,6 @@ class SeedData {
     CategoryModel(name: "Món Đặc Biệt", order: 3),
     CategoryModel(name: "Combo Trà + Bánh", order: 4),
     CategoryModel(name: "Đồ Ăn Vặt", order: 5),
-    CategoryModel(name: "Topping", order: 6),
   ];
 
   static List<ZoneModel> get defaultZones => [
@@ -219,17 +218,6 @@ class SeedData {
       price: 10000,
       unit: "Gói",
       category: "Đồ Ăn Vặt",
-    ),
-
-    // ==================== 6. TOPPING ====================
-    ProductModel(
-      id: 19,
-      code: "TOP01",
-      name: "Thạch dừa",
-      price: 5000,
-      unit: "Phần",
-      category: "Topping",
-      isTopping: true,
     ),
   ];
 }

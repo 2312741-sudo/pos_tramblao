@@ -298,17 +298,6 @@ class _OrderListScreenState extends State<OrderListScreen> {
       }
     }
 
-    final defaultFnbToppings = [
-      ProductModel(id: 9001, name: 'Trân châu đen', price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9002, name: 'Trân châu trắng', price: 6000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9003, name: 'Thạch phô mai', price: 8000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9004, name: 'Thạch củ năng', price: 7000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9005, name: 'Kem Cheese', price: 10000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9006, name: 'Pudding trứng', price: 7000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9007, name: 'Đào miếng', price: 8000, unit: 'phần', category: 'Topping', isTopping: true),
-      ProductModel(id: 9008, name: 'Thạch chanh', price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
-    ];
-
     final resolved = _resolveOptions(product);
     final catalogMode = !resolved.legacy; // đã cấu hình danh mục: chỉ hiện nhóm được gắn
     final Map<String, ProductModel?> toppingItemMap = {};
@@ -325,10 +314,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
           (p) => p.id.toString() == tId ||
               (p.code.isNotEmpty && p.code.toLowerCase() == tId.toLowerCase()) ||
               p.name.toLowerCase() == tId.toLowerCase(),
-          orElse: () => defaultFnbToppings.firstWhere(
-            (p) => p.id.toString() == tId || p.name.toLowerCase() == tId.toLowerCase(),
-            orElse: () => ProductModel(name: tId, price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
-          ),
+          orElse: () => ProductModel(name: tId, price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
         );
         toppingItemMap[match.name] = match;
         if (!availableToppingNames.contains(match.name)) {
@@ -340,10 +326,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
         final match = _products.firstWhere(
           (p) => p.name.toLowerCase() == topName.toLowerCase() ||
               (p.code.isNotEmpty && p.code.toLowerCase() == topName.toLowerCase()),
-          orElse: () => defaultFnbToppings.firstWhere(
-            (p) => p.name.toLowerCase() == topName.toLowerCase(),
-            orElse: () => ProductModel(name: topName, price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
-          ),
+          orElse: () => ProductModel(name: topName, price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
         );
         toppingItemMap[match.name] = match;
         if (!availableToppingNames.contains(match.name)) {
@@ -351,7 +334,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
         }
       }
     } else {
-      // 1. Tìm tất cả topping có trong menu hệ thống
+      // Chỉ tìm topping thực sự có trong menu hệ thống (do quán tạo)
       for (final p in _products) {
         if (p.isTopping || p.category.toLowerCase().contains('topping')) {
           toppingItemMap[p.name] = p;
@@ -360,20 +343,12 @@ class _OrderListScreenState extends State<OrderListScreen> {
           }
         }
       }
-      // 2. Bổ sung topping chuẩn nếu chưa có topping hoặc là đồ uống/trà
-      if (availableToppingNames.isEmpty || isDrinkOrTea) {
-        for (final top in defaultFnbToppings) {
-          if (!availableToppingNames.contains(top.name)) {
-            toppingItemMap[top.name] = top;
-            availableToppingNames.add(top.name);
-          }
-        }
-      }
     }
 
     final hasToppings = availableToppingNames.isNotEmpty;
 
-    String selectedSize = hasSizes ? (product.sizes.containsKey('M') ? 'M' : product.sizes.keys.first) : 'Chuẩn';
+    final sortedSizes = product.sortedSizes;
+    String selectedSize = hasSizes ? product.defaultSmallestSize : 'Chuẩn';
     int sizeExtra = hasSizes ? (product.sizes[selectedSize] ?? 0) : 0;
 
     String selectedSugar = '100% đường';
@@ -432,11 +407,14 @@ class _OrderListScreenState extends State<OrderListScreen> {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children: product.sizes.entries.map((entry) {
+                      children: sortedSizes.map((entry) {
                         final isSel = selectedSize == entry.key;
                         final extraText = entry.value > 0 ? ' (+${FormatUtils.vnd(entry.value)})' : '';
+                        final labelText = entry.key.toLowerCase().startsWith('size')
+                            ? '${entry.key}$extraText'
+                            : 'Size ${entry.key}$extraText';
                         return ChoiceChip(
-                          label: Text('Size ${entry.key}$extraText'),
+                          label: Text(labelText),
                           selected: isSel,
                           selectedColor: context.tc.primaryLight,
                           labelStyle: TextStyle(

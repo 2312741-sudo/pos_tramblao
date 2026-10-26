@@ -45,6 +45,18 @@ describe("tùy chọn món", () => {
     expect(defaultSelection(getProductOptions(tea, [], []))).toEqual({ size: "S", sugar: "100% đường", ice: "100% đá", toppings: [] });
   });
 
+  it("luôn chọn mặc định là size nhỏ nhất cho cả Nhỏ/Lớn và S/M/L dù thứ tự đảo ngược", () => {
+    const banh: OptionProduct = { id: "10", name: "Bánh Lăn Nướng", price: 29000, category: "Bánh Lăn Nướng", sizes: { "Lớn": 5000, "Nhỏ": 0 } };
+    const oBanh = getProductOptions(banh, [], []);
+    expect(defaultSelection(oBanh).size).toBe("Nhỏ");
+    expect(oBanh.sizes.map((s) => s.name)).toEqual(["Nhỏ", "Lớn"]);
+
+    const reversedDrink: OptionProduct = { id: "11", name: "Trà", price: 20000, category: "Trà", sizes: { "L": 10000, "S": 0, "M": 5000 } };
+    const oDrink = getProductOptions(reversedDrink, [], []);
+    expect(defaultSelection(oDrink).size).toBe("S");
+    expect(oDrink.sizes.map((s) => s.name)).toEqual(["S", "M", "L"]);
+  });
+
   it("chỉ gộp dòng khi cùng tùy chọn", () => {
     const o = getProductOptions(tea, [], [tea, ...tops]);
     const base = defaultSelection(o);

@@ -2,13 +2,12 @@
  * THỰC ĐƠN CHUẨN HỆ THỐNG TRẠM BLAO
  * "Trạm Trà - Trạm Bánh - Hẹn Nhau Ở BLAO"
  *
- * Gồm 6 danh mục & 19 món:
+ * Gồm 5 danh mục & 18 món:
  * 1. Trà Ô Long (8 món)
  * 2. Bánh Lăn Nướng (3 món, có tuỳ chọn size Nhỏ/Lớn)
  * 3. Món Đặc Biệt (Bánh Flan Vỏ Chanh, Set Marshmallow Nướng)
  * 4. Combo Trà + Bánh (3 combo)
  * 5. Đồ Ăn Vặt (Bánh tráng, Hạt hướng dương)
- * 6. Topping (Thạch dừa)
  *
  * Lưu ý quy định: Không sử dụng ảnh của Trạm cũ, để trống hình ảnh cho chủ quán cập nhật sau.
  */
@@ -38,7 +37,6 @@ export const DEFAULT_BLAO_CATEGORIES: DefaultCategoryItem[] = [
   { name: "Món Đặc Biệt", order: 3 },
   { name: "Combo Trà + Bánh", order: 4 },
   { name: "Đồ Ăn Vặt", order: 5 },
-  { name: "Topping", order: 6 },
 ];
 
 export const DEFAULT_BLAO_PRODUCTS: DefaultProductItem[] = [
@@ -213,16 +211,5 @@ export const DEFAULT_BLAO_PRODUCTS: DefaultProductItem[] = [
     price: 10000,
     unit: "Gói",
     category: "Đồ Ăn Vặt",
-  },
-
-  // ==================== 6. TOPPING ====================
-  {
-    id: 19,
-    code: "TOP01",
-    name: "Thạch dừa",
-    price: 5000,
-    unit: "Phần",
-    category: "Topping",
-    isTopping: true,
   },
 ];

@@ -3,9 +3,9 @@ import 'package:tram_flutter/data/repositories/seed_data.dart';
 
 void main() {
   group('Trạm BLAO SeedData Menu Tests', () {
-    test('Categories contain exactly 6 expected groups with correct order', () {
+    test('Categories contain exactly 5 expected groups with correct order (no fake Topping category)', () {
       final categories = SeedData.defaultCategories;
-      expect(categories.length, 6);
+      expect(categories.length, 5);
 
       final names = categories.map((c) => c.name).toList();
       expect(names, [
@@ -14,7 +14,6 @@ void main() {
         'Món Đặc Biệt',
         'Combo Trà + Bánh',
         'Đồ Ăn Vặt',
-        'Topping',
       ]);
 
       // Category 1: Trà Ô Long allows Thạch dừa
@@ -22,9 +21,9 @@ void main() {
       expect(traCat.allowedToppingIds, contains('Thạch dừa'));
     });
 
-    test('Products contain exactly 19 items across the categories', () {
+    test('Products contain exactly 18 items across the 5 categories', () {
       final products = SeedData.defaultProducts;
-      expect(products.length, 19);
+      expect(products.length, 18);
 
       // Verify no item has old Tram image assets
       for (final p in products) {
@@ -54,6 +53,9 @@ void main() {
         expect(b.sizes.containsKey('Nhỏ'), isTrue);
         expect(b.sizes.containsKey('Lớn'), isTrue);
         expect(b.sizes['Lớn'], 5000);
+        // Size nhỏ nhất luôn là "Nhỏ"
+        expect(b.defaultSmallestSize, 'Nhỏ');
+        expect(b.sortedSizes.first.key, 'Nhỏ');
       }
 
       // Check Món Đặc Biệt (2 items)
@@ -75,12 +77,22 @@ void main() {
       expect(anVat.any((p) => p.name == 'Bánh tráng'), isTrue);
       expect(anVat.any((p) => p.name == 'Hạt hướng dương'), isTrue);
 
-      // Check Topping (1 item)
+      // No fake Topping category or standalone product
       final toppings = products.where((p) => p.category == 'Topping').toList();
-      expect(toppings.length, 1);
-      expect(toppings.first.name, 'Thạch dừa');
-      expect(toppings.first.price, 5000);
-      expect(toppings.first.isTopping, isTrue);
+      expect(toppings, isEmpty);
+    });
+
+    test('Product size sorting and default smallest size selection', () {
+      final p1 = SeedData.defaultProducts.firstWhere((p) => p.sizes.isNotEmpty);
+      expect(p1.defaultSmallestSize, 'Nhỏ');
+      expect(p1.sortedSizes.map((e) => e.key).toList(), ['Nhỏ', 'Lớn']);
+
+      // Reverse map check
+      final pReversed = SeedData.defaultProducts.first.copyWith(
+        sizes: {'L': 10000, 'M': 5000, 'S': 0},
+      );
+      expect(pReversed.defaultSmallestSize, 'S');
+      expect(pReversed.sortedSizes.map((e) => e.key).toList(), ['S', 'M', 'L']);
     });
   });
 }

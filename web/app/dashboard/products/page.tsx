@@ -533,7 +533,7 @@ export default function ProductsPage() {
       return;
     }
     const confirmed = confirm(
-      `Bạn có muốn nạp toàn bộ thực đơn chuẩn Trạm BLAO (19 món & 6 danh mục) vào chi nhánh ${targetStore} không?`
+      `Bạn có muốn nạp toàn bộ thực đơn chuẩn Trạm BLAO (${DEFAULT_BLAO_PRODUCTS.length} món & ${DEFAULT_BLAO_CATEGORIES.length} danh mục) vào chi nhánh ${targetStore} không?`
     );
     if (!confirmed) return;
 
@@ -564,7 +564,7 @@ export default function ProductsPage() {
           targetStore
         );
       }
-      alert(`Đã nạp thành công 19 món & 6 danh mục chuẩn Trạm BLAO cho chi nhánh ${targetStore}!`);
+      alert(`Đã nạp thành công ${DEFAULT_BLAO_PRODUCTS.length} món & ${DEFAULT_BLAO_CATEGORIES.length} danh mục chuẩn Trạm BLAO cho chi nhánh ${targetStore}!`);
     } catch (e) {
       console.error(e);
       alert("Lỗi khi nạp thực đơn chuẩn: " + errorMessage(e));

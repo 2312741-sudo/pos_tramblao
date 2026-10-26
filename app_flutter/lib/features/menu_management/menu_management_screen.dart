@@ -419,7 +419,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     final confirm = await showConfirmDialog(
       context,
       title: 'Nạp thực đơn Trạm BLAO',
-      message: 'Nạp toàn bộ 19 món & 6 danh mục chuẩn của Trạm BLAO vào chi nhánh $_selectedStoreCode?',
+      message: 'Nạp toàn bộ ${SeedData.defaultProducts.length} món & ${SeedData.defaultCategories.length} danh mục chuẩn của Trạm BLAO vào chi nhánh $_selectedStoreCode?',
       confirmText: 'Xác nhận nạp',
     );
     if (confirm != true) return;
@@ -435,7 +435,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Đã nạp thành công 19 món & 6 danh mục chuẩn Trạm BLAO!'),
+            content: Text('Đã nạp thành công ${SeedData.defaultProducts.length} món & ${SeedData.defaultCategories.length} danh mục chuẩn Trạm BLAO!'),
             backgroundColor: context.tc.success,
           ),
         );

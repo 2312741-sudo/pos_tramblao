@@ -49,6 +49,32 @@ class ProductModel {
     this.toppingGroupIds,
   });
 
+  /// Danh sách kích cỡ đã sắp xếp từ nhỏ nhất đến lớn nhất (theo phụ thu và tên kích cỡ chuẩn)
+  List<MapEntry<String, int>> get sortedSizes {
+    if (sizes.isEmpty) return const [];
+    final entries = sizes.entries.toList();
+    entries.sort((a, b) {
+      final priceComp = a.value.compareTo(b.value);
+      if (priceComp != 0) return priceComp;
+      int rank(String k) {
+        final s = k.trim().toLowerCase();
+        if (s.contains('nhỏ') || s == 's' || s.startsWith('s ') || s.contains('small')) return 1;
+        if (s.contains('vừa') || s == 'm' || s.startsWith('m ') || s.contains('medium')) return 2;
+        if (s.contains('lớn') || s.contains('to') || s == 'l' || s.startsWith('l ') || s.contains('large')) return 3;
+        if (s == 'xl' || s.startsWith('xl')) return 4;
+        return 5;
+      }
+      return rank(a.key).compareTo(rank(b.key));
+    });
+    return entries;
+  }
+
+  /// Kích cỡ mặc định (luôn là size nhỏ nhất)
+  String get defaultSmallestSize {
+    if (sizes.isEmpty) return 'Chuẩn';
+    return sortedSizes.first.key;
+  }
+
   String? get assetPath {
     if (imageResourceName == null || imageResourceName!.trim().isEmpty) {
       return null;

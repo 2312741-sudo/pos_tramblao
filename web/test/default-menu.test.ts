@@ -2,20 +2,19 @@ import { describe, it, expect } from "vitest";
 import { DEFAULT_BLAO_CATEGORIES, DEFAULT_BLAO_PRODUCTS } from "../lib/default-menu";
 
 describe("Thực đơn chuẩn Trạm BLAO", () => {
-  it("chứa đúng 6 danh mục theo thứ tự", () => {
-    expect(DEFAULT_BLAO_CATEGORIES).toHaveLength(6);
+  it("chứa đúng 5 danh mục theo thứ tự (không có nhóm Topping ảo)", () => {
+    expect(DEFAULT_BLAO_CATEGORIES).toHaveLength(5);
     expect(DEFAULT_BLAO_CATEGORIES.map((c) => c.name)).toEqual([
       "Trà Ô Long",
       "Bánh Lăn Nướng",
       "Món Đặc Biệt",
       "Combo Trà + Bánh",
       "Đồ Ăn Vặt",
-      "Topping",
     ]);
   });
 
-  it("chứa đầy đủ 19 món từ menu poster thực tế", () => {
-    expect(DEFAULT_BLAO_PRODUCTS).toHaveLength(19);
+  it("chứa đầy đủ 18 món từ menu poster thực tế (Thạch dừa là topping gắn kèm, không phải món độc lập)", () => {
+    expect(DEFAULT_BLAO_PRODUCTS).toHaveLength(18);
 
     // Không dùng ảnh quán Trạm cũ
     for (const p of DEFAULT_BLAO_PRODUCTS) {
@@ -65,11 +64,8 @@ describe("Thực đơn chuẩn Trạm BLAO", () => {
     expect(anVat.map((p) => p.name)).toContain("Bánh tráng");
     expect(anVat.map((p) => p.name)).toContain("Hạt hướng dương");
 
-    // Nhóm Topping (Thạch dừa 5K)
+    // Không còn nhóm Topping ảo độc lập
     const toppings = DEFAULT_BLAO_PRODUCTS.filter((p) => p.category === "Topping");
-    expect(toppings).toHaveLength(1);
-    expect(toppings[0].name).toBe("Thạch dừa");
-    expect(toppings[0].price).toBe(5000);
-    expect(toppings[0].isTopping).toBe(true);
+    expect(toppings).toHaveLength(0);
   });
 });
