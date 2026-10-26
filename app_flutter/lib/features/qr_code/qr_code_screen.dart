@@ -5,7 +5,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/services/firebase_service.dart';
 
 class QRCodeScreen extends StatelessWidget {
   final String tableName;
@@ -17,8 +19,31 @@ class QRCodeScreen extends StatelessWidget {
     required this.tableZone,
   });
 
-  String get _qrData =>
-      '${AppConstants.onlineOrderWebUrl}/?table=${Uri.encodeComponent(tableName)}&zone=${Uri.encodeComponent(tableZone)}';
+  String get _currentStoreCode {
+    final authStore = AuthService().currentStoreCode;
+    if (authStore.isNotEmpty) return authStore;
+    final fbStore = FirebaseService().currentStoreCode;
+    return fbStore.isNotEmpty ? fbStore : 'BLAO';
+  }
+
+  String get _qrData {
+    String cleanBase = AppConstants.onlineOrderWebUrl.trim();
+    while (cleanBase.endsWith('/')) {
+      cleanBase = cleanBase.substring(0, cleanBase.length - 1);
+    }
+    final path = cleanBase.endsWith('/order') ? cleanBase : '$cleanBase/order';
+    return '$path?table=${Uri.encodeComponent(tableName)}&zone=${Uri.encodeComponent(tableZone)}&store=${Uri.encodeComponent(_currentStoreCode)}';
+  }
+
+  void _share(BuildContext context) {
+    Clipboard.setData(ClipboardData(text: _qrData));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Link đã được sao chép vào clipboard!', style: GoogleFonts.beVietnamPro()),
+        backgroundColor: context.tc.cardElevated,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +51,7 @@ class QRCodeScreen extends StatelessWidget {
       backgroundColor: context.tc.background,
       appBar: AppBar(
         backgroundColor: context.tc.surface,
-        foregroundColor: context.tc.textPrimary, // nền sáng => icon/chữ tối (tránh trắng trên nền kem)
+        foregroundColor: context.tc.textPrimary,
         leading: IconButton(
           icon: Container(
             padding: const EdgeInsets.all(6),
@@ -80,7 +105,7 @@ class QRCodeScreen extends StatelessWidget {
                       Text('Bàn $tableName', style: GoogleFonts.beVietnamPro(
                         color: context.tc.textPrimary, fontWeight: FontWeight.w700, fontSize: 18,
                       )),
-                      Text(tableZone, style: GoogleFonts.beVietnamPro(
+                      Text('$tableZone • Chi nhánh: $_currentStoreCode', style: GoogleFonts.beVietnamPro(
                         color: context.tc.textSecondary, fontSize: 13,
                       )),
                     ],
@@ -94,43 +119,44 @@ class QRCodeScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              // QR luôn in trên nền trắng để máy quét đọc được ở mọi chế độ.
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
                   color: context.tc.primary.withValues(alpha: 0.15),
-                  blurRadius: 30,
+                  blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
               ],
             ),
             child: Column(
               children: [
-                QrImageView(
-                  data: _qrData,
-                  version: QrVersions.auto,
-                  size: 220,
-                  backgroundColor: Colors.white,
-                  errorCorrectionLevel: QrErrorCorrectLevel.H,
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.square,
-                    color: Color(0xFF0F1117),
-                  ),
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: Color(0xFF0F1117),
+                Center(
+                  child: QrImageView(
+                    data: _qrData,
+                    version: QrVersions.auto,
+                    size: 220,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: Colors.black87,
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: Colors.black87,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text('Bàn $tableName • $tableZone',
-                  style: GoogleFonts.beVietnamPro(
-                    color: const Color(0xFF0F1117),
-                    fontWeight: FontWeight.w600, fontSize: 14,
-                  ), textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                Text('Quét để đặt món tại bàn', style: GoogleFonts.beVietnamPro(
+                  color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 15,
+                )),
+                const SizedBox(height: 4),
+                Text('Hỗ trợ mọi ứng dụng quét mã', style: GoogleFonts.beVietnamPro(
+                  color: Colors.black54, fontSize: 12,
+                )),
               ],
             ),
-          ).animate().scale(delay: 200.ms, duration: 400.ms).fadeIn(),
+          ).animate(delay: 200.ms).fadeIn(duration: 400.ms),
           const SizedBox(height: 24),
           // URL display
           Container(
@@ -143,7 +169,7 @@ class QRCodeScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Đường dẫn', style: GoogleFonts.beVietnamPro(
+                Text('Đường dẫn gọi món', style: GoogleFonts.beVietnamPro(
                   color: context.tc.textSecondary, fontSize: 12,
                 )),
                 const SizedBox(height: 6),
@@ -176,9 +202,10 @@ class QRCodeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _Instruction('1. In mã QR và đặt lên bàn $tableName'),
-                const _Instruction('2. Khách hàng quét mã bằng camera điện thoại'),
-                const _Instruction('3. Khách có thể đặt món hoặc gọi nhân viên'),
-                const _Instruction('4. Đơn sẽ hiện trong mục "Đơn online"'),
+                const _Instruction('2. Khách hàng quét mã bằng camera điện thoại để xem menu & gọi món'),
+                const _Instruction('3. Khách có thể tùy chỉnh size, topping, đường/đá, gọi nhân viên'),
+                const _Instruction('4. Khi khách gửi đơn, POS báo chuông và hiển thị trong mục "Đơn online"'),
+                const _Instruction('5. Thu ngân bấm "Xác nhận", món tự động đồng bộ vào bàn & chuyển xuống bếp'),
               ],
             ),
           ).animate().fadeIn(delay: 400.ms),
@@ -222,16 +249,6 @@ class QRCodeScreen extends StatelessWidget {
             ],
           ).animate().fadeIn(delay: 500.ms),
         ],
-      ),
-    );
-  }
-
-  void _share(BuildContext context) {
-    Clipboard.setData(ClipboardData(text: _qrData));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Link đã được sao chép vào clipboard!', style: GoogleFonts.beVietnamPro()),
-        backgroundColor: context.tc.cardElevated,
       ),
     );
   }

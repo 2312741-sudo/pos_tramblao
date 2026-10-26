@@ -7,4 +7,5 @@ ios/.symlinks/
 node_modules/
 .next/
 dist/
+.firebase/
 *.log

@@ -19,6 +19,7 @@ class AppConstants {
   static const String prefBankId = 'BANK_ID';
   static const String prefBankAccount = 'BANK_ACCOUNT';
   static const String prefAccountName = 'ACCOUNT_NAME';
+  static const String prefQrOrderBaseUrl = 'QR_ORDER_BASE_URL';
 
   // Default values
   static const String defaultPrinterIp = '192.168.1.100';
