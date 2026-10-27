@@ -15,8 +15,8 @@ import '../auth/delete_account_dialog.dart';
 class AboutAppScreen extends StatelessWidget {
   const AboutAppScreen({super.key});
 
-  static const String appVersion = '1.0.0';
-  static const String appBuild = '1';
+  static const String appVersion = '1.0.1';
+  static const String appBuild = '2';
   static const String slogan = 'Trạm trà - Trạm bánh';
   static const String bundleId = 'com.tramblao.pos';
   static const String teamId = 'W97CS7VC54';
