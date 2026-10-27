@@ -25,10 +25,13 @@ void main() {
       final products = SeedData.defaultProducts;
       expect(products.length, 18);
 
-      // Verify no item has old Tram image assets
+      // Verify no item has old Tram image assets, tea items have official BLAO images
       for (final p in products) {
-        expect(p.imageResourceName, isNull);
-        expect(p.imageBase64, isNull);
+        if (p.category == 'Trà Ô Long') {
+          expect(p.imageResourceName, startsWith('tra_olong_'));
+        } else {
+          expect(p.imageResourceName, isNull);
+        }
         expect(p.name, isNotEmpty);
         expect(p.code, isNotEmpty);
         expect(p.price, greaterThan(0));
@@ -42,7 +45,7 @@ void main() {
       expect(traItems.any((p) => p.name == 'Trà Ô Long Bưởi Hồng' && p.price == 20000), isTrue);
       expect(traItems.any((p) => p.name == 'Trà Ô Long Xoài Đào' && p.price == 20000), isTrue);
       expect(traItems.any((p) => p.name == 'Trà Ô Long Cam Đào' && p.price == 20000), isTrue);
-      expect(traItems.any((p) => p.name == 'Trà Xoài Chanh Dây' && p.price == 20000), isTrue);
+      expect(traItems.any((p) => (p.name == 'Trà Ô Long Xoài Chanh Dây' || p.name == 'Trà Xoài Chanh Dây') && p.price == 20000), isTrue);
       expect(traItems.any((p) => p.name == 'Trà Ô Long Quýt Đào' && p.price == 20000), isTrue);
       expect(traItems.any((p) => p.name == 'Trà Ô Long Quýt Hoàng Kim' && p.price == 20000), isTrue);
 

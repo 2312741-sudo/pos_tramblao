@@ -33,7 +33,7 @@ describe("Thực đơn chuẩn Trạm BLAO", () => {
       "Trà Ô Long Bưởi Hồng",
       "Trà Ô Long Xoài Đào",
       "Trà Ô Long Cam Đào",
-      "Trà Xoài Chanh Dây",
+      "Trà Ô Long Xoài Chanh Dây",
       "Trà Ô Long Quýt Đào",
       "Trà Ô Long Quýt Hoàng Kim",
     ]);

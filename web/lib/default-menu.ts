@@ -25,6 +25,7 @@ export interface DefaultProductItem {
   price: number;
   unit: string;
   category: string;
+  imageResourceName?: string;
   hasIceSugarOptions?: boolean;
   allowedToppings?: string[];
   sizes?: Record<string, number>;
@@ -48,6 +49,7 @@ export const DEFAULT_BLAO_PRODUCTS: DefaultProductItem[] = [
     price: 15000,
     unit: "Ly",
     category: "Trà Ô Long",
+    imageResourceName: "tra_olong_chanh_tuoi.jpg",
     hasIceSugarOptions: true,
     allowedToppings: ["Thạch dừa"],
   },
@@ -58,6 +60,7 @@ export const DEFAULT_BLAO_PRODUCTS: DefaultProductItem[] = [
     price: 20000,
     unit: "Ly",
     category: "Trà Ô Long",
+    imageResourceName: "tra_olong_chanh_dao.jpg",
     hasIceSugarOptions: true,
     allowedToppings: ["Thạch dừa"],
   },
@@ -68,6 +71,7 @@ export const DEFAULT_BLAO_PRODUCTS: DefaultProductItem[] = [
     price: 20000,
     unit: "Ly",
     category: "Trà Ô Long",
+    imageResourceName: "tra_olong_buoi_hong.jpg",
     hasIceSugarOptions: true,
     allowedToppings: ["Thạch dừa"],
   },
@@ -78,6 +82,7 @@ export const DEFAULT_BLAO_PRODUCTS: DefaultProductItem[] = [
     price: 20000,
     unit: "Ly",
     category: "Trà Ô Long",
+    imageResourceName: "tra_olong_xoai_dao.jpg",
     hasIceSugarOptions: true,
     allowedToppings: ["Thạch dừa"],
   },
@@ -88,16 +93,18 @@ export const DEFAULT_BLAO_PRODUCTS: DefaultProductItem[] = [
     price: 20000,
     unit: "Ly",
     category: "Trà Ô Long",
+    imageResourceName: "tra_olong_cam_dao.jpg",
     hasIceSugarOptions: true,
     allowedToppings: ["Thạch dừa"],
   },
   {
     id: 6,
     code: "TRA06",
-    name: "Trà Xoài Chanh Dây",
+    name: "Trà Ô Long Xoài Chanh Dây",
     price: 20000,
     unit: "Ly",
     category: "Trà Ô Long",
+    imageResourceName: "tra_olong_xoai_chanh_day.jpg",
     hasIceSugarOptions: true,
     allowedToppings: ["Thạch dừa"],
   },
@@ -108,6 +115,7 @@ export const DEFAULT_BLAO_PRODUCTS: DefaultProductItem[] = [
     price: 20000,
     unit: "Ly",
     category: "Trà Ô Long",
+    imageResourceName: "tra_olong_quyt_dao.jpg",
     hasIceSugarOptions: true,
     allowedToppings: ["Thạch dừa"],
   },
@@ -118,6 +126,7 @@ export const DEFAULT_BLAO_PRODUCTS: DefaultProductItem[] = [
     price: 20000,
     unit: "Ly",
     category: "Trà Ô Long",
+    imageResourceName: "tra_olong_quyt_hoang_kim.jpg",
     hasIceSugarOptions: true,
     allowedToppings: ["Thạch dừa"],
   },
