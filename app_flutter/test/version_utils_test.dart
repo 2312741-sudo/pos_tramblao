@@ -38,7 +38,7 @@ void main() {
         'updateMessage': 'Bản nâng cấp ổn định hệ thống',
         'updateUrlIos': 'https://apps.apple.com/app/id123456',
         'updateUrlAndroid': 'https://play.google.com/store/apps/details?id=com.tramblao.pos',
-        'updateUrl': 'https://pos-tram.vercel.app',
+        'updateUrl': 'https://pos-tramblao.vercel.app',
       };
 
       final model = AppVersionControlModel.fromMap(map);
@@ -53,7 +53,7 @@ void main() {
       expect(model.latestVersion, '1.0.0');
       expect(model.minimumRequiredVersion, '1.0.0');
       expect(model.updateMessage, isNotEmpty);
-      expect(model.updateUrl, 'https://pos-tram.vercel.app');
+      expect(model.updateUrl, 'https://pos-tramblao.vercel.app');
     });
   });
 }

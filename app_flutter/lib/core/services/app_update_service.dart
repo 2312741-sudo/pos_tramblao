@@ -37,13 +37,13 @@ class AppVersionControlModel {
           'https://apps.apple.com/app/id6742385802',
       updateUrlAndroid: data['updateUrlAndroid']?.toString() ??
           'https://play.google.com/store/apps/details?id=com.tramblao.pos',
-      updateUrl: data['updateUrl']?.toString() ?? 'https://pos-tram.vercel.app',
+      updateUrl: data['updateUrl']?.toString() ?? 'https://pos-tramblao.vercel.app',
     );
   }
 
   String get targetStoreUrl {
     if (kIsWeb) {
-      return updateUrl ?? 'https://pos-tram.vercel.app';
+      return updateUrl ?? 'https://pos-tramblao.vercel.app';
     }
     if (Platform.isIOS) {
       return updateUrlIos ?? updateUrl ?? 'https://apps.apple.com/app/id6742385802';
@@ -51,7 +51,7 @@ class AppVersionControlModel {
     if (Platform.isAndroid) {
       return updateUrlAndroid ?? updateUrl ?? 'https://play.google.com/store/apps/details?id=com.tramblao.pos';
     }
-    return updateUrl ?? 'https://pos-tram.vercel.app';
+    return updateUrl ?? 'https://pos-tramblao.vercel.app';
   }
 }
 

@@ -9,7 +9,7 @@ export const LEGAL = {
   author: "Nguyễn Thanh Tâm",
   copyright: "© 2026 Nguyễn Thanh Tâm",
   effectiveDate: "12/10/2026",
-  host: "pos-tram.vercel.app",
+  host: "pos-tramblao.vercel.app",
   hotline: "0865.062.205",
   hotlineTel: "tel:0865062205",
   contactEmail: (process.env.NEXT_PUBLIC_PRIVACY_EMAIL || "nthanhtam.402@gmail.com").trim(),

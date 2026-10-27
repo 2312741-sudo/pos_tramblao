@@ -23,12 +23,12 @@ class AboutAppScreen extends StatelessWidget {
   static const String hotline = '0865.062.205';
   static const String hotlineRaw = '0865062205';
   static const String supportEmail = 'nthanhtam.402@gmail.com';
-  static const String websiteUrl = 'https://pos-tram.vercel.app';
-  static const String supportUrl = 'https://pos-tram.vercel.app/support';
-  static const String marketingUrl = 'https://pos-tram.vercel.app/marketing';
-  static const String privacyUrl = 'https://pos-tram.vercel.app/privacy';
-  static const String privacyChoicesUrl = 'https://pos-tram.vercel.app/privacy-choices';
-  static const String deleteAccountUrl = 'https://pos-tram.vercel.app/delete-account';
+  static const String websiteUrl = 'https://pos-tramblao.vercel.app';
+  static const String supportUrl = 'https://pos-tramblao.vercel.app/support';
+  static const String marketingUrl = 'https://pos-tramblao.vercel.app/marketing';
+  static const String privacyUrl = 'https://pos-tramblao.vercel.app/privacy';
+  static const String privacyChoicesUrl = 'https://pos-tramblao.vercel.app/privacy-choices';
+  static const String deleteAccountUrl = 'https://pos-tramblao.vercel.app/delete-account';
   static const String copyrightOwner = 'Nguyễn Thanh Tâm';
   static const String copyright = '© 2026 Nguyễn Thanh Tâm';
 
