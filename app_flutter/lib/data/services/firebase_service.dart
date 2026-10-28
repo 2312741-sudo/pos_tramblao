@@ -201,6 +201,33 @@ class FirebaseService {
 
   Future<void> saveTable(TableModel table) => _orderRepo.saveTable(table);
 
+  Future<({TableModel targetTable, bool wasSplit, String? occupiedBy})> claimOrSplitTableForOrdering(
+    TableModel requestedTable, {
+    Iterable<TableModel>? knownTables,
+    required String staffUsername,
+    required String staffName,
+  }) =>
+      _orderRepo.claimOrSplitTableForOrdering(
+        requestedTable,
+        knownTables: knownTables,
+        staffUsername: staffUsername,
+        staffName: staffName,
+      );
+
+  Future<void> releaseTableOrderingClaim(TableModel table, {String? staffUsername}) =>
+      _orderRepo.releaseTableOrderingClaim(table, staffUsername: staffUsername);
+
+  Future<({TableModel savedTable, bool wasSplit})> saveTableOrderSafe(
+    TableModel table, {
+    required String? sessionBillId,
+    required bool isNewOrderSession,
+  }) =>
+      _orderRepo.saveTableOrderSafe(
+        table,
+        sessionBillId: sessionBillId,
+        isNewOrderSession: isNewOrderSession,
+      );
+
   Future<void> deleteTable(TableModel table) => _orderRepo.deleteTable(table);
 
   Future<void> mergeTables(TableModel sourceTable, TableModel targetTable, {String? staffName, String? staffUsername}) =>
@@ -208,6 +235,27 @@ class FirebaseService {
 
   Future<void> transferTable(TableModel sourceTable, TableModel targetTable, {String? staffName, String? staffUsername}) =>
       _orderRepo.transferTable(sourceTable, targetTable, staffName: staffName, staffUsername: staffUsername);
+
+  Future<({TableModel updatedSource, TableModel updatedTarget})> splitTableItems({
+    required TableModel sourceTable,
+    required List<OrderItemModel> splitItems,
+    required List<OrderItemModel> remainingItems,
+    required TableModel targetTable,
+    required bool mergeIntoTarget,
+    String? staffUsername,
+    String? staffName,
+    String? staffRole,
+  }) =>
+      _orderRepo.splitTableItems(
+        sourceTable: sourceTable,
+        splitItems: splitItems,
+        remainingItems: remainingItems,
+        targetTable: targetTable,
+        mergeIntoTarget: mergeIntoTarget,
+        staffUsername: staffUsername,
+        staffName: staffName,
+        staffRole: staffRole,
+      );
 
   // ==================== BILLS ====================
   Stream<List<BillModel>> billsStream() => _orderRepo.billsStream();
