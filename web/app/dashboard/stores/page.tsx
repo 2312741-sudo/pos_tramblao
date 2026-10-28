@@ -22,6 +22,7 @@ import { useDashboardData, StoreItem } from "@/lib/data-context";
 import { useAuth } from "@/lib/auth";
 
 const BANK_OPTIONS = [
+  { id: "momo", name: "MoMo (QR Thế hệ 2.0 / Loa MoMo)" },
   { id: "MB", name: "MB Bank (Quân Đội)" },
   { id: "VCB", name: "Vietcombank" },
   { id: "TCB", name: "Techcombank" },

@@ -20,6 +20,7 @@ class VietQrGenerator {
 
   /// Danh sách các ngân hàng phổ biến tại Việt Nam
   static const List<Map<String, String>> popularBanks = [
+    {'id': 'momo', 'name': 'MoMo (QR Thế hệ 2.0 / Loa MoMo)'},
     {'id': 'MB', 'name': 'MB Bank (Quân Đội)'},
     {'id': 'VCB', 'name': 'Vietcombank'},
     {'id': 'TCB', 'name': 'Techcombank'},

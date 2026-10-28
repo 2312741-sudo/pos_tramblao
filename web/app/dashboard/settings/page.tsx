@@ -7,6 +7,7 @@ import { useAuth, canAccessRoute } from "@/lib/auth";
 import { businessDateOf, formatMinutesAsTime, normalizeBusinessDayStart, parseTimeToMinutes } from "@/lib/business-day";
 
 const BANK_OPTIONS = [
+  { id: "momo", name: "MoMo (QR Thế hệ 2.0 / Loa MoMo)" },
   { id: "MB", name: "MB Bank (Quân Đội)" },
   { id: "VCB", name: "Vietcombank" },
   { id: "TCB", name: "Techcombank" },
