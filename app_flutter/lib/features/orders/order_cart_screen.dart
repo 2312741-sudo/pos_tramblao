@@ -361,9 +361,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         removeQty: qty,
       );
 
-  /// Cổng hủy món đã gửi bếp: quyền CANCEL_KITCHEN_ITEM hoặc Quản lý duyệt bằng PIN.
+  /// Cổng hủy món đã gửi bếp: quyền CANCEL_KITCHEN_ITEM hoặc quyền DELETE_ITEM (nhân viên được xóa món trong bàn),
+  /// hoặc Quản lý duyệt bằng PIN.
   Future<bool> _ensureCanCancelKitchenItem(OrderItemModel item) async {
-    if (!item.isSentKitchen || _auth.can(AppPermissions.cancelKitchenItem)) return true;
+    if (!item.isSentKitchen || _auth.can(AppPermissions.cancelKitchenItem) || _auth.can(AppPermissions.deleteItem)) return true;
     final approval = await showManagerApprovalDialog(
       context,
       action: ManagerApprovalAction.cancelKitchenItem,
@@ -789,7 +790,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     }
 
     final hasKitchen = _cart.any((i) => i.isSentKitchen);
-    if (hasKitchen && !_auth.can(AppPermissions.cancelBill) && !_auth.can(AppPermissions.cancelKitchenItem)) {
+    if (hasKitchen && !_auth.can(AppPermissions.cancelBill) && !_auth.can(AppPermissions.cancelKitchenItem) && !_auth.can(AppPermissions.deleteItem)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('⚠️ Bạn không có quyền hủy hóa đơn đã gửi bếp! Vui lòng liên hệ Quản Lý.'),
@@ -1374,10 +1375,11 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     };
 
     // 3 chế độ xử lý phần món được tách:
-    // - 'PAY_NOW': Thanh toán trước ngay phần món tách (tạo bàn phụ tạm & mở màn hình thu tiền ngay)
+    // - 'PAY_NOW': Thanh toán trước ngay phần món tách (chốt HĐ PAID ngay, cộng vào doanh thu & xuất hóa đơn)
     // - 'TRANSFER': Chuyển sang bàn trống khác (hoặc tạo bàn phụ mới trên sơ đồ bàn)
     // - 'MERGE': Ghép phần món tách vào bàn đang có khách khác
     String splitAction = 'PAY_NOW';
+    String splitPayMethod = 'CASH';
     String selectedTransferKey = newSplitTableKey;
     String? selectedMergeKey = inUseTables.isNotEmpty ? inUseTables.first.firebaseKey : null;
     bool isSubmitting = false;
@@ -1417,8 +1419,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           String confirmLabel;
           if (splitAction == 'PAY_NOW') {
             confirmLabel = totalSplitParts > 0
-                ? 'Thanh Toán Trước (${FormatUtils.vnd(totalSplitAmount)})'
-                : 'Thanh Toán Trước';
+                ? 'Thanh Toán & Xuất HĐ (${FormatUtils.vnd(totalSplitAmount)})'
+                : 'Thanh Toán & Xuất HĐ';
           } else if (splitAction == 'TRANSFER') {
             final targetLabel = selectedTransferKey == newSplitTableKey
                 ? nextSplitName
@@ -1429,6 +1431,16 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 inUseTables.where((t) => t.firebaseKey == selectedMergeKey).firstOrNull?.name ?? 'Bàn Khác';
             confirmLabel = 'Ghép Vào $targetLabel';
           }
+
+          final splitQrUrl = (splitAction == 'PAY_NOW' && splitPayMethod == 'TRANSFER_QR' && totalSplitAmount > 0)
+              ? VietQrGenerator.generateImageUrl(
+                  bankId: _storeInfo?.bankId ?? 'MB',
+                  bankAccount: _storeInfo?.bankAccount ?? '0987654321',
+                  accountName: _storeInfo?.accountName ?? 'CHU QUAN FNB',
+                  amount: totalSplitAmount,
+                  orderInfo: '${_storeInfo?.storeCode ?? "TRAM"}_${widget.table.name}_TACH',
+                )
+              : '';
 
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1622,29 +1634,114 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                           ),
                           color: splitAction == 'PAY_NOW' ? context.tc.primary.withValues(alpha: 0.06) : null,
                         ),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              splitAction == 'PAY_NOW' ? Icons.radio_button_checked : Icons.radio_button_off,
-                              color: splitAction == 'PAY_NOW' ? context.tc.primary : context.tc.textSecondary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Thanh toán trước phần món này',
-                                    style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w700, fontSize: 13),
+                            Row(
+                              children: [
+                                Icon(
+                                  splitAction == 'PAY_NOW' ? Icons.radio_button_checked : Icons.radio_button_off,
+                                  color: splitAction == 'PAY_NOW' ? context.tc.primary : context.tc.textSecondary,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Thanh toán trước phần món này',
+                                        style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w700, fontSize: 13),
+                                      ),
+                                      Text(
+                                        'Chốt hóa đơn ĐÃ THANH TOÁN ngay, tính vào doanh thu & xuất bill',
+                                        style: GoogleFonts.beVietnamPro(fontSize: 11, color: context.tc.textSecondary),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    'Tách sang đơn riêng ($nextSplitName) và mở ngay màn hình thu tiền',
-                                    style: GoogleFonts.beVietnamPro(fontSize: 11, color: context.tc.textSecondary),
+                                ),
+                              ],
+                            ),
+                            if (splitAction == 'PAY_NOW') ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: splitPayMethod == 'CASH'
+                                            ? context.tc.primary.withValues(alpha: 0.14)
+                                            : context.tc.card,
+                                        side: BorderSide(
+                                          color: splitPayMethod == 'CASH' ? context.tc.primary : context.tc.border,
+                                          width: splitPayMethod == 'CASH' ? 1.6 : 1,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                      ),
+                                      onPressed: () => setDlgState(() => splitPayMethod = 'CASH'),
+                                      icon: Icon(
+                                        Icons.payments_outlined,
+                                        size: 16,
+                                        color: splitPayMethod == 'CASH' ? context.tc.primary : context.tc.textSecondary,
+                                      ),
+                                      label: Text(
+                                        'Tiền mặt',
+                                        style: GoogleFonts.beVietnamPro(
+                                          fontSize: 12,
+                                          fontWeight: splitPayMethod == 'CASH' ? FontWeight.w700 : FontWeight.w600,
+                                          color: splitPayMethod == 'CASH' ? context.tc.primary : context.tc.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: splitPayMethod == 'TRANSFER_QR'
+                                            ? context.tc.primary.withValues(alpha: 0.14)
+                                            : context.tc.card,
+                                        side: BorderSide(
+                                          color: splitPayMethod == 'TRANSFER_QR' ? context.tc.primary : context.tc.border,
+                                          width: splitPayMethod == 'TRANSFER_QR' ? 1.6 : 1,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                      ),
+                                      onPressed: () => setDlgState(() => splitPayMethod = 'TRANSFER_QR'),
+                                      icon: Icon(
+                                        Icons.qr_code_2_outlined,
+                                        size: 16,
+                                        color: splitPayMethod == 'TRANSFER_QR'
+                                            ? context.tc.primary
+                                            : context.tc.textSecondary,
+                                      ),
+                                      label: Text(
+                                        'Chuyển khoản QR',
+                                        style: GoogleFonts.beVietnamPro(
+                                          fontSize: 12,
+                                          fontWeight: splitPayMethod == 'TRANSFER_QR' ? FontWeight.w700 : FontWeight.w600,
+                                          color: splitPayMethod == 'TRANSFER_QR'
+                                              ? context.tc.primary
+                                              : context.tc.textPrimary,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
+                              if (splitPayMethod == 'TRANSFER_QR' && totalSplitAmount > 0) ...[
+                                const SizedBox(height: 8),
+                                Center(
+                                  child: VietQrImage(
+                                    url: splitQrUrl,
+                                    height: 190,
+                                    amount: totalSplitAmount,
+                                    bankInfo:
+                                        '${_storeInfo?.bankId} • ${_storeInfo?.bankAccount} • ${_storeInfo?.accountName}',
+                                  ),
+                                ),
+                              ],
+                            ],
                           ],
                         ),
                       ),
@@ -1855,36 +1952,98 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                           return;
                         }
 
-                        TableModel targetTable;
-                        bool mergeIntoTarget = false;
-                        if (splitAction == 'PAY_NOW' ||
-                            (splitAction == 'TRANSFER' && selectedTransferKey == newSplitTableKey)) {
-                          targetTable = TableModel(
-                            name: nextSplitName,
-                            zone: widget.table.zone,
-                            capacity: widget.table.capacity,
-                            isSplitTable: true,
-                          );
-                        } else if (splitAction == 'TRANSFER') {
-                          targetTable = emptyTables.firstWhere(
-                            (t) => t.firebaseKey == selectedTransferKey,
-                            orElse: () => TableModel(
-                              name: nextSplitName,
-                              zone: widget.table.zone,
-                              capacity: widget.table.capacity,
-                              isSplitTable: true,
-                            ),
-                          );
-                        } else {
-                          targetTable = inUseTables.firstWhere((t) => t.firebaseKey == selectedMergeKey);
-                          mergeIntoTarget = true;
-                        }
-
                         final staffName = _auth.currentUser?.fullName ?? 'Thu Ngân';
                         final staffUser = _auth.currentUser?.username ?? 'staff';
                         final staffRole = _auth.currentUser?.roleId ?? 'ROLE_STAFF';
 
                         try {
+                          if (splitAction == 'PAY_NOW') {
+                            if (!await _ensureShiftOpen()) {
+                              if (ctx.mounted) setDlgState(() => isSubmitting = false);
+                              return;
+                            }
+                            String? currentShiftId = _fb.activeShiftCache?.id;
+                            if (currentShiftId == null) {
+                              try {
+                                final shift = await _fb.getCurrentOpenShift();
+                                currentShiftId = shift?.id;
+                              } catch (_) {}
+                            }
+
+                            final res = await _fb.paySplitItemsNow(
+                              sourceTable: widget.table,
+                              splitItems: splitItems,
+                              remainingItems: remainingItems,
+                              paymentMethod: splitPayMethod,
+                              shiftId: currentShiftId,
+                              staffUid: _auth.currentUid,
+                              staffUsername: staffUser,
+                              staffFullName: staffName,
+                              staffRole: staffRole,
+                              pointEarnRate: _storeInfo?.pointEarnRate,
+                              pointRedeemRate: _storeInfo?.pointRedeemRate,
+                            );
+
+                            _fireBackgroundPaymentTasks(
+                              res.paidBill,
+                              splitPayMethod,
+                              shouldPrint: _autoPrintBill,
+                            );
+
+                            if (mounted) {
+                              setState(() {
+                                _cart = remainingItems;
+                              });
+                              _recalculateDiscounts();
+                            }
+
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (!mounted) return;
+
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '🎉 Đã thanh toán trước $totalSplitParts phần (${FormatUtils.vnd(totalSplitAmount)}) • Mã HĐ: ${res.paidBill.billCode}!${_autoPrintBill ? " (Đang in bill)" : ""}',
+                                ),
+                                backgroundColor: AppColors.success,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+
+                            if (remainingItems.isEmpty) {
+                              if (widget.returnToParentOnPay && Navigator.of(this.context).canPop()) {
+                                Navigator.of(this.context).pop(true);
+                              } else {
+                                this.context.go('/tables');
+                              }
+                            }
+                            return;
+                          }
+
+                          TableModel targetTable;
+                          bool mergeIntoTarget = false;
+                          if (splitAction == 'TRANSFER' && selectedTransferKey == newSplitTableKey) {
+                            targetTable = TableModel(
+                              name: nextSplitName,
+                              zone: widget.table.zone,
+                              capacity: widget.table.capacity,
+                              isSplitTable: true,
+                            );
+                          } else if (splitAction == 'TRANSFER') {
+                            targetTable = emptyTables.firstWhere(
+                              (t) => t.firebaseKey == selectedTransferKey,
+                              orElse: () => TableModel(
+                                name: nextSplitName,
+                                zone: widget.table.zone,
+                                capacity: widget.table.capacity,
+                                isSplitTable: true,
+                              ),
+                            );
+                          } else {
+                            targetTable = inUseTables.firstWhere((t) => t.firebaseKey == selectedMergeKey);
+                            mergeIntoTarget = true;
+                          }
+
                           final planned = await _fb.splitTableItems(
                             sourceTable: widget.table,
                             splitItems: splitItems,
@@ -1906,36 +2065,17 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                           if (ctx.mounted) Navigator.pop(ctx);
                           if (!mounted) return;
 
-                          if (splitAction == 'PAY_NOW') {
-                            // Mở ngay màn hình đơn của bàn tách và tự bật bảng Thanh toán
-                            if (remainingItems.isEmpty) {
-                              this.context.pushReplacement('/order-cart', extra: {
-                                'table': planned.updatedTarget,
-                                'products': planned.updatedTarget.currentItems,
-                                'autoOpenCheckout': true,
-                                'returnToParentOnPay': false,
-                              });
-                            } else {
-                              this.context.push('/order-cart', extra: {
-                                'table': planned.updatedTarget,
-                                'products': planned.updatedTarget.currentItems,
-                                'autoOpenCheckout': true,
-                                'returnToParentOnPay': true,
-                              });
-                            }
-                          } else {
-                            final actionVerb = mergeIntoTarget ? 'tách & ghép' : 'tách & chuyển';
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Đã $actionVerb $totalSplitParts phần (${FormatUtils.vnd(totalSplitAmount)}) sang bàn ${planned.updatedTarget.name}!',
-                                ),
-                                backgroundColor: AppColors.success,
+                          final actionVerb = mergeIntoTarget ? 'tách & ghép' : 'tách & chuyển';
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Đã $actionVerb $totalSplitParts phần (${FormatUtils.vnd(totalSplitAmount)}) sang bàn ${planned.updatedTarget.name}!',
                               ),
-                            );
-                            if (remainingItems.isEmpty) {
-                              this.context.go('/tables');
-                            }
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                          if (remainingItems.isEmpty) {
+                            this.context.go('/tables');
                           }
                         } catch (e) {
                           if (ctx.mounted) {
@@ -2821,6 +2961,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
           int calcToppingPrice = 0;
@@ -2831,55 +2972,80 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           final int totalPrice = unitPrice * item.quantity;
 
           return Padding(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
-            child: SingleChildScrollView(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.88,
+              ),
+              decoration: BoxDecoration(
+                color: context.tc.card,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(color: context.tc.border, borderRadius: BorderRadius.circular(2)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
+                  // 1. PINNED HEADER (Drag handle, Name, Price, Close)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(color: context.tc.border, borderRadius: BorderRadius.circular(2)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Chỉnh sửa: ${item.name}',
-                              style: GoogleFonts.beVietnamPro(fontSize: 17, fontWeight: FontWeight.bold),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Chỉnh sửa: ${item.name}',
+                                    style: GoogleFonts.beVietnamPro(fontSize: 17, fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    'Đơn giá gốc: ${FormatUtils.vnd(item.price)} • Số lượng: x${item.quantity}',
+                                    style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textSecondary),
+                                  ),
+                                ],
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             Text(
-                              'Đơn giá gốc: ${FormatUtils.vnd(item.price)} • Số lượng: x${item.quantity}',
-                              style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textSecondary),
+                              FormatUtils.vnd(unitPrice),
+                              style: GoogleFonts.beVietnamPro(fontSize: 16, fontWeight: FontWeight.bold, color: context.tc.primary),
+                            ),
+                            const SizedBox(width: 6),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 22),
+                              tooltip: 'Đóng',
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => Navigator.pop(ctx),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        FormatUtils.vnd(unitPrice),
-                        style: GoogleFonts.beVietnamPro(fontSize: 16, fontWeight: FontWeight.bold, color: context.tc.primary),
-                      ),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 22),
-                        tooltip: 'Đóng',
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
+                        const Divider(height: 20),
+                      ],
+                    ),
                   ),
-                  const Divider(height: 24),
+
+                  // 2. SCROLLABLE OPTIONS BODY
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
 
                   // 1. SIZE SELECTION (if original product has sizes)
                   if (hasSizes) ...[
@@ -3084,53 +3250,74 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       }).toList(),
                     );
                   }),
-                  const SizedBox(height: 20),
-
-                  // 5. SAVE BUTTON
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: context.tc.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          const SizedBox(height: 16),
+                        ],
                       ),
-                      onPressed: () async {
-                        setState(() {
-                          final targetIndices = (syncIndices != null && syncIndices.isNotEmpty) ? syncIndices : [index];
-                          for (final idx in targetIndices) {
-                            if (idx < _cart.length) {
-                              _cart[idx] = _cart[idx].copyWith(
-                                note: noteCtrl.text.trim(),
-                                selectedToppings: selectedToppings,
-                                toppingPrice: calcToppingPrice,
-                                selectedSize: selectedSize,
-                                sizeExtraPrice: sizeExtra,
-                                selectedSugar: isDrinkOrTea ? selectedSugar : '',
-                                selectedIce: isDrinkOrTea ? selectedIce : '',
+                    ),
+                  ),
+
+                  // 3. PINNED BOTTOM ACTION BAR
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                    decoration: BoxDecoration(
+                      color: context.tc.card,
+                      border: Border(top: BorderSide(color: context.tc.borderLight)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, -3),
+                        ),
+                      ],
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: context.tc.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () async {
+                            setState(() {
+                              final targetIndices = (syncIndices != null && syncIndices.isNotEmpty) ? syncIndices : [index];
+                              for (final idx in targetIndices) {
+                                if (idx < _cart.length) {
+                                  _cart[idx] = _cart[idx].copyWith(
+                                    note: noteCtrl.text.trim(),
+                                    selectedToppings: selectedToppings,
+                                    toppingPrice: calcToppingPrice,
+                                    selectedSize: selectedSize,
+                                    sizeExtraPrice: sizeExtra,
+                                    selectedSugar: isDrinkOrTea ? selectedSugar : '',
+                                    selectedIce: isDrinkOrTea ? selectedIce : '',
+                                  );
+                                }
+                              }
+                            });
+
+                            widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
+                            await _fb.saveTable(widget.table).catchError((_) {});
+                            _recalculateDiscounts();
+
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Đã cập nhật ghi chú & tùy chọn món thành công! ✨'),
+                                  backgroundColor: AppColors.success,
+                                  duration: Duration(seconds: 2),
+                                ),
                               );
                             }
-                          }
-                        });
-
-                        widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
-                        await _fb.saveTable(widget.table).catchError((_) {});
-                        _recalculateDiscounts();
-
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) {
-                          ScaffoldMessenger.of(this.context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Đã cập nhật ghi chú & tùy chọn món thành công! ✨'),
-                              backgroundColor: AppColors.success,
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                      child: Text(
-                        'Lưu thay đổi • ${FormatUtils.vnd(totalPrice)}',
-                        style: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                          },
+                          child: Text(
+                            'Lưu thay đổi • ${FormatUtils.vnd(totalPrice)}',
+                            style: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ),
                       ),
                     ),
                   ),

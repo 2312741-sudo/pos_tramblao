@@ -446,12 +446,6 @@ class _TableListScreenState extends State<TableListScreen> {
                 ),
                 onPressed: () => context.go('/manager-hub'),
               ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.dashboard_outlined),
-              tooltip: 'Tổng quan / Báo cáo',
-              onPressed: () => context.push('/dashboard'),
             ),
         ],
       ),
@@ -1273,7 +1267,7 @@ class _TableListScreenState extends State<TableListScreen> {
     }
 
     final hasKitchen = table.currentItems.any((i) => i.isSentKitchen);
-    if (hasKitchen && !_auth.can(AppPermissions.cancelBill) && !_auth.can(AppPermissions.cancelKitchenItem)) {
+    if (hasKitchen && !_auth.can(AppPermissions.cancelBill) && !_auth.can(AppPermissions.cancelKitchenItem) && !_auth.can(AppPermissions.deleteItem)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
