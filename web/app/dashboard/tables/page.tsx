@@ -2576,41 +2576,56 @@ function TablesPageContent() {
                     <div
                       style={{
                         marginTop: "12px",
-                        padding: "12px 14px",
-                        borderRadius: "12px",
+                        padding: "16px",
+                        borderRadius: "14px",
                         background: "var(--surface-muted)",
                         border: "1.5px dashed var(--success)",
                         display: "flex",
+                        flexDirection: "column",
                         alignItems: "center",
-                        gap: "14px",
+                        textAlign: "center",
+                        gap: "12px",
                       }}
                     >
-                      <Image
-                        src={qrUrl}
-                        alt="Mã VietQR thanh toán"
-                        width={90}
-                        height={90}
-                        unoptimized
+                      <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--success)" }}>
+                        Quét mã VietQR để thanh toán
+                      </div>
+                      <div
                         style={{
-                          width: "90px",
-                          height: "90px",
-                          borderRadius: "8px",
+                          padding: "10px",
+                          borderRadius: "12px",
+                          background: "#FFFFFF",
                           border: "1px solid var(--border)",
-                          objectFit: "contain",
-                          background: "#FFFFFF", // QR luôn cần nền trắng để quét được
+                          boxShadow: "0 4px 14px rgba(0, 0, 0, 0.06)",
+                          display: "inline-flex",
+                          justifyContent: "center",
+                          alignItems: "center",
                         }}
-                      />
-                      <div style={{ fontSize: "12px", lineHeight: "1.6", color: "var(--text)", flex: 1 }}>
-                        <div style={{ fontWeight: "700", color: "var(--success)", marginBottom: "2px" }}>
-                          Quét mã VietQR để thanh toán:
-                        </div>
+                      >
+                        <Image
+                          src={qrUrl}
+                          alt="Mã VietQR thanh toán"
+                          width={280}
+                          height={280}
+                          unoptimized
+                          style={{
+                            width: "min(100%, 280px)",
+                            height: "auto",
+                            aspectRatio: "1 / 1",
+                            borderRadius: "8px",
+                            objectFit: "contain",
+                            background: "#FFFFFF", // QR luôn cần nền trắng để quét được
+                          }}
+                        />
+                      </div>
+                      <div style={{ fontSize: "13px", lineHeight: "1.6", color: "var(--text)" }}>
                         <div>
-                          Ngân hàng: <strong>{bankId}</strong> • STK: <strong>{bankAccount}</strong>
+                          Ngân hàng / Ví: <strong>{bankId.toUpperCase()}</strong> • STK: <strong>{bankAccount}</strong>
                         </div>
                         <div>
                           Chủ TK: <strong>{accountName}</strong>
                         </div>
-                        <div style={{ color: "var(--primary)", fontWeight: "700", marginTop: "2px" }}>
+                        <div style={{ color: "var(--primary)", fontWeight: "800", fontSize: "15px", marginTop: "4px" }}>
                           Số tiền: {formatVND(orderTotal)} VNĐ
                         </div>
                       </div>
