@@ -16,7 +16,7 @@ void main() {
   }
 
   group('AboutAppScreen Widget Tests', () {
-    testWidgets('hiển thị đầy đủ thông tin tên ứng dụng và phiên bản 1.0.1+2', (tester) async {
+    testWidgets('hiển thị đầy đủ thông tin tên ứng dụng và phiên bản 1.0.2+3', (tester) async {
       await tester.pumpWidget(buildTestWidget());
       await tester.pump();
 
@@ -27,7 +27,7 @@ void main() {
       expect(find.text('POS TRẠM'), findsOneWidget);
 
       // Phiên bản và bản dựng
-      expect(find.text('Phiên bản 1.0.1 (Bản dựng 2)'), findsOneWidget);
+      expect(find.text('Phiên bản 1.0.2 (Bản dựng 3)'), findsOneWidget);
 
       // Bundle ID & Apple Team
       expect(find.text('com.tramblao.pos'), findsOneWidget);
