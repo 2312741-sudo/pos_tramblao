@@ -1866,82 +1866,104 @@ function TablesPageContent() {
                           paddingTop: "10px",
                           borderTop: "1px solid var(--border-light)",
                           display: "flex",
-                          alignItems: "center",
-                          justifyContent: "flex-end",
+                          flexDirection: "column",
                           gap: "8px",
                         }}
                       >
                         {canOrderOnWeb && (
                           <button
                             className="btn-primary"
-                            style={{ padding: "6px 12px", fontSize: "12px" }}
+                            style={{
+                              width: "100%",
+                              padding: "8px 12px",
+                              fontSize: "13px",
+                              justifyContent: "center",
+                            }}
                             onClick={() => openOrderDialog(t)}
                           >
-                            <ChefHat size={14} />
+                            <ChefHat size={15} />
                             Gọi món
                           </button>
                         )}
-                        <button
-                          onClick={() => {
-                            setQrSelectedTable(t);
-                            setShowQrModal(true);
-                          }}
+                        <div
                           style={{
-                            padding: "6px 10px",
-                            borderRadius: "8px",
-                            background: "rgba(20, 58, 47, 0.08)",
-                            border: "1px solid rgba(20, 58, 47, 0.2)",
-                            color: "var(--primary-dark)",
-                            fontSize: "12px",
-                            fontWeight: "600",
-                            cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
-                            gap: "4px",
-                          }}
-                          title="Xem & in mã QR gọi món"
-                        >
-                          <QrCode size={13} />
-                          QR
-                        </button>
-                        <button
-                          onClick={() => openEdit(t)}
-                          style={{
-                            padding: "6px 12px",
-                            borderRadius: "8px",
-                            background: "rgba(18, 108, 195, 0.08)",
-                            border: "1px solid rgba(18, 108, 195, 0.2)",
-                            color: "#126CC3",
-                            fontSize: "12px",
-                            fontWeight: "600",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
+                            gap: "6px",
+                            width: "100%",
                           }}
                         >
-                          <Edit2 size={13} />
-                          Sửa
-                        </button>
-                        <button
-                          onClick={() => setDeleteId(t.id)}
-                          style={{
-                            padding: "6px 12px",
-                            borderRadius: "8px",
-                            background: "rgba(180, 35, 44, 0.08)",
-                            border: "1px solid rgba(180, 35, 44, 0.2)",
-                            color: "var(--danger)",
-                            fontSize: "12px",
-                            fontWeight: "600",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          <Trash2 size={13} />
-                          Xóa
-                        </button>
+                          <button
+                            onClick={() => {
+                              setQrSelectedTable(t);
+                              setShowQrModal(true);
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "6px 8px",
+                              borderRadius: "8px",
+                              background: "rgba(20, 58, 47, 0.08)",
+                              border: "1px solid rgba(20, 58, 47, 0.2)",
+                              color: "var(--primary-dark)",
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "4px",
+                              whiteSpace: "nowrap",
+                            }}
+                            title="Xem & in mã QR gọi món"
+                          >
+                            <QrCode size={13} />
+                            QR
+                          </button>
+                          <button
+                            onClick={() => openEdit(t)}
+                            style={{
+                              flex: 1,
+                              padding: "6px 8px",
+                              borderRadius: "8px",
+                              background: "rgba(18, 108, 195, 0.08)",
+                              border: "1px solid rgba(18, 108, 195, 0.2)",
+                              color: "#126CC3",
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "4px",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            <Edit2 size={13} />
+                            Sửa
+                          </button>
+                          <button
+                            onClick={() => setDeleteId(t.id)}
+                            style={{
+                              flex: 1,
+                              padding: "6px 8px",
+                              borderRadius: "8px",
+                              background: "rgba(180, 35, 44, 0.08)",
+                              border: "1px solid rgba(180, 35, 44, 0.2)",
+                              color: "var(--danger)",
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "4px",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            <Trash2 size={13} />
+                            Xóa
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
