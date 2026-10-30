@@ -13,6 +13,7 @@ import '../../../data/services/firebase_service.dart';
 import '../widgets/bill_detail_sheet.dart';
 import '../../../core/utils/share_utils.dart';
 import '../../../core/domain/business_day.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class BillsTab extends StatefulWidget {
   const BillsTab({super.key});
@@ -282,10 +283,10 @@ class _BillsTabState extends State<BillsTab> {
                   decoration: InputDecoration(
                     hintText: 'Tìm theo mã bill, bàn, thu ngân, người order...',
                     hintStyle: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textHint),
-                    prefixIcon: Icon(Icons.search, size: 20, color: context.tc.primary),
+                    prefixIcon: Icon(LucideIcons.search, size: 20, color: context.tc.primary),
                     suffixIcon: _search.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
+                            icon: const Icon(LucideIcons.x, size: 18),
                             onPressed: () => setState(() => _search = ''),
                           )
                         : null,
@@ -337,7 +338,7 @@ class _BillsTabState extends State<BillsTab> {
                           child: Row(
                             children: [
                               Icon(
-                                Icons.calendar_month,
+                                LucideIcons.calendarDays,
                                 size: 14,
                                 color: _dateFilter == 'CUSTOM' ? Colors.white : context.tc.textPrimary,
                               ),
@@ -368,7 +369,7 @@ class _BillsTabState extends State<BillsTab> {
                     children: [
                       _buildZoneChip('Tất cả phòng/bàn', 'ALL'),
                       const SizedBox(width: 8),
-                      _buildZoneChip('🥡 Mang về', 'MANG_VE'),
+                      _buildZoneChip('Mang về', 'MANG_VE'),
                       ..._availableZones.map((z) => Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: _buildZoneChip(z, z),
@@ -401,7 +402,7 @@ class _BillsTabState extends State<BillsTab> {
                             child: Row(
                               children: [
                                 Icon(
-                                  Icons.table_restaurant,
+                                  LucideIcons.armchair,
                                   size: 14,
                                   color: _tableFilter != 'ALL' ? Colors.white : context.tc.textPrimary,
                                 ),
@@ -415,7 +416,7 @@ class _BillsTabState extends State<BillsTab> {
                                   ),
                                 ),
                                 Icon(
-                                  Icons.arrow_drop_down,
+                                  LucideIcons.chevronDown,
                                   size: 16,
                                   color: _tableFilter != 'ALL' ? Colors.white : context.tc.textPrimary,
                                 ),
@@ -447,16 +448,16 @@ class _BillsTabState extends State<BillsTab> {
                             const SizedBox(width: 8),
                             _buildPaymentChip('Tất cả HTTT', 'ALL'),
                             const SizedBox(width: 6),
-                            _buildPaymentChip('💵 Tiền mặt', 'CASH'),
+                            _buildPaymentChip('Tiền mặt', 'CASH'),
                             const SizedBox(width: 6),
-                            _buildPaymentChip('🏦 VietQR', 'TRANSFER'),
+                            _buildPaymentChip('VietQR', 'TRANSFER'),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(width: 4),
                     IconButton(
-                      icon: Icon(Icons.file_download_outlined, color: context.tc.primary),
+                      icon: Icon(LucideIcons.download, color: context.tc.primary),
                       tooltip: 'Xuất file Excel',
                       visualDensity: VisualDensity.compact,
                       onPressed: _exportFilteredExcel,
@@ -479,7 +480,7 @@ class _BillsTabState extends State<BillsTab> {
                   children: [
                     Expanded(child: Row(
                       children: [
-                        Icon(Icons.receipt_long, size: 16, color: context.tc.textSecondary),
+                        Icon(LucideIcons.receiptText, size: 16, color: context.tc.textSecondary),
                         const SizedBox(width: 4),
                         Flexible(child: Text(
                           cancelledBills.isEmpty
@@ -500,7 +501,7 @@ class _BillsTabState extends State<BillsTab> {
                   children: [
                     Expanded(child: Row(
                       children: [
-                        const Icon(Icons.shopping_bag_outlined, size: 15, color: Color(0xFF8B5CF6)),
+                        const Icon(LucideIcons.shoppingBag, size: 15, color: Color(0xFF8B5CF6)),
                         const SizedBox(width: 4),
                         Flexible(child: Text(
                           'Mang về: $takeawayCount đơn',
@@ -524,7 +525,7 @@ class _BillsTabState extends State<BillsTab> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.receipt_long_outlined, size: 56, color: context.tc.textHint),
+                        Icon(LucideIcons.receiptText, size: 56, color: context.tc.textHint),
                         const SizedBox(height: 10),
                         Text(
                           'Không tìm thấy hóa đơn nào phù hợp bộ lọc',
@@ -702,10 +703,12 @@ class _BillsTabState extends State<BillsTab> {
                 Expanded(
                   child: Row(
                     children: [
-                      Text(
+                      Flexible(child: Text(
                         bill.billCode,
                         style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 14, color: context.tc.textPrimary),
-                      ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )),
                       if (showOrderCode) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -745,7 +748,7 @@ class _BillsTabState extends State<BillsTab> {
               Row(
                 children: [
                   if (hasTable)
-                    Container(
+                    Flexible(child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
                         color: context.tc.primary.withValues(alpha: 0.08),
@@ -755,18 +758,22 @@ class _BillsTabState extends State<BillsTab> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            _isTakeaway(bill) ? Icons.shopping_bag_outlined : Icons.table_restaurant_outlined,
+                            _isTakeaway(bill) ? LucideIcons.shoppingBag : LucideIcons.armchair,
                             size: 13,
                             color: context.tc.primary,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            tableDisplay,
-                            style: GoogleFonts.beVietnamPro(fontSize: 11, fontWeight: FontWeight.bold, color: context.tc.primary),
+                          Flexible(
+                            child: Text(
+                              tableDisplay,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.beVietnamPro(fontSize: 11, fontWeight: FontWeight.bold, color: context.tc.primary),
+                            ),
                           ),
                         ],
                       ),
-                    ),
+                    )),
                   if (isCancelled) ...[
                     if (hasTable) const SizedBox(width: 6),
                     Container(
@@ -815,7 +822,7 @@ class _BillsTabState extends State<BillsTab> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.access_time, size: 13, color: context.tc.textHint),
+                    Icon(LucideIcons.clock, size: 13, color: context.tc.textHint),
                     const SizedBox(width: 4),
                     Text(
                       timeStr,
@@ -835,8 +842,8 @@ class _BillsTabState extends State<BillsTab> {
                       ),
                       child: Text(
                         isCancelled
-                            ? '🚫 Đã hủy'
-                            : (isCash ? '💵 Tiền mặt' : '🏦 VietQR'),
+                            ? 'Đã hủy'
+                            : (isCash ? 'Tiền mặt' : 'VietQR'),
                         style: GoogleFonts.beVietnamPro(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -847,7 +854,7 @@ class _BillsTabState extends State<BillsTab> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Icon(Icons.chevron_right, size: 16, color: context.tc.textHint),
+                    Icon(LucideIcons.chevronRight, size: 16, color: context.tc.textHint),
                   ],
                 ),
               ],

@@ -28,6 +28,7 @@ export interface User {
   uid: string;
   fullName: string;
   username: string;
+  employeeCode?: string;
   roleId: string;
   role: string;
   isRootOwner: boolean;
@@ -230,11 +231,15 @@ export function canAccessRoute(user: User | null, pathname: string): boolean {
   if (pathname.startsWith("/dashboard/promotions")) {
     return hasPermission(user, "MANAGE_PROMOTIONS");
   }
+  if (pathname.startsWith("/dashboard/kitchen-sla")) {
+    return hasPermission(user, "VIEW_REPORTS") || hasPermission(user, "VIEW_KITCHEN");
+  }
   if (
     pathname.startsWith("/dashboard/revenue") ||
     pathname.startsWith("/dashboard/analytics") ||
     pathname.startsWith("/dashboard/end-of-day") ||
     pathname.startsWith("/dashboard/product-sales") ||
+    pathname === "/dashboard/reports" ||
     pathname.startsWith("/dashboard/reports/promotions") ||
     pathname.startsWith("/dashboard/reports/loyalty")
   ) {
@@ -408,6 +413,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: matchedUid,
         fullName: String(profileData.fullName || profileData.username || "Nhân viên"),
         username: String(profileData.username || fbUser.email?.split(".")[0] || "user"),
+        employeeCode: profileData.employeeCode || profileData.staffCode ? String(profileData.employeeCode || profileData.staffCode) : undefined,
         roleId: rawRoleId,
         role: rawRoleId,
         isRootOwner: isRoot,

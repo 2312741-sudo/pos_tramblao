@@ -9,6 +9,7 @@ import '../../core/services/auth_service.dart';
 import '../../widgets/common_widgets.dart';
 import 'campaign_form_screen.dart';
 import 'voucher_management_screen.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class CampaignListScreen extends StatefulWidget {
   const CampaignListScreen({super.key});
@@ -32,7 +33,7 @@ class _CampaignListScreenState extends State<CampaignListScreen> {
       appBar: AppBar(
         title: const Text('Quản lý Khuyến mãi'),
         backgroundColor: context.tc.primary,
-        foregroundColor: Colors.white,
+        foregroundColor: context.tc.onPrimary,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(110),
           child: _buildFilters(),
@@ -53,12 +54,12 @@ class _CampaignListScreenState extends State<CampaignListScreen> {
 
           if (campaigns.isEmpty) {
             return EmptyState(
-              icon: Icons.local_offer_outlined,
+              icon: LucideIcons.tag,
               title: 'Không tìm thấy khuyến mãi nào',
               action: _auth.can(AppPermissions.createCampaign)
                   ? ElevatedButton(
                       onPressed: _goToCreateCampaign,
-                      style: ElevatedButton.styleFrom(backgroundColor: context.tc.primary),
+                      style: ElevatedButton.styleFrom(backgroundColor: context.tc.primary, foregroundColor: context.tc.onPrimary),
                       child: const Text('Tạo khuyến mãi mới', style: TextStyle(color: Colors.white)),
                     )
                   : null,
@@ -78,7 +79,7 @@ class _CampaignListScreenState extends State<CampaignListScreen> {
           ? FloatingActionButton(
               onPressed: _goToCreateCampaign,
               backgroundColor: context.tc.primary,
-              child: Icon(Icons.add, color: context.tc.onPrimary),
+              child: const Icon(LucideIcons.plus, color: Colors.white),
             )
           : null,
     );
@@ -93,7 +94,7 @@ class _CampaignListScreenState extends State<CampaignListScreen> {
           TextField(
             decoration: InputDecoration(
               hintText: 'Tìm theo tên, mã chương trình...',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const Icon(LucideIcons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none,
@@ -253,16 +254,18 @@ class _CampaignListScreenState extends State<CampaignListScreen> {
               children: [
                 Icon(_getTypeIcon(CampaignType.fromMap(campaign.campaignType)), size: 16, color: context.tc.textSecondary),
                 const SizedBox(width: 4),
-                Text(
+                Flexible(child: Text(
                   _getTypeName(CampaignType.fromMap(campaign.campaignType)),
                   style: TextStyle(color: context.tc.textSecondary, fontSize: 13),
-                ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.calendar_today, size: 14, color: context.tc.textHint),
+                Icon(LucideIcons.calendar, size: 14, color: context.tc.textHint),
                 const SizedBox(width: 4),
                 Text(
                   '$startDateStr - $endDateStr',
@@ -333,7 +336,7 @@ class _CampaignListScreenState extends State<CampaignListScreen> {
                           builder: (_) => VoucherManagementScreen(campaign: campaign),
                         ));
                       },
-                      icon: const Icon(Icons.qr_code, size: 16),
+                      icon: const Icon(LucideIcons.qrCode, size: 16),
                       label: Text(campaign.hasCodes ? 'Mã KM' : '+ Mã KM'),
                     ),
                   ],
@@ -350,13 +353,13 @@ class _CampaignListScreenState extends State<CampaignListScreen> {
   IconData _getTypeIcon(CampaignType type) {
     switch (type) {
       case CampaignType.billDiscount:
-        return Icons.request_quote_outlined;
+        return LucideIcons.fileText;
       case CampaignType.orderValueItemBenefit:
-        return Icons.card_giftcard_outlined;
+        return LucideIcons.gift;
       case CampaignType.buyXGetY:
-        return Icons.shopping_basket_outlined;
+        return LucideIcons.shoppingBasket;
       case CampaignType.itemPriceRule:
-        return Icons.sell_outlined;
+        return LucideIcons.tag;
     }
   }
 

@@ -31,8 +31,20 @@ import {
   billOtherOrderDiscount,
   billPointsDiscount,
   billPointsUsed,
+  calculateOverviewReport,
+  calculateRevenueByPeriod,
+  calculatePaymentMethodsReport,
+  calculateProductReport,
+  calculateCategoryReport,
+  calculateStaffPerformance,
+  calculateHourlyReport,
+  calculateCancellationReport,
+  calculateGrossProfitReport,
+  deduplicateBills,
+  type ProductLookup,
 } from "./reports";
-import { lineUnitPrice, type RawOrderLine } from "./order-math";
+import { soldItemRows, staffItemSummary } from "./staff-sales-report";
+import { splitLineParts, type ToppingLookup } from "./topping-split";
 import { billDeletedItems, type DeletionReport } from "./item-deletion";
 import type { CampaignReport } from "./promotion-report";
 
@@ -257,7 +269,7 @@ export function buildStandardReportHtml(opts: ExportReportOptions): string {
         <div class="store-sub">Hotline: ${e(phone)}</div>
       </td>
       <td style="text-align: right; vertical-align: top;">
-        <div style="font-size: 11px; color: #8B8FA8; font-weight: 600;">HỆ THỐNG POS TRẠM F&B</div>
+        <div style="font-size: 11px; color: #8B8FA8; font-weight: 600;">HỆ THỐNG POS TRẠM BLAO F&B</div>
         <div style="font-size: 11px; color: #8B8FA8;">Mã BC: <strong>${e(opts.reportCode)}</strong></div>
       </td>
     </tr>
@@ -301,7 +313,7 @@ export function buildStandardReportHtml(opts: ExportReportOptions): string {
 
   <div class="no-print" style="text-align: center; margin-top: 30px;">
     <button onclick="window.print()" style="padding: 10px 24px; font-size: 14px; font-weight: 700; background: #7FE3C7; color: #143A2F; border: none; border-radius: 8px; cursor: pointer;">
-      🖨️ In / Lưu PDF ngay
+      In / Lưu PDF ngay
     </button>
   </div>
 
@@ -318,7 +330,7 @@ export function buildStandardReportHtml(opts: ExportReportOptions): string {
 }
 
 /**
- * In / Xuất PDF từ trình duyệt với bố cục chuẩn, font Be Vietnam Pro, màu Trạm #7FE3C7
+ * In / Xuất PDF từ trình duyệt với bố cục chuẩn, font Be Vietnam Pro, màu Trạm #7E2930
  */
 export function printStandardReportPDF(opts: ExportReportOptions) {
   if (!guardExport("EXPORT_REPORTS")) return;
@@ -937,6 +949,21 @@ export function exportCampaignReportExcel(data: CampaignReport, storeInfo?: Repo
   ws2["!cols"] = [{ wch: 32 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 22 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, ws2, "Chi tiết hóa đơn");
 
+  // Sheet theo nhân viên: tổng toàn báo cáo, rồi từng chương trình × nhân viên
+  const staffHeaders = ["Nhân viên", "Số hóa đơn có KM", "Số lượng combo", "Tổng giảm giá (VNĐ)", "Doanh thu các HĐ (VNĐ)", "Lượt dùng voucher", "Điểm đã đổi"];
+  const staffAoa: (string | number)[][] = [
+    ...head("Khuyến mãi theo nhân viên"),
+    staffHeaders,
+    ...data.staffTotals.map((r) => [r.staff, r.billCount, r.comboCount > 0 ? r.comboCount : "—", r.totalDiscount, r.revenue, r.vouchersUsed, r.pointsUsed]),
+    [],
+    ["CHI TIẾT THEO TỪNG CHƯƠNG TRÌNH"],
+    ["Chương trình", "Nhân viên", "Số hóa đơn", "Số lượng combo", "Tổng giảm giá (VNĐ)", "Doanh thu các HĐ (VNĐ)"],
+    ...data.campaigns.flatMap((c) => c.staffRows.map((r) => [c.name, r.staff, r.billCount, r.comboCount > 0 ? r.comboCount : "—", r.totalDiscount, r.revenue])),
+  ];
+  const ws3 = XLSX.utils.aoa_to_sheet(staffAoa);
+  ws3["!cols"] = [{ wch: 32 }, { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(wb, ws3, "Theo nhân viên");
+
   downloadWorkbook(wb, formatReportFileName("BC_KHUYENMAI_CT", storeInfo?.storeCode, range?.start, range?.end, "xlsx"));
 }
 
@@ -1250,7 +1277,7 @@ export function exportRevenue(
   downloadWorkbook(wb, `${title}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
 }
 
-export function exportHistory(data: HistoryOrder[], productsMap?: ProductCodeMap) {
+export function exportHistory(data: HistoryOrder[], productsMap?: ProductCodeMap, lookupTopping?: (name: string) => ToppingLookup | undefined) {
   if (!guardExport("EXPORT_REPORTS")) return;
   const wb = XLSX.utils.book_new();
 
@@ -1308,36 +1335,35 @@ export function exportHistory(data: HistoryOrder[], productsMap?: ProductCodeMap
         const orderTime = it.orderedAt
           ? format(new Date(typeof it.orderedAt === "number" ? it.orderedAt : new Date(it.orderedAt).getTime()), "dd/MM/yyyy HH:mm", { locale: vi })
           : billClosedTime;
-        const unitPrice = lineUnitPrice(it as unknown as RawOrderLine);
-        const qty = Number(it.quantity) || 1;
-        const lineDiscount = itemLineDiscount(it);
-        const total = Math.max(0, unitPrice * qty - lineDiscount);
-
-        itemRows.push({
-          "Mã HĐ": billCode,
-          "Mã đặt món": orderCode,
-          "Bàn": tableName,
-          "Trạng thái": statusText,
-          "Mã món": resolveProductCode(it as unknown as CodeLine, productsMap),
-          "Tên món": it.name || "",
-          "Tùy chọn (Size/Đường/Đá)": it.optionsSummary || (it.selectedSize ? `Size ${it.selectedSize}` : "Chuẩn"),
-          "Ghi chú": it.note || "",
-          "Số lượng": qty,
-          "Đơn giá (VNĐ)": unitPrice,
-          "Giảm giá món (VNĐ)": lineDiscount,
-          "Thành tiền (VNĐ)": total,
-          "Người nhận order món": it.orderedByName || item.orderStaff || "—",
-          "Thời gian gọi món": orderTime,
-          "Người thanh toán HĐ": cashier,
-          "Thời gian thanh toán": billClosedTime,
-        });
+        // Topping tách thành dòng riêng (số lượng + tiền riêng, không gộp vào món gốc)
+        for (const part of splitLineParts(it, lookupTopping)) {
+          itemRows.push({
+            "Mã HĐ": billCode,
+            "Mã đặt món": orderCode,
+            "Bàn": tableName,
+            "Trạng thái": statusText,
+            "Mã món": part.isTopping ? part.code : resolveProductCode(it as unknown as CodeLine, productsMap),
+            "Tên món": part.name,
+            "Loại": part.isTopping ? `Topping (kèm ${part.parentName})` : "Món",
+            "Tùy chọn (Size/Đường/Đá)": part.isTopping ? "" : (it.optionsSummary || (it.selectedSize ? `Size ${it.selectedSize}` : "Chuẩn")),
+            "Ghi chú": part.isTopping ? "" : it.note || "",
+            "Số lượng": part.quantity,
+            "Đơn giá (VNĐ)": part.quantity > 0 ? Math.round(part.grossRevenue / part.quantity) : 0,
+            "Giảm giá món (VNĐ)": part.itemDiscount,
+            "Thành tiền (VNĐ)": Math.max(0, part.grossRevenue - part.itemDiscount),
+            "Người nhận order món": it.orderedByName || item.orderStaff || "—",
+            "Thời gian gọi món": orderTime,
+            "Người thanh toán HĐ": cashier,
+            "Thời gian thanh toán": billClosedTime,
+          });
+        }
       });
     }
   });
   if (itemRows.length > 0) {
     const wsItems = XLSX.utils.json_to_sheet(itemRows);
     wsItems["!cols"] = [
-      { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 26 }, { wch: 25 }, { wch: 20 },
+      { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 26 }, { wch: 24 }, { wch: 25 }, { wch: 20 },
       { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 20 }
     ];
     XLSX.utils.book_append_sheet(wb, wsItems, "Chi tiết Món & Người nhận");
@@ -1407,7 +1433,7 @@ export function exportHistory(data: HistoryOrder[], productsMap?: ProductCodeMap
   downloadWorkbook(wb, `LichSu_HoaDon_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
 }
 
-export function exportSingleBillExcel(order: HistoryOrder, productsMap?: ProductCodeMap) {
+export function exportSingleBillExcel(order: HistoryOrder, productsMap?: ProductCodeMap, lookupTopping?: (name: string) => ToppingLookup | undefined) {
   if (!guardExport("EXPORT_REPORTS")) return;
   const wb = XLSX.utils.book_new();
   const billCode = order.billCode || order.orderCode || order.id?.slice(0, 8) || "HD";
@@ -1438,23 +1464,26 @@ export function exportSingleBillExcel(order: HistoryOrder, productsMap?: Product
 
   // 2. Items Sheet
   if (Array.isArray(order.items) && order.items.length > 0) {
-    const itemRows = order.items.map((it: OrderItem, idx: number) => {
-      const unitPrice = Number(it.price) || 0;
-      const qty = Number(it.quantity) || 1;
-      return {
-        "STT": idx + 1,
-        "Mã món": resolveProductCode(it as unknown as CodeLine, productsMap),
-        "Tên món": it.name || "",
-        "Tùy chọn": it.optionsSummary || (it.selectedSize ? `Size ${it.selectedSize}` : "Chuẩn"),
-        "Ghi chú": it.note || "",
-        "Số lượng": qty,
-        "Đơn giá (VNĐ)": unitPrice,
-        "Thành tiền (VNĐ)": unitPrice * qty,
-        "Người nhận order món": it.orderedByName || order.orderStaff || "—",
-      };
+    // Topping tách thành dòng riêng; đơn giá món gốc gồm size, topping có giá riêng
+    const itemRows: Array<Record<string, unknown>> = [];
+    order.items.forEach((it: OrderItem) => {
+      for (const part of splitLineParts(it, lookupTopping)) {
+        itemRows.push({
+          "STT": itemRows.length + 1,
+          "Mã món": part.isTopping ? part.code : resolveProductCode(it as unknown as CodeLine, productsMap),
+          "Tên món": part.isTopping ? `   + ${part.name}` : part.name,
+          "Tùy chọn": part.isTopping ? `Topping (kèm ${part.parentName})` : (it.optionsSummary || (it.selectedSize ? `Size ${it.selectedSize}` : "Chuẩn")),
+          "Ghi chú": part.isTopping ? "" : it.note || "",
+          "Số lượng": part.quantity,
+          "Đơn giá (VNĐ)": part.quantity > 0 ? Math.round(part.grossRevenue / part.quantity) : 0,
+          "Thành tiền (VNĐ)": part.grossRevenue,
+          "Giảm giá (VNĐ)": part.itemDiscount,
+          "Người nhận order món": it.orderedByName || order.orderStaff || "—",
+        });
+      }
     });
     const wsItems = XLSX.utils.json_to_sheet(itemRows);
-    wsItems["!cols"] = [{ wch: 6 }, { wch: 14 }, { wch: 28 }, { wch: 22 }, { wch: 18 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 22 }];
+    wsItems["!cols"] = [{ wch: 6 }, { wch: 14 }, { wch: 28 }, { wch: 26 }, { wch: 18 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 22 }];
     XLSX.utils.book_append_sheet(wb, wsItems, "Chi tiết Món");
   }
 
@@ -1584,4 +1613,134 @@ export function exportCustomersList(data: CustomerExportItem[], storeInfo?: Repo
   ];
   XLSX.utils.book_append_sheet(wb, ws, "Khách hàng CRM");
   downloadWorkbook(wb, `DS_KhachHang_CRM_${format(new Date(), "yyyyMMdd_HHmm")}.xlsx`);
+}
+
+// ==================== TRUNG TÂM BÁO CÁO: FILE EXCEL TỔNG HỢP ====================
+
+export interface ReportsWorkbookInput {
+  bills: HistoryOrder[];
+  productsMap?: Record<string | number, ProductLookup>;
+  codeMap?: ProductCodeMap;
+  lookupTopping?: (name: string) => ToppingLookup | undefined;
+  storeInfo?: ReportStoreInfo;
+  rangeLabel: string;
+  range: { from: string; to: string };
+}
+
+const fmtTime = (ms: number) => (ms ? format(new Date(ms), "dd/MM/yyyy HH:mm", { locale: vi }) : "");
+const PAY_LABELS: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", TRANSFER_QR: "Chuyển khoản (QR)", QR: "Chuyển khoản (QR)", CARD: "Thẻ" };
+const payLabel = (m?: string) => PAY_LABELS[String(m || "").toUpperCase()] || m || "";
+
+function reportSheet(title: string, info: string, headers: string[], rows: (string | number | null | undefined)[][], widths: number[]): XLSX.WorkSheet {
+  const clean = rows.map((r) => r.map((v) => (v == null ? "" : v)));
+  const ws = XLSX.utils.aoa_to_sheet([[title], [info], [], headers, ...clean]);
+  ws["!cols"] = widths.map((wch) => ({ wch }));
+  return ws;
+}
+
+/** Một file Excel gồm toàn bộ báo cáo tài chính & vận hành của khoảng ngày đang chọn */
+export function exportReportsWorkbook(input: ReportsWorkbookInput) {
+  if (!guardExport("EXPORT_REPORTS")) return;
+  downloadWorkbook(buildReportsWorkbook(input), formatReportFileName("BC_TONGHOP", input.storeInfo?.storeCode || "TRAM01", input.range.from, input.range.to));
+}
+
+/** Dựng workbook (thuần, để test) */
+export function buildReportsWorkbook(input: ReportsWorkbookInput): XLSX.WorkBook {
+  const { bills, productsMap, codeMap, lookupTopping, storeInfo, rangeLabel } = input;
+  const info = `${storeInfo?.storeName || storeInfo?.storeCode || ""} • ${rangeLabel}`;
+  const wb = XLSX.utils.book_new();
+  const add = (name: string, ws: XLSX.WorkSheet) => XLSX.utils.book_append_sheet(wb, ws, name);
+
+  // 1. Tổng quan
+  const o = calculateOverviewReport(bills);
+  add("Tổng quan", reportSheet("TỔNG QUAN TÀI CHÍNH", info, ["Chỉ tiêu", "Giá trị"], [
+    ["Số hóa đơn hoàn thành", o.paidBillsCount],
+    ["Số hóa đơn hủy", o.cancelledBillsCount],
+    ["Số khách", o.totalGuests],
+    ["Doanh thu gộp (VNĐ)", o.grossRevenue],
+    ["Giảm giá món (VNĐ)", o.itemDiscounts],
+    ["Giảm giá đơn / voucher (VNĐ)", o.billDiscounts],
+    ["Giảm giá đổi điểm (VNĐ)", o.pointsDiscounts],
+    ["Tổng giảm giá (VNĐ)", o.totalDiscount],
+    ["VAT (VNĐ)", o.vatTotal],
+    ["Doanh thu thuần (VNĐ)", o.netRevenue],
+    ["Trung bình / hóa đơn (VNĐ)", o.avgRevenuePerPaidBill],
+    ["Giá trị đơn hủy (VNĐ)", o.cancelledTotalValue],
+    ["Giá vốn (VNĐ)", o.totalCostPrice],
+    ["Lợi nhuận gộp (VNĐ)", o.grossProfit],
+    ["Tỷ suất lợi nhuận gộp (%)", o.grossProfitMarginPercent],
+  ], [34, 20]));
+
+  // 2. Doanh thu theo ngày
+  add("Doanh thu theo ngày", reportSheet("DOANH THU THEO NGÀY", info,
+    ["Ngày", "Số HĐ", "Doanh thu gộp", "Giảm giá", "VAT", "Doanh thu thuần", "Tiền mặt", "Chuyển khoản", "Thẻ"],
+    calculateRevenueByPeriod(bills, "DAY").map((p) => [p.periodLabel, p.billCount, p.grossRevenue, p.discountAmount, p.vatAmount, p.netRevenue, p.cashRevenue, p.qrRevenue, p.cardRevenue]),
+    [14, 8, 16, 12, 10, 16, 14, 14, 10]));
+
+  // 3. Thanh toán
+  add("Thanh toán", reportSheet("HÌNH THỨC THANH TOÁN", info, ["Hình thức", "Số HĐ", "Doanh thu gộp", "Giảm giá", "VAT", "Thực thu", "Tỷ trọng (%)"],
+    Object.entries(calculatePaymentMethodsReport(bills)).map(([m, s]) => [payLabel(m), s.billCount, s.grossRevenue, s.totalDiscount, s.vatAmount, s.finalAmount, s.proportion ?? 0]),
+    [22, 8, 16, 12, 10, 16, 12]));
+
+  // 4. Hàng hóa (topping là dòng riêng)
+  add("Hàng hóa", reportSheet("HIỆU SUẤT HÀNG HÓA (topping tách dòng riêng)", info,
+    ["Mã món", "Tên món", "Nhóm", "ĐVT", "Số lượng", "Doanh thu gộp", "Giảm giá", "Doanh thu thuần", "Giá vốn", "Lợi nhuận gộp", "Tỷ suất (%)"],
+    calculateProductReport(bills, productsMap).map((p) => [p.productCode, p.productName, p.category, p.unit, p.quantity, p.grossRevenue, p.itemDiscount, p.netRevenue, p.costPrice, p.grossProfit, p.grossProfitMarginPercent]),
+    [12, 30, 18, 8, 10, 16, 12, 16, 12, 14, 10]));
+
+  // 5. Nhóm hàng
+  add("Nhóm hàng", reportSheet("DOANH THU THEO NHÓM HÀNG", info,
+    ["Nhóm", "Số lượng", "Doanh thu gộp", "Giảm giá", "Doanh thu thuần", "Giá vốn", "Lợi nhuận gộp", "Tỷ trọng (%)"],
+    calculateCategoryReport(bills, productsMap).map((c) => [c.category, c.quantity, c.grossRevenue, c.itemDiscount, c.netRevenue, c.costPrice, c.grossProfit, c.proportion ?? 0]),
+    [22, 10, 16, 12, 16, 12, 14, 12]));
+
+  // 6–8. Nhân viên
+  const sold = soldItemRows(bills, codeMap, undefined, lookupTopping);
+  const { items: staffItems, staff } = staffItemSummary(sold);
+  const cashiers = calculateStaffPerformance(bills).cashierStaff;
+  add("Nhân viên", reportSheet("NĂNG SUẤT NHÂN VIÊN", info,
+    ["Vai trò", "Nhân viên", "Số món / số HĐ thu", "Số HĐ", "Doanh thu (VNĐ)"],
+    [
+      ...staff.map((s) => ["Order món", s.orderStaffName, s.itemCount, s.billCount, s.netAmount] as (string | number)[]),
+      ...cashiers.map((c) => ["Thu ngân", c.staffFullName, c.billCount, c.billCount, c.netRevenue] as (string | number)[]),
+    ],
+    [12, 26, 18, 8, 18]));
+  add("NV x Món", reportSheet("NHÂN VIÊN ORDER × MÓN (ai bán món gì)", info,
+    ["Nhân viên order", "Mã món", "Tên món", "Nhóm", "Số lượng", "Doanh thu gộp", "Giảm giá", "Doanh thu thuần", "Số HĐ"],
+    staffItems.map((r) => [r.orderStaffName, r.productCode, r.productName, r.category, r.quantity, r.grossAmount, r.discountAmount, r.netAmount, r.billCount]),
+    [24, 12, 30, 18, 10, 16, 12, 16, 8]));
+  add("Chi tiết món đã bán", reportSheet("CHI TIẾT TỪNG MÓN ĐÃ BÁN", info,
+    ["Giờ gọi món", "Mã HĐ", "Bàn", "Mã món", "Tên món", "Tùy chọn", "Ghi chú", "Số lượng", "Đơn giá", "Giảm giá", "Thành tiền", "Người order món", "Người thu tiền", "Thanh toán", "Giờ thanh toán"],
+    sold.map((r) => [fmtTime(r.orderedAt), r.billCode, r.tableName, r.productCode, r.productName, r.options, r.note, r.quantity, r.unitPrice, r.discountAmount, r.netAmount, r.orderStaffName, r.cashierName, payLabel(r.paymentMethod), fmtTime(r.paidAt)]),
+    [16, 18, 12, 12, 28, 26, 20, 9, 12, 12, 14, 22, 22, 16, 16]));
+
+  // 9. Hóa đơn (gồm cả đơn hủy)
+  add("Hóa đơn", reportSheet("DANH SÁCH HÓA ĐƠN", info,
+    ["Mã HĐ", "Bàn", "Khu", "Giờ thanh toán", "Tạm tính", "Giảm giá món", "Giảm giá đơn", "Giảm đổi điểm", "Thực thu", "Thanh toán", "Trạng thái", "Người nhận order", "Người thu tiền", "Khách hàng"],
+    deduplicateBills(bills).map((b) => [
+      b.billCode || b.orderCode || String(b.id || "").slice(0, 8), b.tableName || "", b.zone || "", fmtTime(getBillTimestamp(b)),
+      billSubTotal(b), billItemDiscount(b), billLevelDiscount(b), billPointsDiscount(b),
+      Number(b.finalAmount ?? b.totalAmount ?? 0), payLabel(b.paymentMethod), billStatusLabel(b.status),
+      b.orderStaff || b.staffFullName || "", b.cashierName || b.staffFullName || "", b.customerName || b.customerPhone || "",
+    ]),
+    [18, 12, 14, 16, 12, 12, 12, 12, 12, 16, 12, 22, 22, 22]));
+
+  // 10. Khung giờ
+  add("Khung giờ", reportSheet("DOANH THU THEO KHUNG GIỜ", info, ["Khung giờ", "Số HĐ", "Doanh thu gộp", "Giảm giá", "Doanh thu thuần", "Tỷ trọng (%)"],
+    calculateHourlyReport(bills).filter((h) => h.billCount > 0).map((h) => [h.hourLabel, h.billCount, h.grossRevenue, h.totalDiscount, h.netRevenue, h.proportion ?? 0]),
+    [14, 8, 16, 12, 16, 12]));
+
+  // 11. Hủy đơn
+  add("Hủy đơn", reportSheet("ĐƠN HỦY", info, ["Mã HĐ", "Bàn", "Người hủy", "Giờ hủy", "Lý do", "Món", "Giá trị"],
+    calculateCancellationReport(bills).bills.map((c) => [c.billCode, c.tableName, c.staffFullName, fmtTime(c.cancelledAt), c.reason, c.items.join(", "), c.subTotal]),
+    [18, 12, 22, 16, 26, 40, 12]));
+
+  // 12. Lợi nhuận gộp
+  const gp = calculateGrossProfitReport(bills, productsMap);
+  add("Lợi nhuận gộp", reportSheet("LỢI NHUẬN GỘP & GIÁ VỐN", info,
+    ["Mã món", "Tên món", "Nhóm", "Số lượng", "Giá bán TB", "Giá vốn TB", "Doanh thu thuần", "Giá vốn", "Lợi nhuận gộp", "Tỷ suất (%)"],
+    gp.items.map((g) => [g.productCode, g.productName, g.category, g.quantity, g.avgSellingPrice, g.avgCostPrice, g.netRevenue, g.cogs, g.grossProfit, g.grossProfitMarginPercent]),
+    [12, 30, 18, 10, 12, 12, 16, 12, 14, 10]));
+
+  return wb;
 }

@@ -10,6 +10,7 @@ import '../../core/utils/format_utils.dart';
 import '../../data/models/app_models.dart';
 import '../../data/services/firebase_service.dart';
 import '../../core/domain/business_day.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -59,7 +60,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         title: const Text('Lịch Sử Hóa Đơn'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.file_download_outlined),
+            icon: const Icon(LucideIcons.download),
             tooltip: 'Xuất Báo Cáo Excel (Trạm)',
             onPressed: () async {
               if (_currentFiltered.isEmpty) {
@@ -155,7 +156,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           child: TextField(
                             decoration: InputDecoration(
                               hintText: 'Tìm mã HD, mã đơn, bàn, thu ngân...',
-                              prefixIcon: const Icon(Icons.search, size: 20),
+                              prefixIcon: const Icon(LucideIcons.search, size: 20),
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -166,7 +167,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(minimumSize: const Size(64, AppSpacing.minTapTarget)),
-                          icon: const Icon(Icons.calendar_today, size: 16),
+                          icon: const Icon(LucideIcons.calendar, size: 16),
                           label: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
                           onPressed: () async {
                             final picked = await showDatePicker(
@@ -215,10 +216,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Bán: ${paidBills.length}${cancelledBills.isNotEmpty ? " • Hủy: ${cancelledBills.length}" : ""}', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 12, color: context.tc.primaryDark)),
+                          Flexible(child: Text('Bán: ${paidBills.length}${cancelledBills.isNotEmpty ? " • Hủy: ${cancelledBills.length}" : ""}', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 12, color: context.tc.primaryDark), maxLines: 1, overflow: TextOverflow.ellipsis)),
                           if (totalDiscounts > 0)
                             Text('KM: -${FormatUtils.vnd(totalDiscounts)}', style: GoogleFonts.beVietnamPro(fontSize: 11, color: context.tc.danger)),
-                          Text('Doanh thu: ${FormatUtils.vnd(totalRevenue)}', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 13, color: context.tc.primaryDark)),
+                          Flexible(child: Text('Doanh thu: ${FormatUtils.vnd(totalRevenue)}', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 13, color: context.tc.primaryDark), maxLines: 1, overflow: TextOverflow.ellipsis)),
                         ],
                       ),
                     ),
@@ -276,21 +277,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
             shape: BoxShape.circle,
           ),
           child: Icon(
-            isCancelled ? Icons.cancel_outlined : Icons.receipt_long,
+            isCancelled ? LucideIcons.circleX : LucideIcons.receiptText,
             color: isCancelled ? context.tc.danger : context.tc.success,
             size: 20,
           ),
         ),
         title: Row(
           children: [
-            Text(
+            Flexible(child: Text(
               bill.billCode,
               style: GoogleFonts.beVietnamPro(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
                 color: isCancelled ? context.tc.textHint : context.tc.textPrimary,
               ),
-            ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            )),
             const SizedBox(width: 8),
             Flexible(
               child: Container(
@@ -370,7 +373,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         style: GoogleFonts.beVietnamPro(fontSize: 13),
                       ),
                     ),
-                    Text(FormatUtils.vnd(i.itemTotal), style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.w600)),
+                    Flexible(child: Text(FormatUtils.vnd(i.itemTotal), style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)),
                   ],
                 ),
               )),
@@ -379,7 +382,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Tiền hàng:', style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textSecondary)),
-              Text(FormatUtils.vnd(bill.subTotal), style: GoogleFonts.beVietnamPro(fontSize: 12)),
+              Flexible(child: Text(FormatUtils.vnd(bill.subTotal), style: GoogleFonts.beVietnamPro(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)),
             ],
           ),
           if (bill.itemDiscountTotal > 0)
@@ -387,15 +390,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Giảm giá món:', style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textSecondary)),
-                Text('-${FormatUtils.vnd(bill.itemDiscountTotal)}', style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.success)),
+                Flexible(child: Text('-${FormatUtils.vnd(bill.itemDiscountTotal)}', style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.success), maxLines: 1, overflow: TextOverflow.ellipsis)),
               ],
             ),
           if (bill.discounts.isNotEmpty) ...[
             ...bill.discounts.map((d) => Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(' - ${d.promoCode ?? d.description}:', style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.success)),
-                    Text('-${FormatUtils.vnd(d.amount)}', style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.success, fontWeight: FontWeight.bold)),
+                    Flexible(child: Text(' - ${d.promoCode ?? d.description}:', style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.success), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    Flexible(child: Text('-${FormatUtils.vnd(d.amount)}', style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.success, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis)),
                   ],
                 )),
           ],
@@ -403,8 +406,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('VAT (${bill.vatRate.toStringAsFixed(0)}%):', style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textSecondary)),
-                Text('+${FormatUtils.vnd(bill.vatAmount)}', style: GoogleFonts.beVietnamPro(fontSize: 12)),
+                Flexible(child: Text('VAT (${bill.vatRate.toStringAsFixed(0)}%):', style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Flexible(child: Text('+${FormatUtils.vnd(bill.vatAmount)}', style: GoogleFonts.beVietnamPro(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)),
               ],
             ),
           if (bill.deletedItems.isNotEmpty) ...[
@@ -432,7 +435,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     foregroundColor: context.tc.danger,
                   ),
                   icon: Icon(
-                    isCancelled ? Icons.delete_forever : Icons.cancel_outlined,
+                    isCancelled ? LucideIcons.trash2 : LucideIcons.circleX,
                     size: 16,
                   ),
                   label: Text(
@@ -445,7 +448,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               // Reprint button
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(minimumSize: const Size(64, AppSpacing.minTapTarget)),
-                icon: const Icon(Icons.print_outlined, size: 16),
+                icon: const Icon(LucideIcons.printer, size: 16),
                 label: const Text('In lại hóa đơn'),
                 onPressed: () async {
                   if (!_auth.can(AppPermissions.reprintBill)) {
@@ -515,7 +518,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(color: context.bg(Colors.red.shade50), shape: BoxShape.circle),
-                child: Icon(Icons.warning_amber_rounded, color: context.tc.danger, size: 24),
+                child: Icon(LucideIcons.triangleAlert, color: context.tc.danger, size: 24),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -544,8 +547,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Mã HĐ: ${bill.billCode}', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 13, color: context.tc.primaryDark)),
-                          Text(bill.status == 'CANCELLED' ? 'ĐÃ HỦY' : 'ĐÃ THANH TOÁN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: bill.status == 'CANCELLED' ? context.tc.danger : context.tc.success)),
+                          Flexible(child: Text('Mã HĐ: ${bill.billCode}', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 13, color: context.tc.primaryDark), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                          Flexible(child: Text(bill.status == 'CANCELLED' ? 'ĐÃ HỦY' : 'ĐÃ THANH TOÁN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: bill.status == 'CANCELLED' ? context.tc.danger : context.tc.success), maxLines: 1, overflow: TextOverflow.ellipsis)),
                         ],
                       ),
                       if (bill.orderCode != null && bill.orderCode!.isNotEmpty)
@@ -606,7 +609,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                icon: const Icon(Icons.cancel_outlined, size: 16),
+                icon: const Icon(LucideIcons.circleX, size: 16),
                 label: const Text('Hủy hóa đơn'),
                 onPressed: () async {
                   final reason = reasonCtrl.text.trim().isNotEmpty ? reasonCtrl.text.trim() : selectedReason;
@@ -636,7 +639,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   side: BorderSide(color: context.line(Colors.red.shade300)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                icon: const Icon(Icons.delete_forever, size: 16),
+                icon: const Icon(LucideIcons.trash2, size: 16),
                 label: const Text('Xóa hẳn khỏi máy'),
                 onPressed: () async {
                   final reason = reasonCtrl.text.trim().isNotEmpty ? reasonCtrl.text.trim() : selectedReason;

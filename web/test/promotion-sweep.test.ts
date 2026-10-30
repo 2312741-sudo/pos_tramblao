@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { calculatePrice, isEligibleAt, parseCampaign, listEligibleCampaigns, quoteCampaign, type Campaign, type PricingLine } from "../lib/pricing-engine";
+import { addLineToOrder, sameOrderWindow } from "../lib/web-order";
+import { buildAppliedDiscount, calculatePrice, isEligibleAt, lateOrderBlock, linesFromOrder, outsideScheduleMessage, parseCampaign, listEligibleCampaigns, quoteCampaign, recalculateDiscounts, type Campaign, type PricingLine } from "../lib/pricing-engine";
 
 // Giờ Việt Nam (UTC+7) → timestamp
 const vn = (y: number, mo: number, d: number, h: number, mi = 0) => Date.UTC(y, mo - 1, d, h - 7, mi);
@@ -164,5 +165,96 @@ describe("Combo nước + bánh: mỗi món độc lập, không tự thêm", ()
     const r = run([nuoc(2)]);
     expect(r.totalPromotionDiscount).toBe(0);
     expect(r.lineBenefits).toHaveLength(1);
+  });
+});
+
+describe("so khớp nhóm món chịu khác biệt dấu / hoa thường / khoảng trắng", () => {
+  const c = parseCampaign("G", { campaignType: "BUYXGETY", active: true, buyConditions: [{ conditionId: "C", buyItemIds: [], buyGroupIds: ["TRÀ TRÁI CÂY"], requiredBuyQty: 1, rewardItemIds: ["BANH"], rewardQty: 1, benefitMode: "FIXED", value: 10000, multiplyByBundle: true }] } as never);
+  const run = (g: string) => calculatePrice({ branchId: "B", nowMs: 1000, lines: [line("1", "N", 1, 45000, g), line("2", "BANH", 1, 30000, "BÁNH")] }, [c]).totalPromotionDiscount;
+  it("khớp dù khác hoa/thường, khoảng trắng thừa, dấu dạng tổ hợp (NFD)", () => {
+    expect(run("TRÀ TRÁI CÂY")).toBe(10000);
+    expect(run("Trà Trái Cây")).toBe(10000);
+    expect(run("  trà  trái cây ")).toBe(10000);
+    expect(run("TRÀ TRÁI CÂY".normalize("NFD"))).toBe(10000);
+    expect(run("Tra trai cay")).toBe(10000);
+  });
+  it("nhóm khác tên thì không khớp", () => {
+    expect(run("TRÀ SỮA")).toBe(0);
+  });
+});
+
+describe("Khung giờ: lúc bấm phải trong giờ VÀ chỉ món GỌI trong khung giờ mới được tính", () => {
+  const ctx = (nowMs: number) => ({ branchId: "TRAM01", nowMs });
+  const at = (l: PricingLine, ms: number, name?: string): PricingLine => ({ ...l, orderedAtMs: ms, itemName: name });
+  it("nước + bánh gọi trong giờ, bấm 18:30 → được giảm (món mới chưa có giờ gọi cũng tính)", () => {
+    const lines = [at(cart[0], vn(2026, 10, 22, 18, 10)), at(cart[1], vn(2026, 10, 22, 18, 25))];
+    expect(quoteCampaign(combo(), lines, ctx(vn(2026, 10, 22, 18, 30))).totalPromotionDiscount).toBe(10000);
+    expect(quoteCampaign(combo(), cart, ctx(vn(2026, 10, 22, 18, 30))).totalPromotionDiscount).toBe(10000);
+    expect(outsideScheduleMessage(combo(), lines)).toBeNull();
+  });
+  it("nước gọi 17:50 (ngoài giờ), bấm 18:30 → bánh KHÔNG được giảm + có thông báo", () => {
+    const lines = [at(cart[0], vn(2026, 10, 22, 17, 50), "Trà Olong"), at(cart[1], vn(2026, 10, 22, 18, 30), "Bánh lăn")];
+    expect(quoteCampaign(combo(), lines, ctx(vn(2026, 10, 22, 18, 30))).totalPromotionDiscount).toBe(0);
+    const msg = outsideScheduleMessage(combo(), lines);
+    expect(msg).toContain("Trà Olong (gọi lúc 17:50)");
+    expect(msg).toContain("18:00–20:00");
+  });
+  it("2 nước: 1 gọi ngoài giờ, 1 trong giờ → chỉ được 1 combo", () => {
+    const lines = [
+      at(line("1", "5", 1, 45000, "TRÀ TRÁI CÂY"), vn(2026, 10, 22, 17, 40)),
+      at(line("2", "5", 1, 45000, "TRÀ TRÁI CÂY"), vn(2026, 10, 22, 18, 5)),
+      at(line("3", "77", 2, 30000, "BÁNH"), vn(2026, 10, 22, 18, 6)),
+    ];
+    expect(quoteCampaign(combo(), lines, ctx(vn(2026, 10, 22, 18, 10))).totalPromotionDiscount).toBe(10000);
+  });
+  it("tự báo: nước gọi ngoài giờ + bánh trong giờ → báo; đủ điều kiện / chưa có bánh thì không báo", () => {
+    const now = { branchId: "TRAM01", nowMs: vn(2026, 10, 22, 18, 30) };
+    expect(lateOrderBlock(combo(), [at(cart[0], vn(2026, 10, 22, 17, 50)), at(cart[1], vn(2026, 10, 22, 18, 30))], now)).toContain("gọi lúc 17:50");
+    expect(lateOrderBlock(combo(), [at(cart[0], vn(2026, 10, 22, 18, 10)), at(cart[1], vn(2026, 10, 22, 18, 30))], now)).toBeNull();
+    expect(lateOrderBlock(combo(), [at(cart[0], vn(2026, 10, 22, 17, 50))], now)).toBeNull();
+    const partial = lateOrderBlock(combo(), [
+      at(line("1", "5", 1, 45000, "TRÀ TRÁI CÂY"), vn(2026, 10, 22, 17, 40)),
+      at(line("2", "5", 1, 45000, "TRÀ TRÁI CÂY"), vn(2026, 10, 22, 18, 5)),
+      at(line("3", "77", 2, 30000, "BÁNH"), vn(2026, 10, 22, 18, 6)),
+    ], now);
+    expect(partial).toContain("chỉ được giảm 10.000đ thay vì 20.000đ");
+  });
+  it("2 nước bấm ngoài giờ + 1 nước bấm trong giờ + 1 bánh → combo vẫn giảm 1 bánh, không báo lỗi", () => {
+    const now = { branchId: "TRAM01", nowMs: vn(2026, 10, 22, 18, 15) };
+    const lines = [
+      at(line("1", "5", 2, 45000, "TRÀ TRÁI CÂY"), vn(2026, 10, 22, 17, 50)),
+      at(line("2", "5", 1, 45000, "TRÀ TRÁI CÂY"), vn(2026, 10, 22, 18, 10)),
+      at(line("3", "77", 1, 30000, "BÁNH"), vn(2026, 10, 22, 18, 12)),
+    ];
+    expect(quoteCampaign(combo(), lines, now).totalPromotionDiscount).toBe(10000);
+    expect(lateOrderBlock(combo(), lines, now)).toBeNull();
+  });
+  it("không gộp món bấm khác khung giờ KM vào cùng dòng", () => {
+    const base = { productId: 5, name: "Trà", price: 45000, quantity: 2, orderedAt: vn(2026, 10, 22, 17, 50) };
+    const later = { ...base, quantity: 1, orderedAt: vn(2026, 10, 22, 18, 10) };
+    expect(addLineToOrder([base], later, [combo()])).toHaveLength(2);
+    expect(addLineToOrder([base], { ...later, orderedAt: vn(2026, 10, 22, 17, 55) }, [combo()])).toHaveLength(1);
+    expect(sameOrderWindow(vn(2026, 10, 22, 18, 5), vn(2026, 10, 22, 18, 10), [combo()])).toBe(true);
+  });
+  it("linesFromOrder lấy giờ gọi món từ orderedAt", () => {
+    const [l] = linesFromOrder([{ productId: 5, name: "Trà", price: 45000, quantity: 1, orderedAt: 123 }]);
+    expect(l.orderedAtMs).toBe(123);
+  });
+  it("bấm KM ngoài khung giờ (17:50) → không áp dụng được", () => {
+    expect(quoteCampaign(combo(), cart, ctx(vn(2026, 10, 22, 17, 50))).totalPromotionDiscount).toBe(0);
+    expect(listEligibleCampaigns([combo()], "TRAM01", vn(2026, 10, 22, 17, 50))).toHaveLength(0);
+  });
+  it("đã áp dụng lúc 19:50 (món gọi trong giờ), treo đơn tới 20:30 → vẫn giữ giảm", () => {
+    const lines = [at(cart[0], vn(2026, 10, 22, 19, 40)), at(cart[1], vn(2026, 10, 22, 19, 45))];
+    const applied = [buildAppliedDiscount(combo(), 10000)];
+    const r = recalculateDiscounts(applied, { CAM_HD1: combo() }, lines, ctx(vn(2026, 10, 22, 20, 30)));
+    expect(r.discounts.map((d) => d.amount)).toEqual([10000]);
+    expect(r.dropped).toEqual([]);
+  });
+  it("đã áp dụng nhưng bỏ bớt món (hết nước) → gỡ", () => {
+    const applied = [buildAppliedDiscount(combo(), 10000)];
+    const r = recalculateDiscounts(applied, { CAM_HD1: combo() }, [cart[1]], ctx(vn(2026, 10, 22, 20, 30)));
+    expect(r.discounts).toEqual([]);
+    expect(r.dropped).toHaveLength(1);
   });
 });

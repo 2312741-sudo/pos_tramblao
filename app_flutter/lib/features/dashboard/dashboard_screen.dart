@@ -8,6 +8,8 @@ import '../../core/utils/format_utils.dart';
 import '../../data/models/app_models.dart';
 import '../../data/services/firebase_service.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/reports/topping_split.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -56,7 +58,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final map = <String, int>{};
     for (final b in _todayPaidBills) {
       for (final item in b.items) {
-        map[item.name] = (map[item.name] ?? 0) + item.quantity;
+        // Topping đếm riêng, không gộp vào món gốc
+        for (final part in splitLineParts(item, mainKey: item.name, mainUnitCost: 0)) {
+          map[part.name] = (map[part.name] ?? 0) + part.quantity;
+        }
       }
     }
     final sorted = map.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
@@ -71,7 +76,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: Text('Báo Cáo Tổng Quan Hôm Nay', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.file_download_outlined),
+            icon: const Icon(LucideIcons.download),
             tooltip: 'Xuất Báo Cáo Excel (Trạm)',
             onPressed: () async {
               final storeName = _auth.currentStoreInfo?.storeName ?? 'TramFnB';
@@ -97,7 +102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(LucideIcons.refreshCw),
             onPressed: () => setState(() {}),
           ),
         ],
@@ -118,7 +123,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.storefront, size: 32, color: context.tc.primary),
+                        Icon(LucideIcons.store, size: 32, color: context.tc.primary),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -152,25 +157,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       StatCard(
                         title: 'Doanh thu hôm nay',
                         value: FormatUtils.vnd(_todayRevenue),
-                        icon: Icons.monetization_on,
+                        icon: LucideIcons.circleDollarSign,
                         color: context.tc.success,
                       ),
                       StatCard(
                         title: 'Số đơn đã bán',
                         value: '${_todayPaidBills.length} đơn',
-                        icon: Icons.receipt_long,
+                        icon: LucideIcons.receiptText,
                         color: context.tc.primary,
                       ),
                       StatCard(
                         title: 'Bàn đang phục vụ',
                         value: '$_occupiedTables/${_tables.length} bàn',
-                        icon: Icons.table_restaurant,
+                        icon: LucideIcons.armchair,
                         color: context.tc.warning,
                       ),
                       StatCard(
                         title: 'Tổng khuyến mãi đã giảm',
                         value: FormatUtils.vnd(_todayDiscounts),
-                        icon: Icons.discount,
+                        icon: LucideIcons.badgePercent,
                         color: context.tc.danger,
                       ),
                     ],
@@ -200,11 +205,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(6),
                                     decoration: BoxDecoration(color: context.tc.primaryLight, shape: BoxShape.circle),
-                                    child: Icon(Icons.local_fire_department, size: 16, color: context.tc.primary),
+                                    child: Icon(LucideIcons.flame, size: 16, color: context.tc.primary),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(child: Text(e.key, style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600, fontSize: 13))),
-                                  Text('${e.value} phần', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, color: context.tc.primary)),
+                                  Flexible(child: Text('${e.value} phần', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, color: context.tc.primary), maxLines: 1, overflow: TextOverflow.ellipsis)),
                                 ],
                               ),
                             );
@@ -219,7 +224,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          icon: const Icon(Icons.history),
+                          icon: const Icon(LucideIcons.history),
                           label: const Text('Xem Lịch Sử Hóa Đơn'),
                           onPressed: () => context.push('/history'),
                         ),
@@ -227,7 +232,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton.icon(
-                          icon: const Icon(Icons.security),
+                          icon: const Icon(LucideIcons.shieldCheck),
                           label: const Text('Xem Audit Log'),
                           onPressed: () => context.push('/audit-logs'),
                         ),

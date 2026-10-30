@@ -9,6 +9,7 @@ import '../../core/utils/format_utils.dart';
 import '../../core/utils/share_utils.dart';
 import '../../data/models/user_model.dart';
 import '../auth/delete_account_dialog.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Màn hình Thông tin ứng dụng POS Trạm BLAO (About App Screen)
 /// Cung cấp thông tin phiên bản, bản quyền, kênh hỗ trợ, pháp lý và tuân thủ Apple App Store Review.
@@ -71,7 +72,7 @@ class AboutAppScreen extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'Chia sẻ thông tin ứng dụng',
-            icon: const Icon(Icons.share_outlined),
+            icon: const Icon(LucideIcons.share2),
             onPressed: () {
               shareTextSafe(
                 'POS Trạm BLAO - Hệ thống Quản lý Bán hàng & Vận hành F&B (v$appVersion+$appBuild)\n'
@@ -170,7 +171,7 @@ class AboutAppScreen extends StatelessWidget {
                     errorBuilder: (_, __, ___) => Container(
                       color: context.tc.primary,
                       child: const Icon(
-                        Icons.restaurant_menu,
+                        LucideIcons.utensils,
                         size: 38,
                         color: Colors.white,
                       ),
@@ -263,7 +264,7 @@ class AboutAppScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.badge_outlined, size: 20, color: context.tc.primary),
+                Icon(LucideIcons.idCard, size: 20, color: context.tc.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Phiên Làm Việc Hiện Tại',
@@ -301,7 +302,7 @@ class AboutAppScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.developer_board_outlined, size: 20, color: context.tc.primary),
+                Icon(LucideIcons.cpu, size: 20, color: context.tc.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Thông Số Kỹ Thuật Ứng Dụng',
@@ -371,7 +372,7 @@ class AboutAppScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.support_agent_outlined, size: 20, color: context.tc.primary),
+                Icon(LucideIcons.headset, size: 20, color: context.tc.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Hỗ Trợ Kỹ Thuật & Khẩn Cấp',
@@ -394,7 +395,7 @@ class AboutAppScreen extends StatelessWidget {
                     color: context.tc.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.phone, size: 18, color: context.tc.primary),
+                  child: Icon(LucideIcons.phone, size: 18, color: context.tc.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -414,7 +415,7 @@ class AboutAppScreen extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'Sao chép Hotline',
-                  icon: const Icon(Icons.copy, size: 18),
+                  icon: const Icon(LucideIcons.copy, size: 18),
                   onPressed: () => _copyToClipboard(context, hotlineRaw, 'Hotline'),
                 ),
               ],
@@ -430,7 +431,7 @@ class AboutAppScreen extends StatelessWidget {
                     color: context.tc.info.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.email_outlined, size: 18, color: context.tc.info),
+                  child: Icon(LucideIcons.mail, size: 18, color: context.tc.info),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -450,7 +451,7 @@ class AboutAppScreen extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'Sao chép Email',
-                  icon: const Icon(Icons.copy, size: 18),
+                  icon: const Icon(LucideIcons.copy, size: 18),
                   onPressed: () => _copyToClipboard(context, supportEmail, 'Email'),
                 ),
               ],
@@ -466,7 +467,7 @@ class AboutAppScreen extends StatelessWidget {
                     color: context.tc.success.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.schedule, size: 18, color: context.tc.success),
+                  child: Icon(LucideIcons.clock, size: 18, color: context.tc.success),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -504,7 +505,7 @@ class AboutAppScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.shield_outlined, size: 20, color: context.tc.primary),
+                Icon(LucideIcons.shield, size: 20, color: context.tc.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Pháp Lý & Quyền Riêng Tư',
@@ -521,7 +522,7 @@ class AboutAppScreen extends StatelessWidget {
             // Privacy Policy link
             Row(
               children: [
-                Icon(Icons.privacy_tip_outlined, color: context.tc.primary, size: 22),
+                Icon(LucideIcons.shieldAlert, color: context.tc.primary, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -541,7 +542,7 @@ class AboutAppScreen extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'Sao chép liên kết',
-                  icon: const Icon(Icons.copy, size: 16),
+                  icon: const Icon(LucideIcons.copy, size: 16),
                   onPressed: () => _copyToClipboard(context, privacyUrl, 'Liên kết bảo mật'),
                 ),
               ],
@@ -551,7 +552,7 @@ class AboutAppScreen extends StatelessWidget {
             // Privacy Choices link
             Row(
               children: [
-                Icon(Icons.tune_outlined, color: context.tc.info, size: 22),
+                Icon(LucideIcons.slidersHorizontal, color: context.tc.info, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -571,7 +572,7 @@ class AboutAppScreen extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'Sao chép liên kết',
-                  icon: const Icon(Icons.copy, size: 16),
+                  icon: const Icon(LucideIcons.copy, size: 16),
                   onPressed: () => _copyToClipboard(context, privacyChoicesUrl, 'Liên kết quyền dữ liệu'),
                 ),
               ],
@@ -601,7 +602,7 @@ class AboutAppScreen extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'Sao chép liên kết',
-                  icon: const Icon(Icons.copy, size: 16),
+                  icon: const Icon(LucideIcons.copy, size: 16),
                   onPressed: () => _copyToClipboard(context, deleteAccountUrl, 'Liên kết xóa tài khoản'),
                 ),
               ],
@@ -612,7 +613,7 @@ class AboutAppScreen extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(Icons.no_accounts_outlined, color: context.tc.danger, size: 22),
+                Icon(LucideIcons.userX, color: context.tc.danger, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -680,7 +681,7 @@ class AboutAppScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.auto_awesome, size: 20, color: context.tc.primary),
+                Icon(LucideIcons.sparkles, size: 20, color: context.tc.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Hệ Sinh Thái Tính Năng POS Trạm BLAO',
@@ -698,7 +699,7 @@ class AboutAppScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle_rounded, size: 16, color: context.tc.success),
+                    Icon(LucideIcons.circleCheck, size: 16, color: context.tc.success),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(

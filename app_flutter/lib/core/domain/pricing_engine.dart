@@ -49,6 +49,9 @@ class PricingLineItem {
   final int discountPercent;
   final int discountUnitAmount;
 
+  /// Lúc gọi món (ms). KM có khung giờ chỉ tính dòng gọi TRONG khung giờ; null = món mới (tính theo lúc bấm).
+  final int? orderedAtMs;
+
   PricingLineItem({
     required this.lineId,
     required this.itemId,
@@ -63,6 +66,7 @@ class PricingLineItem {
     this.discountedQuantity = 0,
     this.discountPercent = 0,
     this.discountUnitAmount = 0,
+    this.orderedAtMs,
   });
 
   /// Dựng từ dòng món của giỏ hàng (giữ cấu hình giảm giá theo phần)
@@ -85,7 +89,28 @@ class PricingLineItem {
         discountedQuantity: item.discountedQuantity,
         discountPercent: item.discountPercent,
         discountUnitAmount: item.discountUnitAmount,
+        orderedAtMs: item.orderedAt,
       );
+
+  /// Bản sao bỏ giờ gọi món (để so sánh: nếu không xét giờ gọi thì chương trình có được áp dụng không)
+  PricingLineItem withoutOrderTime() => PricingLineItem(
+        lineId: lineId,
+        itemId: itemId,
+        itemName: itemName,
+        itemCode: itemCode,
+        dbKey: dbKey,
+        itemVariantId: itemVariantId,
+        groupId: groupId,
+        quantity: quantity,
+        unitPrice: unitPrice,
+        isGift: isGift,
+        discountedQuantity: discountedQuantity,
+        discountPercent: discountPercent,
+        discountUnitAmount: discountUnitAmount,
+      );
+
+  /// Dòng này gọi trong thời gian áp dụng của [c]? (món chưa có giờ gọi = món mới → luôn được tính)
+  bool orderedWithin(CampaignModel c) => orderedAtMs == null || orderedAtMs! <= 0 || c.isEligibleAt(orderedAtMs!);
 
   /// Chuẩn hóa bỏ dấu tiếng Việt để đối sánh linh hoạt (không phụ thuộc gõ dấu khác nhau)
   static String stripAccents(String str) {
@@ -99,6 +124,11 @@ class PricingLineItem {
     }
     return result;
   }
+
+  /// Khóa so khớp NHÓM món: bỏ dấu, không phân biệt hoa/thường, gộp khoảng trắng
+  /// (tên nhóm gõ khác dấu/khoảng trắng giữa web và app vẫn khớp).
+  static String normGroup(String s) =>
+      stripAccents(s.replaceAll(RegExp(r'[\u0300-\u036f]'), '').trim().toLowerCase()).replaceAll(RegExp(r'\s+'), ' ');
 
   /// Kiểm tra xem dòng món này có khớp với định danh [target] hay không.
   /// [target] có thể là: numeric productId, tên món, mã SKU món, hoặc database key RTDB.
@@ -248,12 +278,13 @@ PriceQuoteModel calculatePrice({
 
   bool matchGroup(String? itemGroup, Set<String> targetGroups) {
     if (itemGroup == null || targetGroups.isEmpty) return false;
-    final itemNorm = itemGroup.trim().toLowerCase();
-    return targetGroups.any((g) => g.trim().toLowerCase() == itemNorm);
+    final itemNorm = PricingLineItem.normGroup(itemGroup);
+    return targetGroups.any((g) => PricingLineItem.normGroup(g) == itemNorm);
   }
 
   bool inScope(CampaignModel c, PricingLineItem l) {
     if (l.isGift) return false;
+    if (!l.orderedWithin(c)) return false;
     if (l.matchesAnyTarget(c.excludedItemIds)) return false;
     if (c.includedItemIds.isEmpty && c.includedGroupIds.isEmpty) return true;
     return l.matchesAnyTarget(c.includedItemIds) || matchGroup(l.groupId, c.includedGroupIds.toSet());
@@ -337,6 +368,8 @@ PriceQuoteModel calculatePrice({
           has ? 'Hôm nay không phải sinh nhật của khách' : 'Gắn khách hàng có ngày sinh để áp dụng (chỉ đúng ngày sinh nhật)');
       continue;
     }
+    // Chỉ món gọi TRONG khung giờ của chương trình mới được tính (món gọi ngoài giờ không đủ điều kiện)
+    final lines = input.lines.where((l) => l.orderedWithin(campaign)).toList();
     final type = campaign.campaignType;
 
     if (_isType(type, 'BILLDISCOUNT')) {
@@ -366,7 +399,7 @@ PriceQuoteModel calculatePrice({
 
         int avail(PricingLineItem l) => l.quantity - (rewardedUnits[l.lineId] ?? 0);
         int xo = 0, yo = 0, bo = 0; // chỉ X, chỉ Y, vừa X vừa Y
-        for (final l in input.lines) {
+        for (final l in lines) {
           if (l.isGift || l.matchesAnyTarget(campaign.excludedItemIds)) continue;
           final isX = isBuy(l);
           final isY = isReward(l);
@@ -405,7 +438,7 @@ PriceQuoteModel calculatePrice({
           continue;
         }
 
-        final candidates = input.lines
+        final candidates = lines
             .where((l) => !l.isGift && isReward(l) && !l.matchesAnyTarget(campaign.excludedItemIds))
             .toList();
         campaignDiscount += distributeReward(
@@ -427,7 +460,7 @@ PriceQuoteModel calculatePrice({
       }
     } else if (_isType(type, 'ORDERVALUEITEMBENEFIT')) {
       int base = 0;
-      for (final l in input.lines) {
+      for (final l in lines) {
         if (inScope(campaign, l)) base += afterManual[l.lineId] ?? 0;
       }
       final tiers = List<CampaignTier>.from(campaign.tiers)..sort((a, b) => b.threshold.compareTo(a.threshold));
@@ -445,7 +478,7 @@ PriceQuoteModel calculatePrice({
         continue;
       }
       final units = tier.maxRewardQty > 0 ? tier.maxRewardQty : 1;
-      final candidates = input.lines
+      final candidates = lines
           .where((l) =>
               !l.isGift &&
               (l.matchesAnyTarget(rewardIds) || matchGroup(l.groupId, rewardGroups)) &&
@@ -474,7 +507,7 @@ PriceQuoteModel calculatePrice({
         var tier = campaign.tiers.first;
         // Đồng giá (FIXEDPRICE) hoặc đồng giảm: % / số tiền / tặng — tính theo từng phần của dòng
         bool applied = false;
-        for (var line in input.lines) {
+        for (var line in lines) {
           if (!inScope(campaign, line)) continue;
           final perUnit = _unitBenefit(tier.benefitMode, tier.value, line.unitPrice);
           if (perUnit <= 0) continue;
@@ -488,7 +521,7 @@ PriceQuoteModel calculatePrice({
         }
         if (applied) {
           markApplied(campaign.campaignId);
-        } else if (!input.lines.any((l) => inScope(campaign, l))) {
+        } else if (!lines.any((l) => inScope(campaign, l))) {
           addReason(campaign, 'ITEM_NOT_IN_BILL', 'Thêm món thuộc chương trình vào đơn để áp dụng');
         }
       }

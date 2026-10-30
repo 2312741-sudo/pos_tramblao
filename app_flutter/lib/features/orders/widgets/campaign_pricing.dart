@@ -122,6 +122,31 @@ class CartCampaignPricing {
     );
   }
 
+  /// Báo giá khi nhân viên bấm áp dụng / xem chương trình trên giỏ.
+  /// Lúc bấm ([nowMs], mặc định giờ hiện tại) phải trong khung giờ, và chỉ các món GỌI trong khung giờ được tính
+  /// (nước gọi trước giờ combo thì bánh không được giảm — xem outsideScheduleMessage). Chương trình ĐÃ áp dụng
+  /// ([isApplied]) bỏ qua giờ bấm để đơn treo qua hết giờ vẫn giữ giảm (khớp web: recalculateDiscounts).
+  static PriceQuoteModel quoteForApply(
+    CampaignModel campaign, {
+    required List<OrderItemModel> cart,
+    required List<ProductModel> products,
+    required String branchId,
+    required bool isApplied,
+    int? guestCount,
+    String? customerBirthday,
+    int? nowMs,
+  }) =>
+      quote(
+        campaign,
+        cart: cart,
+        products: products,
+        branchId: branchId,
+        guestCount: guestCount,
+        customerBirthday: customerBirthday,
+        nowMs: nowMs ?? DateTime.now().millisecondsSinceEpoch,
+        ignoreSchedule: isApplied,
+      );
+
   /// Chương trình "tặng/giảm món theo giá trị đơn" hoặc "Mua X tặng/giảm Y" đủ điều kiện nhưng món thưởng chưa có trong đơn?
   /// Cho phép bấm để tự thêm món thưởng vào đơn.
   static bool needsRewardItems(PriceQuoteModel quote, CampaignModel campaign) {
@@ -141,8 +166,8 @@ class CartCampaignPricing {
     bool matches(PricingLineItem l, Set<String> ids, Set<String> groups) {
       if (l.matchesAnyTarget(ids)) return true;
       if (l.groupId == null || groups.isEmpty) return false;
-      final gNorm = l.groupId!.trim().toLowerCase();
-      return groups.any((g) => g.trim().toLowerCase() == gNorm);
+      final gNorm = PricingLineItem.normGroup(l.groupId!);
+      return groups.any((g) => PricingLineItem.normGroup(g) == gNorm);
     }
 
     List<ProductModel> pick(Set<String> ids, Set<String> groups) => products
@@ -150,7 +175,7 @@ class CartCampaignPricing {
             !p.isTopping &&
             p.isAvailable &&
             !c.excludedItemIds.any((ex) => p.matchesTarget(ex)) &&
-            (ids.any((id) => p.matchesTarget(id)) || groups.any((g) => g.trim().toLowerCase() == p.category.trim().toLowerCase())))
+            (ids.any((id) => p.matchesTarget(id)) || groups.any((g) => PricingLineItem.normGroup(g) == PricingLineItem.normGroup(p.category))))
         .toList();
 
     final type = c.campaignType.toUpperCase().replaceAll('_', '');
@@ -159,7 +184,7 @@ class CartCampaignPricing {
         final buyIds = cond.buyItemIds.toSet(), buyGroups = cond.buyGroupIds.toSet();
         final rewardIds = cond.rewardItemIds.toSet(), rewardGroups = cond.rewardGroupIds.toSet();
         if (cond.requiredBuyQty <= 0 || cond.rewardQty <= 0) continue;
-        final x = lns.where((l) => !l.isGift && matches(l, buyIds, buyGroups)).fold<int>(0, (s, l) => s + l.quantity);
+        final x = lns.where((l) => !l.isGift && l.orderedWithin(c) && matches(l, buyIds, buyGroups)).fold<int>(0, (s, l) => s + l.quantity);
         final bundles = cond.multiplyByBundle ? x ~/ cond.requiredBuyQty : (x >= cond.requiredBuyQty ? 1 : 0);
         if (bundles <= 0) continue;
         final cands = pick(rewardIds, rewardGroups);
@@ -171,7 +196,7 @@ class CartCampaignPricing {
       final inScopeAll = c.includedItemIds.isEmpty && c.includedGroupIds.isEmpty;
       int base = 0;
       for (final l in lns) {
-        if (l.isGift || l.matchesAnyTarget(c.excludedItemIds)) continue;
+        if (l.isGift || !l.orderedWithin(c) || l.matchesAnyTarget(c.excludedItemIds)) continue;
         final inScope = inScopeAll || l.matchesAnyTarget(c.includedItemIds) || (l.groupId != null && c.includedGroupIds.contains(l.groupId));
         if (inScope) base += l.unitPrice * l.quantity - l.manualLineDiscount;
       }
@@ -183,6 +208,81 @@ class CartCampaignPricing {
       return (units: tier.maxRewardQty > 0 ? tier.maxRewardQty : 1, candidates: cands);
     }
     return null;
+  }
+
+  /// Hai lần bấm món lúc [a] và [b] cùng nằm trong (hoặc cùng ngoài) thời gian của mọi chương trình có lịch?
+  /// Chỉ khi đó mới được gộp vào cùng 1 dòng — nếu không, phần gọi trong khung giờ phải là dòng riêng
+  /// (vd 2 nước bấm 15:50 + 1 nước bấm 16:10 cho combo 16:00–18:00 → 2 dòng, combo vẫn tính 1 ly).
+  static bool sameOrderWindow(int? a, int? b, Iterable<CampaignModel> campaigns) {
+    if (a == null || b == null || a <= 0 || b <= 0) return true;
+    return campaigns.every((c) => c.isEligibleAt(a) == c.isEligibleAt(b));
+  }
+
+  /// Món liên quan tới chương trình nhưng GỌI NGOÀI khung giờ áp dụng → không được tính KM.
+  /// Trả câu thông báo cho nhân viên (null = không có món nào như vậy).
+  static String? outsideScheduleMessage(
+    CampaignModel c, {
+    required List<OrderItemModel> cart,
+    required List<ProductModel> products,
+  }) {
+    final lns = lines(cart, products);
+    bool group(PricingLineItem l, Iterable<String> groups) =>
+        l.groupId != null && groups.any((g) => PricingLineItem.normGroup(g) == PricingLineItem.normGroup(l.groupId!));
+    bool related(PricingLineItem l) {
+      if (l.isGift || l.matchesAnyTarget(c.excludedItemIds)) return false;
+      final type = c.campaignType.toUpperCase().replaceAll('_', '');
+      if (type == 'BUYXGETY') {
+        return c.buyConditions.any((cond) =>
+            l.matchesAnyTarget(cond.buyItemIds) || group(l, cond.buyGroupIds) ||
+            l.matchesAnyTarget(cond.rewardItemIds) || group(l, cond.rewardGroupIds));
+      }
+      if (c.includedItemIds.isEmpty && c.includedGroupIds.isEmpty) return true;
+      return l.matchesAnyTarget(c.includedItemIds) || group(l, c.includedGroupIds);
+    }
+
+    String hm(int ms) {
+      final d = DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).add(const Duration(hours: 7));
+      return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    }
+
+    final out = lns.where((l) => related(l) && !l.orderedWithin(c)).toList();
+    if (out.isEmpty) return null;
+    final names = out.map((l) => '${l.itemName ?? l.itemId} (gọi lúc ${hm(l.orderedAtMs!)})').join(', ');
+    return '$names gọi ngoài thời gian khuyến mãi (${c.schedule.summary()}) nên không được áp dụng. '
+        'Chỉ món gọi trong khung giờ mới được tính.';
+  }
+
+  /// Giỏ hàng LẼ RA được giảm (nhiều hơn) nhưng bị chặn vì có món gọi ngoài khung giờ?
+  /// Trả câu thông báo (null = không bị ảnh hưởng). Dùng để tự báo nhân viên, không cần bấm vào chương trình.
+  static String? lateOrderBlock(
+    CampaignModel c, {
+    required List<OrderItemModel> cart,
+    required List<ProductModel> products,
+    required String branchId,
+    int? guestCount,
+    String? customerBirthday,
+    int? nowMs,
+  }) {
+    final msg = outsideScheduleMessage(c, cart: cart, products: products);
+    if (msg == null) return null;
+    PriceQuoteModel run(List<PricingLineItem> lns) => calculatePrice(
+          input: PricingInput(
+            branchId: branchId,
+            customerBirthday: customerBirthday,
+            guestCount: guestCount,
+            serverNowMs: nowMs ?? DateTime.now().millisecondsSinceEpoch,
+            lines: lns,
+          ),
+          activeCampaigns: [c],
+          counters: const {},
+          customerCounters: const {},
+        );
+    final lns = lines(cart, products);
+    final real = run(lns).totalPromotionDiscount;
+    final ignoringTime = run([for (final l in lns) l.withoutOrderTime()]).totalPromotionDiscount;
+    if (ignoringTime <= real) return null;
+    String vnd(int v) => '${v.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.')}đ';
+    return real > 0 ? '$msg Đơn chỉ được giảm ${vnd(real)} thay vì ${vnd(ignoringTime)}.' : msg;
   }
 
   /// Lý do chưa áp dụng (nếu có) của chương trình trong [quote]
@@ -218,8 +318,8 @@ class CartCampaignPricing {
     bool matches(PricingLineItem l, Set<String> ids, Set<String> groups) {
       if (l.matchesAnyTarget(ids)) return true;
       if (l.groupId == null || groups.isEmpty) return false;
-      final gNorm = l.groupId!.trim().toLowerCase();
-      return groups.any((g) => g.trim().toLowerCase() == gNorm);
+      final gNorm = PricingLineItem.normGroup(l.groupId!);
+      return groups.any((g) => PricingLineItem.normGroup(g) == gNorm);
     }
 
     List<ProductModel> pick(Set<String> ids, Set<String> groups) => products
@@ -227,7 +327,7 @@ class CartCampaignPricing {
             !p.isTopping &&
             p.isAvailable &&
             !c.excludedItemIds.any((ex) => p.matchesTarget(ex)) &&
-            (ids.any((id) => p.matchesTarget(id)) || groups.any((g) => g.trim().toLowerCase() == p.category.trim().toLowerCase())))
+            (ids.any((id) => p.matchesTarget(id)) || groups.any((g) => PricingLineItem.normGroup(g) == PricingLineItem.normGroup(p.category))))
         .toList();
 
     if (type == 'BUYXGETY') {
@@ -236,14 +336,14 @@ class CartCampaignPricing {
         final rewardIds = cond.rewardItemIds.toSet(), rewardGroups = cond.rewardGroupIds.toSet();
         if (cond.requiredBuyQty <= 0 || cond.rewardQty <= 0) continue;
 
-        // Số lượng nước trong giỏ hàng
+        // Số lượng nước trong giỏ hàng (chỉ nước gọi trong khung giờ chương trình)
         final buyUnits = lns
-            .where((l) => !l.isGift && matches(l, buyIds, buyGroups))
+            .where((l) => !l.isGift && l.orderedWithin(c) && matches(l, buyIds, buyGroups))
             .fold<int>(0, (s, l) => s + l.quantity);
 
         // Số lượng bánh hiện có trong giỏ hàng
         final rewardUnitsInCart = lns
-            .where((l) => !l.isGift && matches(l, rewardIds, rewardGroups))
+            .where((l) => !l.isGift && l.orderedWithin(c) && matches(l, rewardIds, rewardGroups))
             .fold<int>(0, (s, l) => s + l.quantity);
 
         final bundles = cond.multiplyByBundle ? buyUnits ~/ cond.requiredBuyQty : (buyUnits >= cond.requiredBuyQty ? 1 : 0);
@@ -273,6 +373,23 @@ class CartCampaignPricing {
       }
     }
     return null;
+  }
+
+  /// Gợi ý chẩn đoán khi combo báo "chưa có nước": nhóm/món chương trình cần mua và nhóm của các món đang trong đơn
+  static String comboMissHint(
+    CampaignModel c, {
+    required List<OrderItemModel> cart,
+    required List<ProductModel> products,
+  }) {
+    if (c.buyConditions.isEmpty) return '';
+    final cond = c.buyConditions.first;
+    final need = <String>[
+      if (cond.buyGroupIds.isNotEmpty) 'nhóm ${cond.buyGroupIds.join(" / ")}',
+      if (cond.buyItemIds.isNotEmpty) '${cond.buyItemIds.length} món chỉ định',
+    ];
+    if (need.isEmpty) return '';
+    final have = lines(cart, products).map((l) => '${l.itemName ?? l.itemId} [${l.groupId ?? "?"}]').toList();
+    return '\n   Cần: ${need.join(" + ")}${have.isEmpty ? "" : "\n   Đơn có: ${have.join(", ")}"}';
   }
 
   /// Bản ghi giảm giá lưu vào bill.discounts (giữ promoId/promoCode cho tương thích + trường mới cho báo cáo)

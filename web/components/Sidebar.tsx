@@ -19,6 +19,7 @@ import {
   LayoutGrid,
   Store,
   ClipboardCheck,
+  FileChartColumn,
   Receipt,
   ShoppingCart,
   Warehouse,
@@ -33,10 +34,12 @@ import {
   StickyNote,
   Info,
   Settings,
+  Timer,
 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
+  { href: "/dashboard/reports", label: "Trung tâm báo cáo", icon: FileChartColumn },
   { href: "/dashboard/end-of-day", label: "Báo cáo Cuối ngày", icon: ClipboardCheck },
   { href: "/dashboard/shifts", label: "Phiếu Bàn Giao Ca", icon: Receipt },
   { href: "/dashboard/customers", label: "Khách hàng CRM (KMT)", icon: Users },
@@ -45,6 +48,7 @@ const navItems = [
   { href: "/dashboard/settings", label: "Cài đặt cửa hàng", icon: Settings },
   { href: "/dashboard/tables", label: "Sơ đồ Phòng/Bàn", icon: LayoutGrid },
   { href: "/dashboard/kitchen", label: "Màn hình Bếp", icon: Flame },
+  { href: "/dashboard/kitchen-sla", label: "Tốc độ Bếp (SOS)", icon: Timer },
   { href: "/dashboard/my-orders", label: "Đơn của tôi", icon: ClipboardList },
   { href: "/dashboard/my-shift", label: "Ca / Két của tôi", icon: Wallet },
   { href: "/dashboard/orders", label: "Giao dịch / Hóa đơn", icon: ShoppingBag },
@@ -90,18 +94,18 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
   }, [open, onClose]);
 
   const isActive = (href: string) => {
-    if (href === "/dashboard") return pathname === "/dashboard";
+    if (href === "/dashboard" || href === "/dashboard/reports") return pathname === href;
     return pathname.startsWith(href);
   };
 
   const getRoleLabel = () => {
     if (!user) return "Nhân viên";
     if (user.isRootOwner || isOwnerRoleId(user.roleId || user.role)) {
-      return "👑 CHỦ QUÁN";
+      return "CHỦ QUÁN";
     }
     const r = normalizeRoleId(user.roleId || user.role);
-    if (r === ROLE_MANAGER) return `⭐ ${MANAGER_ROLE_LABEL.toUpperCase()}`;
-    return `👤 ${(r === ROLE_KITCHEN ? KITCHEN_ROLE_LABEL : STAFF_ROLE_LABEL).toUpperCase()}`;
+    if (r === ROLE_MANAGER) return MANAGER_ROLE_LABEL.toUpperCase();
+    return (r === ROLE_KITCHEN ? KITCHEN_ROLE_LABEL : STAFF_ROLE_LABEL).toUpperCase();
   };
 
   // Lọc danh mục hiển thị theo quyền người dùng (RBAC)

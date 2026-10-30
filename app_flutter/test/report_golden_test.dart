@@ -8,14 +8,7 @@ import 'package:tram_flutter/data/models/product_model.dart';
 import 'package:tram_flutter/data/models/shift_model.dart';
 
 void main() {
-  File file = File('../docs/report_golden.json');
-  if (!file.existsSync()) {
-    file = File('docs/report_golden.json');
-  }
-  final hasGolden = file.existsSync();
-
-  group('POS Trạm Report Golden Verification Tests (docs/report_golden.json)',
-      skip: !hasGolden ? 'docs/report_golden.json không tồn tại trong repository' : null, () {
+  group('POS Trạm Report Golden Verification Tests (docs/report_golden.json)', () {
     late Map<String, dynamic> goldenData;
     late List<ReportBillModel> bills;
     late Map<int, ProductModel> productsMap;
@@ -24,7 +17,12 @@ void main() {
     late Map<String, dynamic> expected;
 
     setUpAll(() {
-      if (!hasGolden) return;
+      // Tìm file docs/report_golden.json
+      File file = File('../docs/report_golden.json');
+      if (!file.existsSync()) {
+        file = File('docs/report_golden.json');
+      }
+      expect(file.existsSync(), isTrue, reason: 'Phải tìm thấy file docs/report_golden.json');
 
       final jsonStr = file.readAsStringSync();
       goldenData = jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -406,7 +404,8 @@ void main() {
       expect(gp.totalCostPrice, equals(expOverview['totalCostPrice']));
       expect(gp.grossProfit, equals(expOverview['grossProfit']));
       expect(gp.grossProfitMarginPercent, equals(expOverview['grossProfitMarginPercent']));
-      expect(gp.items.length, equals(7));
+      // 7 món + 2 topping (topping tách dòng riêng)
+      expect(gp.items.length, equals(9));
     });
 
     test('12. Báo cáo Doanh thu theo kỳ (Period Revenue)', () {

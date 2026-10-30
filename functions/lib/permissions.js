@@ -20,6 +20,7 @@ exports.isCashierRole = isCashierRole;
 exports.canCallerImportCustomer = canCallerImportCustomer;
 exports.resolveStaffAuthUid = resolveStaffAuthUid;
 exports.isChamCongAccount = isChamCongAccount;
+exports.resolveEmployeeCode = resolveEmployeeCode;
 function isOwnerRole(roleId, isRootOwner) {
     if (isRootOwner === true)
         return true;
@@ -200,5 +201,50 @@ function resolveStaffAuthUid(nodeKey, record) {
 /** Tài khoản tự tạo khi đăng nhập bằng Chấm Công Trạm (không có mật khẩu POS). */
 function isChamCongAccount(nodeKey, record) {
     return (record && record.authProvider === "chamcong") || nodeKey.startsWith("cc_");
+}
+/**
+ * Tự động cấp hoặc kiểm tra mã nhân viên (NV01, NV02, ...)
+ * Hỗ trợ quét toàn bộ danh sách nhân viên hiện có để tìm số thứ tự lớn nhất tiếp theo.
+ */
+function resolveEmployeeCode(providedCode, existingUsers) {
+    const usersList = existingUsers
+        ? Array.isArray(existingUsers)
+            ? existingUsers
+            : Object.values(existingUsers)
+        : [];
+    const existingCodes = new Set(usersList
+        .map((u) => {
+        const val = u?.employeeCode ?? u?.staffCode;
+        return typeof val === "string" ? val.trim().toUpperCase() : "";
+    })
+        .filter((c) => c.length > 0));
+    if (typeof providedCode === "string" && providedCode.trim().length > 0) {
+        const clean = providedCode.trim().toUpperCase();
+        if (!/^[A-Z0-9_-]{2,20}$/.test(clean)) {
+            return { code: "", error: "Mã nhân viên chỉ gồm 2-20 ký tự chữ cái không dấu, số, gạch dưới hoặc gạch ngang." };
+        }
+        if (existingCodes.has(clean)) {
+            return { code: "", error: `Mã nhân viên "${clean}" đã tồn tại trong chi nhánh.` };
+        }
+        return { code: clean };
+    }
+    // Tự động sinh mã tiếp theo: NV01, NV02, ...
+    let maxNum = 0;
+    for (const c of existingCodes) {
+        const match = /^NV(\d+)$/i.exec(c);
+        if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNum) {
+                maxNum = num;
+            }
+        }
+    }
+    let nextNum = maxNum + 1;
+    let candidate = `NV${String(nextNum).padStart(2, "0")}`;
+    while (existingCodes.has(candidate)) {
+        nextNum++;
+        candidate = `NV${String(nextNum).padStart(2, "0")}`;
+    }
+    return { code: candidate };
 }
 //# sourceMappingURL=permissions.js.map

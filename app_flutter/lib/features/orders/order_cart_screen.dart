@@ -19,6 +19,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/services/manager_pin_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
+import '../../core/utils/text_formatters.dart';
 import '../../core/vietqr/vietqr_generator.dart';
 import '../../data/models/app_models.dart';
 import '../../data/models/campaign_models.dart';
@@ -39,6 +40,7 @@ import '../../core/domain/table_customer.dart';
 import 'widgets/payment_widgets.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/manager_pin_dialogs.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class OrderCartScreen extends StatefulWidget {
   final TableModel table;
@@ -299,13 +301,17 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
   Future<void> _incrementItem(int index) async {
     if (!await _ensureShiftOpen() || !mounted) return;
     final item = _cart[index];
-    if (item.isSentKitchen || item.hasDiscount) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    // Khác khung giờ KM so với lúc gọi dòng này → tách dòng mới (KM khung giờ chỉ tính món gọi trong giờ)
+    bool sameWindow(OrderItemModel i) => CartCampaignPricing.sameOrderWindow(i.orderedAt, now, _campaigns);
+    if (item.isSentKitchen || item.hasDiscount || !sameWindow(item)) {
       // Dòng này đã gửi bếp hoặc đã có giảm giá món: không cộng dồn trực tiếp vào dòng này
       // (vì phần tăng thêm chưa gửi bếp và không tự động được hưởng giảm giá).
       // Tìm xem đã có dòng mới chưa gửi bếp & không giảm giá cùng loại món này chưa:
       final existingNewIdx = _cart.indexWhere((i) =>
           !i.isSentKitchen &&
           !i.hasDiscount &&
+          sameWindow(i) &&
           i.productId == item.productId &&
           i.name == item.name &&
           i.selectedSize == item.selectedSize &&
@@ -336,7 +342,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           note: item.note,
           orderedBy: staffUser,
           orderedByName: staffName,
-          orderedAt: DateTime.now().millisecondsSinceEpoch,
+          orderedAt: now,
           isSentKitchen: false,
         );
         setState(() {
@@ -485,7 +491,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.delete_outline, color: context.tc.danger, size: 24),
+            Icon(LucideIcons.trash2, color: context.tc.danger, size: 24),
             const SizedBox(width: 8),
             Text('Xác nhận xóa món', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
@@ -509,7 +515,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 18),
+                    const Icon(LucideIcons.triangleAlert, color: Colors.amber, size: 18),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -524,7 +530,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
             if (_cart.length == 1) ...[
               const SizedBox(height: 10),
               Text(
-                '💡 Đây là món cuối cùng. Xóa xong bàn sẽ tự động về trạng thái TRỐNG.',
+                'Đây là món cuối cùng. Xóa xong bàn sẽ tự động về trạng thái TRỐNG.',
                 style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.primary, fontStyle: FontStyle.italic),
               ),
             ],
@@ -558,7 +564,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.delete_sweep_outlined, color: context.tc.danger, size: 24),
+            Icon(LucideIcons.trash, color: context.tc.danger, size: 24),
             const SizedBox(width: 8),
             Text('Xóa toàn bộ món', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
@@ -604,7 +610,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.delete_outline, color: context.tc.danger, size: 24),
+            Icon(LucideIcons.trash2, color: context.tc.danger, size: 24),
             const SizedBox(width: 8),
             Text('Xác nhận xóa món', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
@@ -793,7 +799,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     if (hasKitchen && !_auth.can(AppPermissions.cancelBill) && !_auth.can(AppPermissions.cancelKitchenItem) && !_auth.can(AppPermissions.deleteItem)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('⚠️ Bạn không có quyền hủy hóa đơn đã gửi bếp! Vui lòng liên hệ Quản Lý.'),
+          content: Text('Bạn không có quyền hủy hóa đơn đã gửi bếp! Vui lòng liên hệ Quản Lý.'),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -821,7 +827,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
-                Icon(Icons.cancel_outlined, color: context.tc.danger, size: 24),
+                Icon(LucideIcons.circleX, color: context.tc.danger, size: 24),
                 const SizedBox(width: 8),
                 Text('Hủy Hóa Đơn Bàn', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 16)),
               ],
@@ -845,8 +851,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(widget.table.name, style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 15, color: context.tc.primaryDark)),
-                            Text(widget.table.zone, style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textSecondary)),
+                            Flexible(child: Text(widget.table.name, style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 15, color: context.tc.primaryDark), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                            Flexible(child: Text(widget.table.zone, style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis)),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -886,7 +892,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '⚠️ Sau khi xác nhận, toàn bộ món sẽ bị hủy và bàn sẽ trở về trạng thái TRỐNG.',
+                    'Sau khi xác nhận, toàn bộ món sẽ bị hủy và bàn sẽ trở về trạng thái TRỐNG.',
                     style: GoogleFonts.beVietnamPro(fontSize: 11, color: context.ink(Colors.red.shade700), fontStyle: FontStyle.italic),
                   ),
                 ],
@@ -899,7 +905,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
               ),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: context.tc.danger),
-                icon: const Icon(Icons.delete_forever, size: 16, color: Colors.white),
+                icon: const Icon(LucideIcons.trash2, size: 16, color: Colors.white),
                 label: const Text('Xác nhận Hủy Đơn', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 onPressed: () {
                   if (reasonCtrl.text.trim().isEmpty) return;
@@ -1089,18 +1095,36 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     return true;
   }
 
-  /// Pricing Engine cho 1 chương trình trên giỏ hàng hiện tại
+  /// Báo nhân viên: món liên quan gọi ngoài khung giờ KM nên không áp dụng được
+  Future<void> _showOutsideScheduleDialog(CampaignModel c, String message) {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(LucideIcons.clockAlert, color: AppColors.danger),
+        title: const Text('Không áp dụng được khuyến mãi'),
+        content: Text('"${c.name}"\n\n$message'),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đã hiểu', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Pricing Engine cho 1 chương trình trên giỏ hàng hiện tại (khung giờ theo lúc bấm — xem quoteForApply)
   PriceQuoteModel _quoteCampaign(CampaignModel c) {
     final isApplied = _appliedDiscounts.any((d) => d.campaignId == c.campaignId);
-    return CartCampaignPricing.quote(
+    return CartCampaignPricing.quoteForApply(
       c,
       cart: _cart,
       products: _products,
       branchId: _fb.currentStoreCode,
       guestCount: _guestCount,
       customerBirthday: _selectedCustomer?.birthday,
-      nowMs: widget.table.openedAt,
-      ignoreSchedule: isApplied,
+      isApplied: isApplied,
     );
   }
 
@@ -1195,6 +1219,35 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
 
     if (newlyApplied.isNotEmpty && mounted) {
       setState(() {});
+    }
+    _notifyLateOrderPromotions(now);
+  }
+
+  /// Đã báo (chương trình + món gọi ngoài giờ) nào rồi — không báo lặp khi giỏ đổi tiếp
+  final Set<String> _lateNotified = {};
+
+  /// Tự báo khi đơn LẼ RA được khuyến mãi (đang trong khung giờ) nhưng có món gọi ngoài khung giờ,
+  /// ví dụ nước gọi 15:50, 16:30 thêm bánh cho combo 16:00–18:00 → bánh không được giảm.
+  void _notifyLateOrderPromotions(int now) {
+    if (!mounted || _cart.isEmpty) return;
+    for (final c in _campaigns) {
+      if (c.hasCodes || !c.isEligibleAt(now)) continue;
+      final msg = CartCampaignPricing.lateOrderBlock(
+        c,
+        cart: _cart,
+        products: _products,
+        branchId: _fb.currentStoreCode,
+        guestCount: _guestCount,
+        customerBirthday: _selectedCustomer?.birthday,
+        nowMs: now,
+      );
+      if (msg == null) continue;
+      final key = '${c.campaignId}|$msg';
+      if (!_lateNotified.add(key)) continue;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showOutsideScheduleDialog(c, msg);
+      });
+      break; // mỗi lần chỉ hiện 1 hộp thoại
     }
   }
 
@@ -1320,7 +1373,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Đã gửi ${unsentItems.length} món đến Bếp thành công! 🍽️'),
+          content: Text('Đã gửi ${unsentItems.length} món đến Bếp thành công!'),
           backgroundColor: AppColors.success,
           duration: const Duration(seconds: 2),
         ),
@@ -1438,7 +1491,11 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                   bankAccount: _storeInfo?.bankAccount ?? '0987654321',
                   accountName: _storeInfo?.accountName ?? 'CHU QUAN FNB',
                   amount: totalSplitAmount,
-                  orderInfo: '${_storeInfo?.storeCode ?? "TRAM"}_${widget.table.name}_TACH',
+                  orderInfo: VietQrGenerator.buildOrderInfo(
+                    storeCode: _storeInfo?.storeCode ?? 'TRAM01',
+                    tableName: widget.table.name,
+                    suffix: 'TACH',
+                  ),
                 )
               : '';
 
@@ -1448,7 +1505,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
             contentPadding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
             title: Row(
               children: [
-                Icon(Icons.call_split, color: context.tc.primary, size: 22),
+                Icon(LucideIcons.split, color: context.tc.primary, size: 22),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1457,7 +1514,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: const Icon(LucideIcons.x, size: 20),
                   tooltip: 'Đóng',
                   onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
                 ),
@@ -1556,7 +1613,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                   children: [
                                     IconButton(
                                       visualDensity: VisualDensity.compact,
-                                      icon: const Icon(Icons.remove_circle_outline, size: 22),
+                                      icon: const Icon(LucideIcons.circleMinus, size: 22),
                                       onPressed: curr > 0
                                           ? () => setDlgState(() => splitQty[idx] = curr - 1)
                                           : null,
@@ -1572,7 +1629,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                     IconButton(
                                       visualDensity: VisualDensity.compact,
                                       icon: Icon(
-                                        Icons.add_circle_outline,
+                                        LucideIcons.circlePlus,
                                         size: 22,
                                         color: curr < item.quantity ? context.tc.primary : null,
                                       ),
@@ -1599,18 +1656,22 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
+                          Flexible(child: Text(
                             'Đã chọn tách: $totalSplitParts phần',
                             style: GoogleFonts.beVietnamPro(fontSize: 12.5, fontWeight: FontWeight.w600),
-                          ),
-                          Text(
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )),
+                          Flexible(child: Text(
                             FormatUtils.vnd(totalSplitAmount),
                             style: GoogleFonts.beVietnamPro(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
                               color: context.tc.primary,
                             ),
-                          ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )),
                         ],
                       ),
                     ),
@@ -1640,7 +1701,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             Row(
                               children: [
                                 Icon(
-                                  splitAction == 'PAY_NOW' ? Icons.radio_button_checked : Icons.radio_button_off,
+                                  splitAction == 'PAY_NOW' ? LucideIcons.circleDot : LucideIcons.circle,
                                   color: splitAction == 'PAY_NOW' ? context.tc.primary : context.tc.textSecondary,
                                   size: 20,
                                 ),
@@ -1680,7 +1741,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                       ),
                                       onPressed: () => setDlgState(() => splitPayMethod = 'CASH'),
                                       icon: Icon(
-                                        Icons.payments_outlined,
+                                        LucideIcons.banknote,
                                         size: 16,
                                         color: splitPayMethod == 'CASH' ? context.tc.primary : context.tc.textSecondary,
                                       ),
@@ -1709,7 +1770,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                       ),
                                       onPressed: () => setDlgState(() => splitPayMethod = 'TRANSFER_QR'),
                                       icon: Icon(
-                                        Icons.qr_code_2_outlined,
+                                        LucideIcons.qrCode,
                                         size: 16,
                                         color: splitPayMethod == 'TRANSFER_QR'
                                             ? context.tc.primary
@@ -1767,7 +1828,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             Row(
                               children: [
                                 Icon(
-                                  splitAction == 'TRANSFER' ? Icons.radio_button_checked : Icons.radio_button_off,
+                                  splitAction == 'TRANSFER' ? LucideIcons.circleDot : LucideIcons.circle,
                                   color: splitAction == 'TRANSFER' ? context.tc.primary : context.tc.textSecondary,
                                   size: 20,
                                 ),
@@ -1803,7 +1864,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                   DropdownMenuItem(
                                     value: newSplitTableKey,
                                     child: Text(
-                                      '➕ Tạo bàn tách mới: $nextSplitName (${widget.table.zone})',
+                                      'Tạo bàn tách mới: $nextSplitName (${widget.table.zone})',
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                                     ),
@@ -1812,7 +1873,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                     (t) => DropdownMenuItem(
                                       value: t.firebaseKey,
                                       child: Text(
-                                        '🪑 ${t.name} (${t.zone} • Bàn trống)',
+                                        '${t.name} (${t.zone} • Bàn trống)',
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(fontSize: 13),
                                       ),
@@ -1853,7 +1914,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                               Row(
                                 children: [
                                   Icon(
-                                    splitAction == 'MERGE' ? Icons.radio_button_checked : Icons.radio_button_off,
+                                    splitAction == 'MERGE' ? LucideIcons.circleDot : LucideIcons.circle,
                                     color: splitAction == 'MERGE' ? context.tc.primary : context.tc.textSecondary,
                                     size: 20,
                                   ),
@@ -1892,7 +1953,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                         (t) => DropdownMenuItem(
                                           value: t.firebaseKey,
                                           child: Text(
-                                            '🔗 ${t.name} (${t.zone} • ${t.currentItems.length} món • ${FormatUtils.vnd(t.currentTotal)})',
+                                            '${t.name} (${t.zone} • ${t.currentItems.length} món • ${FormatUtils.vnd(t.currentTotal)})',
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(fontSize: 13),
                                           ),
@@ -1924,8 +1985,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 style: dialogActionStyle(background: context.tc.primary),
                 icon: Icon(
                   splitAction == 'PAY_NOW'
-                      ? Icons.payments_outlined
-                      : (splitAction == 'MERGE' ? Icons.call_merge : Icons.swap_horiz),
+                      ? LucideIcons.banknote
+                      : (splitAction == 'MERGE' ? LucideIcons.merge : LucideIcons.arrowLeftRight),
                   size: 18,
                   color: Colors.white,
                 ),
@@ -2003,7 +2064,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             ScaffoldMessenger.of(this.context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  '🎉 Đã thanh toán trước $totalSplitParts phần (${FormatUtils.vnd(totalSplitAmount)}) • Mã HĐ: ${res.paidBill.billCode}!${_autoPrintBill ? " (Đang in bill)" : ""}',
+                                  'Đã thanh toán trước $totalSplitParts phần (${FormatUtils.vnd(totalSplitAmount)}) • Mã HĐ: ${res.paidBill.billCode}!${_autoPrintBill ? " (Đang in bill)" : ""}',
                                 ),
                                 backgroundColor: AppColors.success,
                                 duration: const Duration(seconds: 3),
@@ -2128,7 +2189,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
             itemBuilder: (_, i) {
               final t = otherInUseTables[i];
               return ListTile(
-                leading: Icon(Icons.table_restaurant, color: context.tc.primary),
+                leading: Icon(LucideIcons.armchair, color: context.tc.primary),
                 title: Text(t.name),
                 subtitle: Text('${t.zone} • ${t.currentItems.length} món'),
                 onTap: () async {
@@ -2314,7 +2375,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(Icons.edit_outlined, color: context.tc.primary),
+              Icon(LucideIcons.pencil, color: context.tc.primary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -2342,7 +2403,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline, size: 16, color: Colors.red.shade700),
+                          Icon(LucideIcons.circleAlert, size: 16, color: Colors.red.shade700),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -2365,18 +2426,26 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Mã: ${customer.code.isNotEmpty ? customer.code : customer.id}',
-                            style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.w600, color: context.tc.textSecondary)),
-                        Text('${customer.currentPoints} pt (${customer.tierName(tiers)})',
-                            style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.bold, color: context.ink(Colors.blue.shade800))),
+                        Flexible(child: Text('Mã: ${customer.code.isNotEmpty ? customer.code : customer.id}',
+                            style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.w600, color: context.tc.textSecondary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis)),
+                        Flexible(child: Text('${customer.currentPoints} pt (${customer.tierName(tiers)})',
+                            style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.bold, color: context.ink(Colors.blue.shade800)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis)),
                       ],
                     ),
                   ),
                   TextField(
                     controller: nameCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [
+                      UpperCaseTextFormatter(),
+                    ],
                     decoration: const InputDecoration(
                       labelText: 'Họ và tên *',
-                      prefixIcon: Icon(Icons.person_outline),
+                      prefixIcon: Icon(LucideIcons.user),
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (_) {
@@ -2389,7 +2458,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
                       labelText: 'Số điện thoại *',
-                      prefixIcon: Icon(Icons.phone_outlined),
+                      prefixIcon: Icon(LucideIcons.phone),
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (_) {
@@ -2406,9 +2475,9 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     width: double.infinity,
                     child: SegmentedButton<String>(
                       segments: const [
-                        ButtonSegment(value: 'Nam', label: Text('Nam'), icon: Icon(Icons.male, size: 16)),
-                        ButtonSegment(value: 'Nữ', label: Text('Nữ'), icon: Icon(Icons.female, size: 16)),
-                        ButtonSegment(value: 'Khác', label: Text('Khác'), icon: Icon(Icons.person_outline, size: 16)),
+                        ButtonSegment(value: 'Nam', label: Text('Nam'), icon: Icon(LucideIcons.mars, size: 16)),
+                        ButtonSegment(value: 'Nữ', label: Text('Nữ'), icon: Icon(LucideIcons.venus, size: 16)),
+                        ButtonSegment(value: 'Khác', label: Text('Khác'), icon: Icon(LucideIcons.user, size: 16)),
                       ],
                       selected: {gender},
                       onSelectionChanged: (set) => setDialogState(() => gender = set.first),
@@ -2421,11 +2490,11 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     decoration: InputDecoration(
                       labelText: 'Ngày sinh',
                       hintText: 'Chọn ngày sinh (dd/MM/yyyy)',
-                      prefixIcon: const Icon(Icons.cake_outlined),
+                      prefixIcon: const Icon(LucideIcons.cake),
                       border: const OutlineInputBorder(),
                       suffixIcon: birthday != null
                           ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
+                              icon: const Icon(LucideIcons.x, size: 18),
                               onPressed: () {
                                 setDialogState(() {
                                   birthday = null;
@@ -2433,7 +2502,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                 });
                               },
                             )
-                          : const Icon(Icons.calendar_today, size: 18),
+                          : const Icon(LucideIcons.calendar, size: 18),
                     ),
                     onTap: () async {
                       final now = DateTime.now();
@@ -2467,7 +2536,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
               onPressed: isSaving
                   ? null
                   : () {
-                      final name = nameCtrl.text.trim();
+                      final name = nameCtrl.text.trim().toUpperCase();
                       final phone = phoneCtrl.text.trim();
                       final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
 
@@ -2490,7 +2559,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     );
 
     if (ok != true || !mounted) return;
-    final name = nameCtrl.text.trim();
+    final name = nameCtrl.text.trim().toUpperCase();
     final phone = phoneCtrl.text.trim();
     final bdayStr = birthday != null ? DateFormat('yyyy-MM-dd').format(birthday!) : '';
 
@@ -2587,7 +2656,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(color: context.bg(Colors.orange.shade100), borderRadius: BorderRadius.circular(10)),
-                  child: Icon(Icons.local_offer, color: context.ink(Colors.orange.shade900), size: 22),
+                  child: Icon(LucideIcons.tag, color: context.ink(Colors.orange.shade900), size: 22),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -2612,8 +2681,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Tiền gốc (${item.quantity} phần):', style: GoogleFonts.beVietnamPro(fontSize: 12)),
-                        Text(FormatUtils.vnd(lineGross), style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.bold)),
+                        Flexible(child: Text('Tiền gốc (${item.quantity} phần):', style: GoogleFonts.beVietnamPro(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                        Flexible(child: Text(FormatUtils.vnd(lineGross), style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis)),
                       ],
                     ),
                   ),
@@ -2693,13 +2762,13 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       ),
                       IconButton(
                         tooltip: 'Bớt 1 phần',
-                        icon: const Icon(Icons.remove_circle_outline),
+                        icon: const Icon(LucideIcons.circleMinus),
                         onPressed: discountedQty > 1 ? () => setDlgState(() => discountedQty -= 1) : null,
                       ),
-                      Text('$discountedQty / ${item.quantity}', style: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.bold)),
+                      Flexible(child: Text('$discountedQty / ${item.quantity}', style: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis)),
                       IconButton(
                         tooltip: 'Thêm 1 phần',
-                        icon: const Icon(Icons.add_circle_outline),
+                        icon: const Icon(LucideIcons.circlePlus),
                         onPressed: discountedQty < item.quantity ? () => setDlgState(() => discountedQty += 1) : null,
                       ),
                     ],
@@ -2751,7 +2820,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                 style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.ink(Colors.orange.shade900)),
                               ),
                             ),
-                            Text('-${FormatUtils.vnd(calcDiscount)}', style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.bold, color: context.ink(Colors.red.shade700))),
+                            Flexible(child: Text('-${FormatUtils.vnd(calcDiscount)}', style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.bold, color: context.ink(Colors.red.shade700)), maxLines: 1, overflow: TextOverflow.ellipsis)),
                           ],
                         ),
                         const Divider(height: 10),
@@ -2759,7 +2828,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('Thành tiền sau giảm:', style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.bold)),
-                            Text(FormatUtils.vnd(calcAfter), style: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.bold, color: context.ink(Colors.green.shade800))),
+                            Flexible(child: Text(FormatUtils.vnd(calcAfter), style: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.bold, color: context.ink(Colors.green.shade800)), maxLines: 1, overflow: TextOverflow.ellipsis)),
                           ],
                         ),
                       ],
@@ -2878,6 +2947,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       }
     }
 
+
+
     final resolved = resolveItemOptions(
       productNoteGroupIds: originalProduct?.noteGroupIds,
       productToppingGroupIds: originalProduct?.toppingGroupIds,
@@ -2929,6 +3000,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           if (!availableToppingNames.contains(p.name)) availableToppingNames.add(p.name);
         }
       }
+
     }
 
     // Ensure previously selected toppings in item are preserved in mapping
@@ -3024,7 +3096,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             ),
                             const SizedBox(width: 6),
                             IconButton(
-                              icon: const Icon(Icons.close, size: 22),
+                              icon: const Icon(LucideIcons.x, size: 22),
                               tooltip: 'Đóng',
                               visualDensity: VisualDensity.compact,
                               padding: EdgeInsets.zero,
@@ -3192,11 +3264,11 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     decoration: InputDecoration(
                       labelText: 'Ghi chú cho bếp / pha chế',
                       hintText: 'VD: ít ngọt, pha đậm vị, mang về...',
-                      prefixIcon: Icon(Icons.edit_note, color: context.tc.primary),
+                      prefixIcon: Icon(LucideIcons.notebookPen, color: context.tc.primary),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       suffixIcon: noteCtrl.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
+                              icon: const Icon(LucideIcons.x, size: 18),
                               onPressed: () => setModalState(() => noteCtrl.clear()),
                             )
                           : null,
@@ -3306,7 +3378,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             if (mounted) {
                               ScaffoldMessenger.of(this.context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Đã cập nhật ghi chú & tùy chọn món thành công! ✨'),
+                                  content: Text('Đã cập nhật ghi chú & tùy chọn món thành công!'),
                                   backgroundColor: AppColors.success,
                                   duration: Duration(seconds: 2),
                                 ),
@@ -3406,7 +3478,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       builder: (noteCtx) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.edit_note, color: context.tc.primary),
+            Icon(LucideIcons.notebookPen, color: context.tc.primary),
             const SizedBox(width: 8),
             const Text('Ghi chú áp dụng voucher'),
           ],
@@ -3494,7 +3566,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             textCapitalization: TextCapitalization.characters,
                             decoration: const InputDecoration(
                               labelText: 'Nhập mã Voucher',
-                              prefixIcon: Icon(Icons.confirmation_number_outlined),
+                              prefixIcon: Icon(LucideIcons.ticket),
                               hintText: 'VD: CHAOBAN20',
                             ),
                           ),
@@ -3724,7 +3796,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(voucherResult!.isValid ? Icons.check_circle : Icons.error_outline,
+                            Icon(voucherResult!.isValid ? LucideIcons.circleCheck : LucideIcons.circleAlert,
                                 size: 18, color: voucherResult!.isValid ? AppColors.success : AppColors.danger),
                             const SizedBox(width: 8),
                             Expanded(
@@ -3745,7 +3817,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     Text('Chương trình khuyến mãi khả dụng:', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 8),
                     if (!_allPromotions.any((p) => p.isActive && p.code.isEmpty) &&
-                        !_campaigns.any((c) => !c.hasCodes && (c.isEligibleAt(nowMs) || _appliedDiscounts.any((d) => d.campaignId == c.campaignId))))
+                        !_campaigns.any((c) => !c.hasCodes))
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Text(
@@ -3799,8 +3871,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       );
                     }),
                     // Chương trình KM mới (không phát hành mã) - tính bằng Pricing Engine
-                    ..._campaigns.where((c) => !c.hasCodes && (c.isEligibleAt(nowMs) || _appliedDiscounts.any((d) => d.campaignId == c.campaignId))).map((c) {
+                    ..._campaigns.where((c) => !c.hasCodes).map((c) {
                       final isSelected = _appliedDiscounts.any((d) => d.campaignId == c.campaignId);
+                      // Ngoài khung ngày/giờ áp dụng: vẫn HIỆN trong danh sách (mờ) kèm lý do để nhân viên biết vì sao chưa dùng được
+                      final inSchedule = c.isEligibleAt(nowMs);
                       final q = _quoteCampaign(c);
                       final amt = q.totalPromotionDiscount;
                       final reason = CartCampaignPricing.reason(q, c);
@@ -3809,16 +3883,19 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       final hasWater = isCombo && combo.buyUnits > 0;
                       final needsCakes = isCombo && hasWater && combo.remainingRewardUnits > 0;
                       final canAutoAdd = !isCombo && amt <= 0 && CartCampaignPricing.needsRewardItems(q, c);
+                      // Món liên quan gọi NGOÀI khung giờ → không được tính; bấm sẽ báo không áp dụng được
+                      final outsideMsg = CartCampaignPricing.outsideScheduleMessage(c, cart: _cart, products: _products);
+                      final blockedByOrderTime = outsideMsg != null && (isCombo ? !hasWater : amt <= 0 && !canAutoAdd);
 
                       String sub = '${c.typeDisplay} • ${describeCampaignBenefit(c)}';
                       if (!c.isStackable) {
-                        sub += ' • 🔒 Độc quyền';
+                        sub += ' • Độc quyền';
                       } else if (c.effectiveMaxCampaignsPerOrder < 999) {
                         sub += ' • Tối đa ${c.effectiveMaxCampaignsPerOrder} CTKM/đơn';
                       }
                       if (isCombo) {
                         if (!hasWater) {
-                          sub += ' • Chưa có nước trong đơn (chọn nước trước)';
+                          sub += ' • Chưa có nước trong đơn (chọn nước trước)${CartCampaignPricing.comboMissHint(c, cart: _cart, products: _products)}';
                         } else if (needsCakes) {
                           sub += ' • Đơn có ${combo.buyUnits} nước → Bấm để chọn tối đa ${combo.remainingRewardUnits} món giảm giá';
                         } else {
@@ -3834,14 +3911,23 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                         }
                       }
 
+                      if (blockedByOrderTime) {
+                        sub = '${c.typeDisplay} • Món gọi ngoài khung giờ (${c.schedule.summary()}) — không áp dụng được';
+                      }
+                      if (!inSchedule) {
+                        sub = '${c.typeDisplay} • Ngoài thời gian áp dụng (${c.schedule.summary()})';
+                      }
+
                       return CheckboxListTile(
                         value: isSelected,
-                        enabled: isCombo ? hasWater : (amt > 0 || isSelected || canAutoAdd),
+                        enabled: !inSchedule
+                            ? isSelected
+                            : (blockedByOrderTime || (isCombo ? hasWater : (amt > 0 || isSelected || canAutoAdd))),
                         title: Text(c.name, style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600, fontSize: 13)),
                         subtitle: Text(sub, style: GoogleFonts.beVietnamPro(fontSize: 11)),
                         secondary: (isCombo && hasWater && isSelected && combo.remainingRewardUnits > 0)
                             ? TextButton.icon(
-                                icon: const Icon(Icons.add_circle_outline, size: 16),
+                                icon: const Icon(LucideIcons.circlePlus, size: 16),
                                 label: Text('Thêm ${combo.remainingRewardUnits} món', style: GoogleFonts.beVietnamPro(fontSize: 11)),
                                 onPressed: () async {
                                   final added = await _pickComboRewardItems(c);
@@ -3864,6 +3950,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                               )
                             : null,
                         onChanged: (val) async {
+                          if (val == true && blockedByOrderTime) {
+                            await _showOutsideScheduleDialog(c, outsideMsg);
+                            return;
+                          }
                           if (val == true) {
                             final stackCheck = CartCampaignPricing.checkStacking(
                               currentDiscounts: _appliedDiscounts,
@@ -3947,7 +4037,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             final newQ = _quoteCampaign(c);
                             final applyAmt = newQ.totalPromotionDiscount;
                             if (applyAmt <= 0) {
-                              if (context.mounted) {
+                              final late = CartCampaignPricing.outsideScheduleMessage(c, cart: _cart, products: _products);
+                              if (late != null) {
+                                await _showOutsideScheduleDialog(c, late);
+                              } else if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('Chưa tính được ưu đãi cho chương trình này.')),
                                 );
@@ -4140,8 +4233,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         if (ctx.mounted) Navigator.pop(ctx);
         if (mounted) {
           final successMsg = matchedNote != null
-              ? '⚡ $matchedNote! Đã tự động chốt đơn (${bill.billCode}) & bàn ${widget.table.name}! 🎉${_autoPrintBill ? " (Đang in bill)" : ""}'
-              : 'Thanh toán thành công ${widget.table.name}: ${FormatUtils.vnd(bill.finalAmount)}! 🎉${_autoPrintBill ? " (Đang in bill)" : " (Không in bill)"}';
+              ? '$matchedNote! Đã tự động chốt đơn (${bill.billCode}) & bàn ${widget.table.name}!${_autoPrintBill ? " (Đang in bill)" : ""}'
+              : 'Thanh toán thành công ${widget.table.name}: ${FormatUtils.vnd(bill.finalAmount)}!${_autoPrintBill ? " (Đang in bill)" : " (Không in bill)"}';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(successMsg),
@@ -4194,12 +4287,16 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           final splitChangeAmount = cashGivenForSplit >= splitCashAmount ? cashGivenForSplit - splitCashAmount : 0;
 
           final effectiveQrAmount = paymentMethod == 'SPLIT' ? splitQrAmount : _finalTotal;
+          final orderInfoText = VietQrGenerator.buildOrderInfo(
+            storeCode: _storeInfo?.storeCode ?? 'TRAM01',
+            tableName: widget.table.name,
+          );
           final qrUrl = VietQrGenerator.generateImageUrl(
             bankId: _storeInfo?.bankId ?? 'MB',
             bankAccount: _storeInfo?.bankAccount ?? '0987654321',
             accountName: _storeInfo?.accountName ?? 'CHU QUAN FNB',
             amount: effectiveQrAmount,
-            orderInfo: '${_storeInfo?.storeCode ?? "TRAM"}_${widget.table.name}',
+            orderInfo: orderInfoText,
           );
 
           // Auto QR Check Listener Management
@@ -4229,13 +4326,22 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 final content = (val['content']?.toString() ?? '').toLowerCase();
                 final rawText = (val['rawText']?.toString() ?? '').toLowerCase();
                 final bankName = val['bankName']?.toString() ?? 'Ngân hàng';
-                final tableNameClean = widget.table.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-                final contentClean = content.replaceAll(RegExp(r'[^a-z0-9]'), '');
-                final rawClean = rawText.replaceAll(RegExp(r'[^a-z0-9]'), '');
-                final storeClean = (_storeInfo?.storeCode ?? 'tram').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
-                // Khớp bàn nếu trong content hoặc rawText chứa tên bàn (VD: "a1", "ban_a1") hoặc mã chi nhánh ("tram01")
-                final textHasTable = tableNameClean.isNotEmpty && (contentClean.contains(tableNameClean) || rawClean.contains(tableNameClean));
+                final tableAscii = VietQrGenerator.toAscii(widget.table.name).toLowerCase();
+                final tableNameClean = tableAscii.replaceAll(RegExp(r'[^a-z0-9]'), '');
+                final contentClean = VietQrGenerator.toAscii(content).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                final rawClean = VietQrGenerator.toAscii(rawText).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+                final storeClean = VietQrGenerator.toAscii(_storeInfo?.storeCode ?? 'tram').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+                // Trích xuất số/chữ của bàn (VD: "bàn 1" -> "1", "bàn a1" -> "a1")
+                final tableNumMatch = RegExp(r'[a-z]*\d+').stringMatch(tableNameClean);
+                final tableNum = tableNumMatch ?? tableNameClean;
+
+                // Khớp bàn nếu trong content hoặc rawText chứa tên bàn (VD: "ban1", "1", "bana1", "a1") hoặc mã chi nhánh ("tram01")
+                final textHasTable = tableNameClean.isNotEmpty &&
+                    (contentClean.contains(tableNameClean) ||
+                     rawClean.contains(tableNameClean) ||
+                     (tableNum.isNotEmpty && (contentClean.contains(tableNum) || rawClean.contains(tableNum))));
                 final textHasStore = storeClean.isNotEmpty && (contentClean.contains(storeClean) || rawClean.contains(storeClean));
                 final isRecentEvent = (val['timestamp'] as num? ?? 0) >= sheetOpenedTime - 30000;
 
@@ -4321,7 +4427,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Khách đưa (VND)',
                           suffixText: 'đ',
-                          prefixIcon: Icon(Icons.payments_outlined),
+                          prefixIcon: Icon(LucideIcons.banknote),
                         ),
                         onTap: () => cashGivenCtrl.selection = TextSelection(baseOffset: 0, extentOffset: cashGivenCtrl.text.length),
                         onChanged: (v) => setSheetState(() {}),
@@ -4380,7 +4486,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                               decoration: const InputDecoration(
                                 labelText: '1. Phần tiền mặt (VND)',
                                 suffixText: 'đ',
-                                prefixIcon: Icon(Icons.payments_outlined),
+                                prefixIcon: Icon(LucideIcons.banknote),
                               ),
                               onChanged: (v) => setSheetState(() {}),
                             ),
@@ -4419,10 +4525,12 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                   Expanded(
                                     child: Text('2. Phần chuyển khoản QR:', style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.w600)),
                                   ),
-                                  Text(
+                                  Flexible(child: Text(
                                     FormatUtils.vnd(splitQrAmount),
                                     style: GoogleFonts.beVietnamPro(fontSize: 16, fontWeight: FontWeight.w800, color: context.tc.info),
-                                  ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  )),
                                 ],
                               ),
                             ),
@@ -4494,7 +4602,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     Row(
                       children: [
                         IconButton.outlined(
-                          icon: const Icon(Icons.close),
+                          icon: const Icon(LucideIcons.x),
                           tooltip: 'Đóng',
                           style: IconButton.styleFrom(
                             minimumSize: const Size(48, 56),
@@ -4507,7 +4615,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                           flex: 2,
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(minimumSize: const Size(0, 56), padding: const EdgeInsets.symmetric(horizontal: 8)),
-                            icon: const Icon(Icons.print_outlined),
+                            icon: const Icon(LucideIcons.printer),
                             label: const Text('Tạm tính', maxLines: 1, overflow: TextOverflow.ellipsis),
                             onPressed: () {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -4550,17 +4658,19 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                       Flexible(child: Text('Đang xử lý...', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                                     ],
                                   )
-                                : const Row(
+                                : Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.check_circle_outline, color: Colors.white, size: 22),
-                                      SizedBox(width: 6),
+                                      const Icon(LucideIcons.circleCheck, color: Colors.white, size: 22),
+                                      const SizedBox(width: 6),
                                       Flexible(
                                         child: Text(
-                                          'XÁC NHẬN THU TIỀN',
+                                          paymentMethod == 'TRANSFER_QR'
+                                              ? 'XÁC NHẬN ĐÃ NHẬN TIỀN'
+                                              : 'XÁC NHẬN THU TIỀN',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
                                         ),
                                       ),
                                     ],
@@ -4648,7 +4758,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⚠️ Chức năng order & thanh toán đang bị khóa! Vui lòng khai báo tiền két đầu ca.'),
+            content: Text('Chức năng order & thanh toán đang bị khóa! Vui lòng khai báo tiền két đầu ca.'),
             backgroundColor: AppColors.warningInk,
             duration: Duration(seconds: 3),
           ),
@@ -4725,7 +4835,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(color: context.tc.primaryLight, borderRadius: BorderRadius.circular(8)),
-              child: Icon(Icons.people_alt, color: context.tc.primary, size: 20),
+              child: Icon(LucideIcons.users, color: context.tc.primary, size: 20),
             ),
             const SizedBox(width: 10),
             Text('Số Lượng Khách', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -4890,7 +5000,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         actions: [
           IconButton(
             icon: Icon(
-              _autoPrintBill ? Icons.print : Icons.print_disabled_outlined,
+              _autoPrintBill ? LucideIcons.printer : LucideIcons.printerX,
               color: _autoPrintBill ? Colors.white : Colors.white60,
               size: 22,
             ),
@@ -4901,7 +5011,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
               _saveAutoPrintSetting(newVal);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(newVal ? '🖨️ Đã BẬT tự động in bill khi thanh toán' : '🚫 Đã TẮT in bill khi thanh toán (chỉ chốt đơn, không in giấy)'),
+                  content: Text(newVal ? 'Đã BẬT tự động in bill khi thanh toán' : 'Đã TẮT in bill khi thanh toán (chỉ chốt đơn, không in giấy)'),
                   duration: const Duration(seconds: 2),
                   backgroundColor: newVal ? AppColors.success : AppColors.warningInk,
                 ),
@@ -4909,7 +5019,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
             },
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
+            icon: const Icon(LucideIcons.ellipsisVertical, color: Colors.white),
             tooltip: 'Thao tác bàn',
             onSelected: (val) {
               if (val == 'SPLIT') _showSplitBillDialog();
@@ -4921,7 +5031,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 value: 'SPLIT',
                 child: Row(
                   children: [
-                    Icon(Icons.call_split, size: 20, color: context.tc.primary),
+                    Icon(LucideIcons.split, size: 20, color: context.tc.primary),
                     const SizedBox(width: 10),
                     const Text('Tách hóa đơn'),
                   ],
@@ -4931,7 +5041,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 value: 'MERGE',
                 child: Row(
                   children: [
-                    Icon(Icons.merge_type, size: 20, color: context.tc.primary),
+                    Icon(LucideIcons.merge, size: 20, color: context.tc.primary),
                     const SizedBox(width: 10),
                     const Text('Ghép bàn'),
                   ],
@@ -4942,7 +5052,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 value: 'CANCEL',
                 child: Row(
                   children: [
-                    Icon(Icons.cancel_outlined, size: 20, color: context.tc.danger),
+                    Icon(LucideIcons.circleX, size: 20, color: context.tc.danger),
                     const SizedBox(width: 10),
                     Text('Hủy hóa đơn bàn', style: TextStyle(color: context.tc.danger)),
                   ],
@@ -5016,13 +5126,13 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
 
                 final cartList = _cart.isEmpty
                     ? EmptyState(
-                        icon: Icons.receipt_long_outlined,
+                        icon: LucideIcons.receiptText,
                         title: 'Chưa có món nào trong order',
                         subtitle: 'Bấm "Thêm món" để chọn món cho bàn này.',
                         action: SizedBox(
                           width: 220,
                           child: ElevatedButton.icon(
-                            icon: const Icon(Icons.add),
+                            icon: const Icon(LucideIcons.plus),
                             label: const Text('Thêm món vào đơn'),
                             onPressed: _goToAddItems,
                           ),
@@ -5100,7 +5210,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                     height: 52,
                                     alignment: Alignment.center,
                                     child: const Icon(
-                                      Icons.add,
+                                      LucideIcons.plus,
                                       color: Colors.white,
                                       size: 28,
                                     ),
@@ -5123,10 +5233,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       InfoBanner(
                         solid: true,
                         tone: BannerTone.warning,
-                        icon: Icons.lock,
+                        icon: LucideIcons.lock,
                         title: 'Đang khóa order & thanh toán do chưa nhập két đầu ca.',
                         actionLabel: 'Mở két ngay',
-                        actionIcon: Icons.point_of_sale,
+                        actionIcon: LucideIcons.calculator,
                         onAction: () => CashShiftDialog.show(context),
                       ),
                     Expanded(

@@ -8,6 +8,7 @@ import '../../data/models/inventory_models.dart';
 import '../../data/services/inventory_service.dart';
 import '../../data/services/firebase_service.dart';
 import 'inventory_excel_service.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ExcelImportDialog extends StatefulWidget {
   final List<CatalogItemModel> existingItems;
@@ -97,7 +98,7 @@ class _ExcelImportDialogState extends State<ExcelImportDialog> {
               color: context.tc.primary.withAlpha(25),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.table_view_rounded, color: context.tc.primary, size: 24),
+            child: Icon(LucideIcons.table, color: context.tc.primary, size: 24),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -126,7 +127,7 @@ class _ExcelImportDialogState extends State<ExcelImportDialog> {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.close, color: context.tc.textSecondary),
+            icon: Icon(LucideIcons.x, color: context.tc.textSecondary),
             onPressed: _isImporting ? null : () => Navigator.of(context).pop(),
             tooltip: 'Đóng',
           ),
@@ -239,7 +240,7 @@ class _ExcelImportDialogState extends State<ExcelImportDialog> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 18),
+                    const Icon(LucideIcons.info, color: Color(0xFFD97706), size: 18),
                     const SizedBox(width: 8),
                     Text(
                       'Lưu ý',
@@ -270,9 +271,9 @@ class _ExcelImportDialogState extends State<ExcelImportDialog> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.download_for_offline_outlined, color: AppColors.managerAccent, size: 20),
+                  const Icon(LucideIcons.circleArrowDown, color: AppColors.managerAccent, size: 20),
                   const SizedBox(width: 6),
-                  Text(
+                  Flexible(child: Text(
                     'Chưa có file mẫu? Tải ngay file mẫu Excel',
                     style: GoogleFonts.beVietnamPro(
                       fontSize: 13,
@@ -280,7 +281,7 @@ class _ExcelImportDialogState extends State<ExcelImportDialog> {
                       color: AppColors.managerAccent,
                       decoration: TextDecoration.underline,
                     ),
-                  ),
+                  )),
                 ],
               ),
             ),
@@ -361,7 +362,7 @@ class _ExcelImportDialogState extends State<ExcelImportDialog> {
               const SizedBox(width: 12),
               ElevatedButton.icon(
                 onPressed: _pickAndParseFile,
-                icon: const Icon(Icons.file_open_outlined, size: 18),
+                icon: const Icon(LucideIcons.fileInput, size: 18),
                 label: Text(_pickedFile == null ? 'Chọn file Excel' : 'Đổi file khác'),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(64, AppSpacing.minTapTarget),
@@ -395,7 +396,7 @@ class _ExcelImportDialogState extends State<ExcelImportDialog> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.error_outline, color: context.tc.danger, size: 48),
+                            Icon(LucideIcons.circleAlert, color: context.tc.danger, size: 48),
                             const SizedBox(height: 12),
                             Text(
                               'Lỗi khi đọc file',
@@ -423,7 +424,7 @@ class _ExcelImportDialogState extends State<ExcelImportDialog> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.cloud_upload_outlined, size: 64, color: context.tc.border),
+                                Icon(LucideIcons.cloudUpload, size: 64, color: context.tc.border),
                                 const SizedBox(height: 16),
                                 Text(
                                   'Chưa có dữ liệu để xem trước',
@@ -778,13 +779,31 @@ class _ExcelImportDialogState extends State<ExcelImportDialog> {
       }
 
       for (final branch in targetBranches) {
-        for (final r in validRows) {
-          final existingItem = widget.existingItems.cast<CatalogItemModel?>().firstWhere(
-            (ci) => ci?.sku?.toLowerCase() == r.sku.toLowerCase(),
-            orElse: () => null,
-          );
+        // Đọc danh mục hàng thực tế của chi nhánh để chống trùng lặp chính xác
+        final branchItems = await _inventoryService.getCatalogItemsForBranch(branch);
+        final Map<String, CatalogItemModel> skuMap = {};
+        final Map<String, CatalogItemModel> nameMap = {};
+        for (final item in branchItems) {
+          final s = item.sku?.trim().toUpperCase();
+          if (s != null && s.isNotEmpty) skuMap[s] = item;
+          final n = item.name.trim().toLowerCase();
+          if (n.isNotEmpty) nameMap[n] = item;
+        }
 
-          final itemId = existingItem?.itemId ?? _inventoryService.generateItemId();
+        for (final r in validRows) {
+          final normSku = r.sku.trim().toUpperCase();
+          final normName = r.name.trim().toLowerCase();
+          final existingItem = (normSku.isNotEmpty ? skuMap[normSku] : null) ?? nameMap[normName];
+
+          final String itemId;
+          if (existingItem != null) {
+            itemId = existingItem.itemId;
+          } else if (normSku.isNotEmpty) {
+            final cleanSku = normSku.replaceAll(RegExp(r'[.#$\[\]/]'), '_');
+            itemId = 'ITM_$cleanSku';
+          } else {
+            itemId = _inventoryService.generateItemId();
+          }
 
           final item = CatalogItemModel(
             itemId: itemId,
@@ -809,6 +828,10 @@ class _ExcelImportDialogState extends State<ExcelImportDialog> {
             createdAt: existingItem?.createdAt ?? now,
             updatedAt: now,
           );
+
+          // Đăng ký vào map để nếu trong file Excel có nhiều dòng trùng SKU thì sẽ cập nhật cùng itemId
+          if (normSku.isNotEmpty) skuMap[normSku] = item;
+          if (normName.isNotEmpty) nameMap[normName] = item;
 
           await _inventoryService.saveCatalogItemToBranch(branch, item);
 

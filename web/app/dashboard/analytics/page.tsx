@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { businessDayStartFor } from "@/lib/business-day";
 import { useDashboardData } from "@/lib/data-context";
+import { buildToppingLookup, splitLineParts } from "@/lib/topping-split";
 import {
   calculateOverviewReport,
   calculateHourlyReport,
@@ -38,7 +39,6 @@ import {
   getBusinessBillTimestamp,
   formatVND,
   formatNumber,
-  itemLineDiscount,
 } from "@/lib/reports";
 import {
   exportOverviewReport,
@@ -55,7 +55,9 @@ export default function AnalyticsPage() {
     setCurrentStoreCode,
     historyData,
     historyLoaded,
+    products,
   } = useDashboardData();
+  const toppingLookup = useMemo(() => buildToppingLookup(products), [products]);
 
   const loading = !historyLoaded && historyData.length === 0;
   const [period, setPeriod] = useState<"ALL" | "TODAY" | "YESTERDAY" | "7DAYS" | "THIS_MONTH" | "LAST_MONTH">("THIS_MONTH");
@@ -160,23 +162,23 @@ export default function AnalyticsPage() {
       items.forEach((it) => {
         // Dữ liệu cũ có thể dùng productName / qty
         const legacy = it as { productName?: string; qty?: number };
-        const n = it.name || legacy.productName || "Món chưa đặt tên";
-        const q = Number(it.quantity || legacy.qty || 1);
-        const price = Number(it.price || 0);
-        // Giảm giá dòng là tổng CẢ DÒNG (không nhân số lượng)
-        const net = Math.max(0, price * q - itemLineDiscount(it));
-        if (!map.has(n)) {
-          map.set(n, { name: n, qty: 0, netRevenue: 0 });
+        const line = { ...it, name: it.name || legacy.productName || "Món chưa đặt tên", quantity: Number(it.quantity || legacy.qty || 1) };
+        // Topping tách thành dòng riêng, không gộp vào món gốc
+        for (const part of splitLineParts(line, toppingLookup)) {
+          const n = part.name;
+          if (!map.has(n)) {
+            map.set(n, { name: n, qty: 0, netRevenue: 0 });
+          }
+          const entry = map.get(n)!;
+          entry.qty += part.quantity;
+          entry.netRevenue += Math.max(0, part.grossRevenue - part.itemDiscount);
         }
-        const entry = map.get(n)!;
-        entry.qty += q;
-        entry.netRevenue += net;
       });
     });
     return Array.from(map.values())
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 10);
-  }, [filteredHistory]);
+  }, [filteredHistory, toppingLookup]);
 
   const dateRangeLabel = useMemo(() => {
     const map: Record<string, string> = {
@@ -295,10 +297,10 @@ export default function AnalyticsPage() {
                   cursor: "pointer",
                 }}
               >
-                <option value="ALL">🌐 Tất cả chi nhánh</option>
+                <option value="ALL">Tất cả chi nhánh</option>
                 {stores.map((s) => (
                   <option key={s.storeCode} value={s.storeCode}>
-                    🏪 {s.storeCode} - {s.storeName}
+                    {s.storeCode} - {s.storeName}
                   </option>
                 ))}
               </select>
@@ -450,10 +452,10 @@ export default function AnalyticsPage() {
         }}
       >
         {[
-          { id: "OVERVIEW", label: "📊 20 Chỉ số Quản trị", icon: Layers },
-          { id: "HOURLY", label: "⏰ Phân bổ 24 Khung giờ", icon: Clock },
-          { id: "STAFF", label: "👥 Năng suất Nhân viên", icon: Users },
-          { id: "PRODUCTS", label: "🍵 Mặt hàng & Thanh toán", icon: BarChart2 },
+          { id: "OVERVIEW", label: "20 Chỉ số Quản trị", icon: Layers },
+          { id: "HOURLY", label: "Phân bổ 24 Khung giờ", icon: Clock },
+          { id: "STAFF", label: "Năng suất Nhân viên", icon: Users },
+          { id: "PRODUCTS", label: "Mặt hàng & Thanh toán", icon: BarChart2 },
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (

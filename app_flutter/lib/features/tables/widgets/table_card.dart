@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../data/models/app_models.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Trạng thái hiển thị của bàn (dùng chung cho thẻ bàn và chú thích).
 /// [awaitingPayment] = có khách và đã in phiếu tạm tính (TableModel.prePrintedAt).
@@ -34,25 +35,25 @@ class TableStatusStyle {
     switch (s) {
       case TableVisualStatus.inUse:
         return dark
-            ? const TableStatusStyle('Có khách', TramColors.tableInUseDark, TramColors.tableInUseBgDark, Icons.people_alt,
+            ? const TableStatusStyle('Có khách', TramColors.tableInUseDark, TramColors.tableInUseBgDark, LucideIcons.users,
                 ink: TramColors.tableInUseInkDark)
-            : const TableStatusStyle('Có khách', TramColors.tableInUse, TramColors.tableInUseBg, Icons.people_alt,
+            : const TableStatusStyle('Có khách', TramColors.tableInUse, TramColors.tableInUseBg, LucideIcons.users,
                 ink: TramColors.brandDark);
       case TableVisualStatus.awaitingPayment:
         return dark
             ? const TableStatusStyle('Chờ thanh toán', TramColors.tableAwaitingPaymentDark, TramColors.tableAwaitingPaymentBgDark,
-                Icons.receipt_long, ink: TramColors.tableAwaitingPaymentInkDark)
-            : const TableStatusStyle('Chờ thanh toán', TramColors.tableAwaitingPayment, TramColors.tableAwaitingPaymentBg, Icons.receipt_long);
+                LucideIcons.receiptText, ink: TramColors.tableAwaitingPaymentInkDark)
+            : const TableStatusStyle('Chờ thanh toán', TramColors.tableAwaitingPayment, TramColors.tableAwaitingPaymentBg, LucideIcons.receiptText);
       case TableVisualStatus.reserved:
         return dark
-            ? const TableStatusStyle('Đặt trước', TramColors.tableReservedDark, TramColors.tableReservedBgDark, Icons.event_seat,
+            ? const TableStatusStyle('Đặt trước', TramColors.tableReservedDark, TramColors.tableReservedBgDark, LucideIcons.armchair,
                 ink: TramColors.tableReservedInkDark)
-            : const TableStatusStyle('Đặt trước', TramColors.warningInk, TramColors.tableReservedBg, Icons.event_seat);
+            : const TableStatusStyle('Đặt trước', TramColors.warningInk, TramColors.tableReservedBg, LucideIcons.armchair);
       case TableVisualStatus.empty:
         return dark
-            ? TableStatusStyle('Trống', TramColors.tableEmptyDark, TramTokens.dark.card, Icons.check_circle_outline,
+            ? TableStatusStyle('Trống', TramColors.tableEmptyDark, TramTokens.dark.card, LucideIcons.circleCheck,
                 ink: TramColors.tableEmptyInkDark)
-            : const TableStatusStyle('Trống', TramColors.tableEmpty, Colors.white, Icons.check_circle_outline);
+            : const TableStatusStyle('Trống', TramColors.tableEmpty, Colors.white, LucideIcons.circleCheck);
     }
   }
 
@@ -174,7 +175,7 @@ class TableCard extends StatelessWidget {
         style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.w700, color: style.ink),
       ));
       final sub = [
-        if ((table.reservationTime ?? '').isNotEmpty) '🕒 ${table.reservationTime}',
+        if ((table.reservationTime ?? '').isNotEmpty) 'Giờ hẹn ${table.reservationTime}',
         if ((table.reservationPhone ?? '').isNotEmpty) table.reservationPhone!,
       ].join(' • ');
       if (sub.isNotEmpty) {
@@ -194,8 +195,8 @@ class TableCard extends StatelessWidget {
           : ((table.currentOrderCode != null && table.currentOrderCode!.isNotEmpty) ? 'Đơn: ${table.currentOrderCode}' : null);
       final meta = [
         table.zone,
-        if (table.guestCount != null && table.guestCount! > 0) '👥 ${table.guestCount}',
-        if (table.durationInUse != null) '⏱ ${table.durationInUse!.inMinutes}p',
+        if (table.guestCount != null && table.guestCount! > 0) '${table.guestCount} khách',
+        if (table.durationInUse != null) '${table.durationInUse!.inMinutes} phút',
       ].join(' • ');
       lines.add(Text(
         meta,
@@ -209,7 +210,7 @@ class TableCard extends StatelessWidget {
       if (table.hasCustomer) {
         final who = (table.customerName ?? '').isNotEmpty ? table.customerName! : (table.customerPhone ?? 'Khách tích điểm');
         lines.add(Text(
-          '👤 $who',
+          'Khách: $who',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: small.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: style.ink),
@@ -219,7 +220,7 @@ class TableCard extends StatelessWidget {
         final at = DateTime.fromMillisecondsSinceEpoch(table.prePrintedAt!);
         final hhmm = '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
         lines.add(Text(
-          '🧾 Đã in tạm tính $hhmm',
+          'Đã in tạm tính $hhmm',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: small.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: style.ink),
@@ -229,7 +230,7 @@ class TableCard extends StatelessWidget {
       lines.add(Text(table.zone, maxLines: 1, overflow: TextOverflow.ellipsis, style: small));
       if (table.isActivelyOrdering()) {
         lines.add(Text(
-          '✍️ Đang chọn món: ${table.orderingByName ?? table.orderingBy}',
+          'Đang chọn món: ${table.orderingByName ?? table.orderingBy}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: small.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: context.tc.warningInk),
@@ -242,7 +243,7 @@ class TableCard extends StatelessWidget {
     final note = (table.note ?? '').trim();
     if (note.isNotEmpty) {
       lines.add(Text(
-        '📝 $note',
+        'Ghi chú: $note',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: small.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: style.ink),
@@ -302,20 +303,20 @@ class TableCard extends StatelessWidget {
     final tc = context.tc;
     return PopupMenuButton<String>(
       tooltip: 'Thao tác nhanh',
-      icon: Icon(Icons.more_vert, size: 20, color: tc.textSecondary),
+      icon: Icon(LucideIcons.ellipsisVertical, size: 20, color: tc.textSecondary),
       padding: EdgeInsets.zero,
       onSelected: onMenuSelected,
       itemBuilder: (ctx) => [
         if (!inUse && !isReserved)
-          _menuItem('RESERVE', Icons.bookmark_add_outlined, 'Đặt trước bàn này', tc.warningInk),
+          _menuItem('RESERVE', LucideIcons.bookmarkPlus, 'Đặt trước bàn này', tc.warningInk),
         if (inUse) ...[
-          _menuItem('SPLIT_NEW_ORDER', Icons.call_split, 'Tạo đơn tách bàn mới (${table.baseName} (2))', tc.primary),
-          _menuItem('TRANSFER', Icons.swap_horiz, 'Chuyển sang bàn khác', context.ink(TramColors.managerAccent)),
-          _menuItem('MERGE', Icons.call_merge, 'Ghép vào bàn khác', tc.warning),
-          _menuItem('CANCEL_BILL', Icons.cancel_outlined, 'Hủy hóa đơn', tc.danger, danger: true),
+          _menuItem('SPLIT_NEW_ORDER', LucideIcons.split, 'Tạo đơn tách bàn mới (${table.baseName} (2))', tc.primary),
+          _menuItem('TRANSFER', LucideIcons.arrowLeftRight, 'Chuyển sang bàn khác', context.ink(TramColors.managerAccent)),
+          _menuItem('MERGE', LucideIcons.merge, 'Ghép vào bàn khác', tc.warning),
+          _menuItem('CANCEL_BILL', LucideIcons.circleX, 'Hủy hóa đơn', tc.danger, danger: true),
         ],
-        _menuItem('NOTE', Icons.edit_note, (table.note ?? '').trim().isEmpty ? 'Ghi chú bàn' : 'Sửa ghi chú bàn', tc.textPrimary),
-        _menuItem('QR', Icons.qr_code, 'Xem mã QR', tc.textPrimary),
+        _menuItem('NOTE', LucideIcons.notebookPen, (table.note ?? '').trim().isEmpty ? 'Ghi chú bàn' : 'Sửa ghi chú bàn', tc.textPrimary),
+        _menuItem('QR', LucideIcons.qrCode, 'Xem mã QR', tc.textPrimary),
       ],
     );
   }

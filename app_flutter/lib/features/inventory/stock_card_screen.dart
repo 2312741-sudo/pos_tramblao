@@ -7,6 +7,7 @@ import '../../data/models/inventory_models.dart';
 import '../../data/services/inventory_service.dart';
 import '../../widgets/common_widgets.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class StockCardScreen extends StatelessWidget {
   final String itemId;
@@ -41,7 +42,7 @@ class StockCardScreen extends StatelessWidget {
           final events = snapshot.data ?? [];
           if (events.isEmpty) {
             return const EmptyState(
-              icon: Icons.history,
+              icon: LucideIcons.history,
               title: 'Chưa có biến động kho',
             );
           }
@@ -65,25 +66,29 @@ class StockCardScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(dateStr, style: TextStyle(color: context.tc.textSecondary, fontSize: 12)),
-                          Text(
+                          Flexible(child: Text(
                             event.documentType,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Chứng từ: ${event.documentId}'),
-                          Text(
+                          Flexible(child: Text('Chứng từ: ${event.documentId}', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                          Flexible(child: Text(
                             '${isPositive ? '+' : ''}${event.qtyDeltaBase}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                               color: isPositive ? context.tc.successLight : context.tc.danger,
                             ),
-                          ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )),
                         ],
                       ),
                       const SizedBox(height: 4),

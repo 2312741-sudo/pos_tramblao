@@ -19,6 +19,8 @@ import '../../data/services/firebase_service.dart';
 import 'reports_hub_screen.dart';
 import '../../core/utils/share_utils.dart';
 import '../../core/domain/business_day.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/reports/topping_split.dart';
 
 class EndOfDayReportScreen extends StatefulWidget {
   const EndOfDayReportScreen({super.key});
@@ -434,24 +436,24 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
           continue;
         }
 
-        final key = item.name.trim();
-        if (!productMap.containsKey(key)) {
-          productMap[key] = {
-            'name': key,
-            'code': _codeOf(item.productId, key),
-            'productId': item.productId,
-            'quantity': 0,
-            'revenue': 0,
-            'unitPrice': item.unitPrice,
-            'category': 'Đồ uống & Món ăn',
-            'staffSales': <String, int>{},
-          };
+        // Topping tách thành dòng riêng (số bán + doanh thu), không gộp vào món gốc
+        for (final part in splitLineParts(item, mainKey: item.name.trim(), mainUnitCost: 0, productsMap: _productsMap)) {
+          final key = part.isTopping ? part.key : item.name.trim();
+          final entry = productMap.putIfAbsent(key, () => {
+                'name': part.isTopping ? part.name : key,
+                'code': part.isTopping ? part.code : _codeOf(item.productId, key),
+                'productId': part.isTopping ? part.productId : item.productId,
+                'quantity': 0,
+                'revenue': 0,
+                'unitPrice': part.quantity > 0 ? (part.grossRevenue / part.quantity).round() : 0,
+                'category': part.isTopping ? 'Topping' : 'Đồ uống & Món ăn',
+                'staffSales': <String, int>{},
+              });
+          entry['quantity'] = (entry['quantity'] as int) + part.quantity;
+          entry['revenue'] = (entry['revenue'] as int) + (part.grossRevenue - part.itemDiscount);
+          final staffMap = entry['staffSales'] as Map<String, int>;
+          staffMap[itemStaff] = (staffMap[itemStaff] ?? 0) + part.quantity;
         }
-        productMap[key]!['quantity'] = (productMap[key]!['quantity'] as int) + item.quantity;
-        productMap[key]!['revenue'] = (productMap[key]!['revenue'] as int) + item.itemTotal;
-
-        final staffMap = productMap[key]!['staffSales'] as Map<String, int>;
-        staffMap[itemStaff] = (staffMap[itemStaff] ?? 0) + item.quantity;
       }
     }
 
@@ -602,7 +604,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
               _buildDateOption('Tháng này', 'THIS_MONTH', ctx),
               _buildDateOption('Tháng trước', 'LAST_MONTH', ctx),
               ListTile(
-                leading: Icon(Icons.date_range, color: context.tc.primary),
+                leading: Icon(LucideIcons.calendarRange, color: context.tc.primary),
                 title: const Text('Tùy chọn ngày...'),
                 onTap: () async {
                   Navigator.pop(ctx);
@@ -634,7 +636,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
     final isSelected = _selectedDateRange == val;
     return ListTile(
       leading: Icon(
-        isSelected ? Icons.check_circle : Icons.circle_outlined,
+        isSelected ? LucideIcons.circleCheck : LucideIcons.circle,
         color: isSelected ? context.tc.primary : context.tc.textHint,
       ),
       title: Text(
@@ -666,7 +668,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
               const SizedBox(height: 12),
               ListTile(
                 leading: Icon(
-                  _selectedStoreCode.isEmpty ? Icons.check_circle : Icons.store,
+                  _selectedStoreCode.isEmpty ? LucideIcons.circleCheck : LucideIcons.store,
                   color: _selectedStoreCode.isEmpty ? context.tc.primary : context.tc.textHint,
                 ),
                 title: Text('${_auth.currentStoreInfo?.storeName ?? _auth.currentStoreCode} (Hiện tại)'),
@@ -687,7 +689,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                 final isSelected = _selectedStoreCode == s.storeCode;
                 return ListTile(
                   leading: Icon(
-                    isSelected ? Icons.check_circle : Icons.store,
+                    isSelected ? LucideIcons.circleCheck : LucideIcons.store,
                     color: isSelected ? context.tc.primary : context.tc.textHint,
                   ),
                   title: Text(s.storeName),
@@ -728,7 +730,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
               const SizedBox(height: 12),
               ListTile(
                 leading: Icon(
-                  _selectedStaff == 'ALL' ? Icons.check_circle : Icons.circle_outlined,
+                  _selectedStaff == 'ALL' ? LucideIcons.circleCheck : LucideIcons.circle,
                   color: _selectedStaff == 'ALL' ? context.tc.primary : context.tc.textHint,
                 ),
                 title: Text(
@@ -747,7 +749,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                 final isSelected = _selectedStaff == staff;
                 return ListTile(
                   leading: Icon(
-                    isSelected ? Icons.check_circle : Icons.person_outline,
+                    isSelected ? LucideIcons.circleCheck : LucideIcons.user,
                     color: isSelected ? context.tc.primary : context.tc.textHint,
                   ),
                   title: Text(
@@ -903,18 +905,19 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
               staffMap[itemStaff] = {};
             }
             final pMap = staffMap[itemStaff]!;
-            final key = item.name.trim();
-            if (!pMap.containsKey(key)) {
-              pMap[key] = {
-                'name': key,
-                'code': _codeOf(item.productId, key),
-                'unitPrice': item.unitPrice,
-                'quantity': 0,
-                'revenue': 0,
-              };
+            // Topping tách thành dòng riêng
+            for (final part in splitLineParts(item, mainKey: item.name.trim(), mainUnitCost: 0, productsMap: _productsMap)) {
+              final key = part.isTopping ? part.key : item.name.trim();
+              final e = pMap.putIfAbsent(key, () => {
+                    'name': part.isTopping ? '${part.name} (topping)' : key,
+                    'code': part.isTopping ? part.code : _codeOf(item.productId, key),
+                    'unitPrice': part.quantity > 0 ? (part.grossRevenue / part.quantity).round() : 0,
+                    'quantity': 0,
+                    'revenue': 0,
+                  });
+              e['quantity'] = (e['quantity'] as int) + part.quantity;
+              e['revenue'] = (e['revenue'] as int) + (part.grossRevenue - part.itemDiscount);
             }
-            pMap[key]!['quantity'] = (pMap[key]!['quantity'] as int) + item.quantity;
-            pMap[key]!['revenue'] = (pMap[key]!['revenue'] as int) + item.itemTotal;
           }
         }
 
@@ -1039,7 +1042,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                           color: context.tc.warningLight,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(Icons.table_restaurant, color: context.tc.warningInk),
+                        child: Icon(LucideIcons.armchair, color: context.tc.warningInk),
                       ),
                       title: Text('${t.name} • ${t.zone}', style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text('${t.guestCount ?? 1} khách • $itemsCount món đang phục vụ',
@@ -1073,7 +1076,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, size: 18, color: context.tc.textPrimary),
+          icon: Icon(LucideIcons.chevronLeft, size: 18, color: context.tc.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -1082,12 +1085,12 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(LucideIcons.refreshCw),
             tooltip: 'Làm mới',
             onPressed: _refreshData,
           ),
           IconButton(
-            icon: Icon(Icons.assessment_outlined, color: context.tc.primary),
+            icon: Icon(LucideIcons.chartColumn, color: context.tc.primary),
             tooltip: 'Trung tâm Báo cáo Quản trị',
             onPressed: () {
               Navigator.push(
@@ -1097,7 +1100,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
             },
           ),
           PopupMenuButton<String>(
-            icon: Icon(Icons.file_download_outlined, color: context.tc.textPrimary),
+            icon: Icon(LucideIcons.download, color: context.tc.textPrimary),
             tooltip: 'Xuất báo cáo',
             onSelected: (val) {
               if (val == 'EXCEL_Z') _exportZReportExcel();
@@ -1109,7 +1112,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                 value: 'EXCEL_Z',
                 child: Row(
                   children: [
-                    Icon(Icons.table_view_outlined, color: Colors.green, size: 18),
+                    Icon(LucideIcons.table, color: Colors.green, size: 18),
                     SizedBox(width: 8),
                     Text('Xuất Excel (Z-Report)'),
                   ],
@@ -1119,7 +1122,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                 value: 'PDF_Z',
                 child: Row(
                   children: [
-                    Icon(Icons.picture_as_pdf_outlined, color: Colors.red, size: 18),
+                    Icon(LucideIcons.fileText, color: Colors.red, size: 18),
                     SizedBox(width: 8),
                     Text('Xuất PDF (Z-Report)'),
                   ],
@@ -1129,7 +1132,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                 value: 'EXCEL_PROD',
                 child: Row(
                   children: [
-                    Icon(Icons.inventory_2_outlined, color: Colors.blue, size: 18),
+                    Icon(LucideIcons.package, color: Colors.blue, size: 18),
                     SizedBox(width: 8),
                     Text('Xuất Excel (Hàng hóa)'),
                   ],
@@ -1138,7 +1141,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
             ],
           ),
           IconButton(
-            icon: Icon(Icons.help_outline, color: context.tc.textPrimary),
+            icon: Icon(LucideIcons.circleHelp, color: context.tc.textPrimary),
             tooltip: 'Giải thích chỉ số',
             onPressed: () {
               showDialog(
@@ -1181,7 +1184,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                           color: context.tc.cardElevated,
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.tune, size: 18, color: context.tc.textPrimary),
+                        child: Icon(LucideIcons.slidersHorizontal, size: 18, color: context.tc.textPrimary),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1203,7 +1206,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                               style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.w500, color: context.tc.textPrimary),
                             ),
                             const SizedBox(width: 4),
-                            Icon(Icons.arrow_drop_down, size: 18, color: context.tc.textSecondary),
+                            Icon(LucideIcons.chevronDown, size: 18, color: context.tc.textSecondary),
                           ],
                         ),
                       ),
@@ -1232,7 +1235,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              Icon(Icons.arrow_drop_down, size: 18, color: context.tc.textSecondary),
+                              Icon(LucideIcons.chevronDown, size: 18, color: context.tc.textSecondary),
                             ],
                           ),
                         ),
@@ -1271,7 +1274,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.cloud_off_outlined, size: 48, color: context.tc.danger),
+                        Icon(LucideIcons.cloudOff, size: 48, color: context.tc.danger),
                         const SizedBox(height: 12),
                         Text(
                           _errorMessage!,
@@ -1281,7 +1284,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                         const SizedBox(height: 16),
                         ElevatedButton.icon(
                           onPressed: _refreshData,
-                          icon: const Icon(Icons.refresh, size: 18),
+                          icon: const Icon(LucideIcons.refreshCw, size: 18),
                           label: const Text('Thử lại ngay'),
                         ),
                       ],
@@ -1497,7 +1500,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                       ),
                     ],
                   ),
-                  Icon(Icons.calculate_outlined, color: context.tc.primary, size: 20),
+                  Icon(LucideIcons.calculator, color: context.tc.primary, size: 20),
                 ],
               ),
               const SizedBox(height: 10),
@@ -1560,7 +1563,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
         // 2. ĐANG PHỤC VỤ >
         _buildSectionCard(
           title: 'ĐANG PHỤC VỤ',
-          trailingIcon: Icons.arrow_forward_ios,
+          trailingIcon: LucideIcons.chevronRight,
           onTitleTap: _showServingTablesSheet,
           rows: [
             _buildReportRow('Đơn đang phục vụ', _servingTables.length.toString()),
@@ -1673,7 +1676,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
 
     return Column(
       children: [
-        // Section Pills Header: [ 🍽️ Đang phục vụ ] vs [ 📦 Đã bán ra ]
+        // Section Pills Header: [ Đang phục vụ ] vs [ Đã bán ra ]
         Container(
           color: context.tc.card,
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
@@ -1707,19 +1710,21 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.restaurant_outlined,
+                            LucideIcons.utensilsCrossed,
                             size: 16,
                             color: _productSection == 'SERVING' ? context.tc.primary : context.tc.textSecondary,
                           ),
                           const SizedBox(width: 6),
-                          Text(
+                          Flexible(child: Text(
                             'Đang phục vụ ($totalServingQty)',
                             style: GoogleFonts.beVietnamPro(
                               fontSize: 13,
                               fontWeight: _productSection == 'SERVING' ? FontWeight.bold : FontWeight.w600,
                               color: _productSection == 'SERVING' ? context.tc.primary : context.tc.textSecondary,
                             ),
-                          ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )),
                         ],
                       ),
                     ),
@@ -1747,19 +1752,21 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.inventory_2_outlined,
+                            LucideIcons.package,
                             size: 16,
                             color: _productSection == 'SOLD' ? context.tc.primary : context.tc.textSecondary,
                           ),
                           const SizedBox(width: 6),
-                          Text(
+                          Flexible(child: Text(
                             'Đã bán ra ($totalSoldQty)',
                             style: GoogleFonts.beVietnamPro(
                               fontSize: 13,
                               fontWeight: _productSection == 'SOLD' ? FontWeight.bold : FontWeight.w600,
                               color: _productSection == 'SOLD' ? context.tc.primary : context.tc.textSecondary,
                             ),
-                          ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )),
                         ],
                       ),
                     ),
@@ -1794,7 +1801,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                     child: TextField(
                       decoration: InputDecoration(
                         hintText: 'Tìm món đang phục vụ...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
+                        prefixIcon: const Icon(LucideIcons.search, size: 20),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         filled: true,
                         fillColor: context.tc.cardElevated,
@@ -1816,7 +1823,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                         color: context.tc.cardElevated,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.sort, color: context.tc.primary),
+                      child: Icon(LucideIcons.arrowDownWideNarrow, color: context.tc.primary),
                     ),
                     onSelected: (val) => setState(() => _sortBy = val),
                     itemBuilder: (ctx) => const [
@@ -1839,7 +1846,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.file_download_outlined, size: 16, color: Colors.green),
+                          const Icon(LucideIcons.download, size: 16, color: Colors.green),
                           const SizedBox(width: 4),
                           Text(
                             'Excel',
@@ -1886,7 +1893,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.restaurant_outlined, size: 50, color: context.tc.textHint),
+                      Icon(LucideIcons.utensilsCrossed, size: 50, color: context.tc.textHint),
                       const SizedBox(height: 10),
                       Text(
                         'Hiện không có món nào đang phục vụ trên bàn',
@@ -1992,12 +1999,14 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.check_circle_outline, size: 12, color: Colors.green),
+                                      const Icon(LucideIcons.circleCheck, size: 12, color: Colors.green),
                                       const SizedBox(width: 4),
-                                      Text(
+                                      Flexible(child: Text(
                                         'Đã gửi bếp: $sentKitchen',
                                         style: GoogleFonts.beVietnamPro(fontSize: 11, fontWeight: FontWeight.w600, color: context.ink(Colors.green.shade800)),
-                                      ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      )),
                                     ],
                                   ),
                                 ),
@@ -2012,12 +2021,14 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.hourglass_top_outlined, size: 12, color: Colors.orange),
+                                      const Icon(LucideIcons.hourglass, size: 12, color: Colors.orange),
                                       const SizedBox(width: 4),
-                                      Text(
+                                      Flexible(child: Text(
                                         'Chưa gửi bếp: $unsentKitchen',
                                         style: GoogleFonts.beVietnamPro(fontSize: 11, fontWeight: FontWeight.w600, color: context.ink(Colors.orange.shade900)),
-                                      ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      )),
                                     ],
                                   ),
                                 ),
@@ -2060,7 +2071,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                     child: TextField(
                       decoration: InputDecoration(
                         hintText: 'Tìm theo tên hoặc mã món...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
+                        prefixIcon: const Icon(LucideIcons.search, size: 20),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         filled: true,
                         fillColor: context.tc.cardElevated,
@@ -2082,7 +2093,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                         color: context.tc.cardElevated,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.sort, color: context.tc.primary),
+                      child: Icon(LucideIcons.arrowDownWideNarrow, color: context.tc.primary),
                     ),
                     onSelected: (val) => setState(() => _sortBy = val),
                     itemBuilder: (ctx) => [
@@ -2120,7 +2131,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                         child: Row(
                           children: [
                             Icon(
-                              Icons.person_outline,
+                              LucideIcons.user,
                               size: 16,
                               color: _selectedStaff != 'ALL' ? context.tc.primary : context.tc.textPrimary,
                             ),
@@ -2137,7 +2148,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            Icon(Icons.arrow_drop_down, size: 18, color: context.tc.textSecondary),
+                            Icon(LucideIcons.chevronDown, size: 18, color: context.tc.textSecondary),
                           ],
                         ),
                       ),
@@ -2157,7 +2168,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.file_download_outlined, size: 16, color: Colors.green),
+                          const Icon(LucideIcons.download, size: 16, color: Colors.green),
                           const SizedBox(width: 4),
                           Text(
                             'Xuất Excel',
@@ -2209,7 +2220,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.monetization_on_outlined,
+                                LucideIcons.circleDollarSign,
                                 size: 16,
                                 color: _productViewMode == 'AMOUNT' ? context.tc.primary : context.tc.textPrimary,
                               ),
@@ -2252,7 +2263,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.inventory_2_outlined,
+                                LucideIcons.package,
                                 size: 16,
                                 color: _productViewMode == 'QUANTITY' ? context.tc.primary : context.tc.textPrimary,
                               ),
@@ -2304,7 +2315,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.inventory_2_outlined, size: 50, color: context.tc.textHint),
+                      Icon(LucideIcons.package, size: 50, color: context.tc.textHint),
                       const SizedBox(height: 10),
                       Text(
                         'Không có dữ liệu hàng hóa bán ra trong kỳ',
@@ -2434,7 +2445,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.table_bar_outlined, size: 50, color: context.tc.textHint),
+                Icon(LucideIcons.armchair, size: 50, color: context.tc.textHint),
                 const SizedBox(height: 10),
                 Text('Chưa có dữ liệu bàn nào trong kỳ', style: GoogleFonts.beVietnamPro(color: context.tc.textSecondary)),
               ],
@@ -2465,7 +2476,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                         color: context.tc.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.table_restaurant, color: context.tc.primary, size: 22),
+                      child: Icon(LucideIcons.armchair, color: context.tc.primary, size: 22),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -2569,14 +2580,16 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
               ],
             ],
           ),
-          Text(
+          Flexible(child: Text(
             value,
             style: GoogleFonts.beVietnamPro(
               fontSize: 14,
               fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
               color: color ?? context.tc.textPrimary,
             ),
-          ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          )),
         ],
       ),
     );

@@ -18,6 +18,8 @@ import '../../widgets/common_widgets.dart';
 import '../../widgets/theme_mode_selector.dart';
 import 'widgets/table_card.dart';
 import 'widgets/ready_kitchen_orders_banner.dart';
+import '../../data/models/staff_call_model.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class TableListScreen extends StatefulWidget {
   const TableListScreen({super.key});
@@ -156,6 +158,100 @@ class _TableListScreenState extends State<TableListScreen> {
     );
   }
 
+  void _showStaffCallsModal(BuildContext context, List<StaffCallModel> calls) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(LucideIcons.megaphone, color: Colors.red, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Yêu cầu gọi từ Bếp (${calls.length})',
+                      style: GoogleFonts.beVietnamPro(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(LucideIcons.checkCheck, size: 18),
+                    label: const Text('Tiếp nhận tất cả'),
+                    onPressed: () async {
+                      for (final c in calls) {
+                        if (c.firebaseKey != null) {
+                          await _fb.ackStaffCall(c.firebaseKey!);
+                        }
+                      }
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                  ),
+                ],
+              ),
+              const Divider(),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.45,
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: calls.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, index) {
+                    final c = calls[index];
+                    final dt = DateTime.fromMillisecondsSinceEpoch(c.createdAt);
+                    final timeStr =
+                        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.red.shade100,
+                        child: const Icon(LucideIcons.chefHat, color: Colors.red),
+                      ),
+                      title: Text(
+                        c.message,
+                        style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        '${c.fromName} • $timeStr',
+                        style: GoogleFonts.beVietnamPro(fontSize: 12, color: Colors.grey),
+                      ),
+                      trailing: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: TramColors.success,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          minimumSize: const Size(0, 32),
+                        ),
+                        child: const Text('Tiếp nhận'),
+                        onPressed: () async {
+                          if (c.firebaseKey != null) {
+                            await _fb.ackStaffCall(c.firebaseKey!);
+                          }
+                          if (calls.length <= 1 && ctx.mounted) {
+                            Navigator.pop(ctx);
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _zoneMetaSub?.cancel();
@@ -179,7 +275,7 @@ class _TableListScreenState extends State<TableListScreen> {
     if ((shift == null || !shift.isOpen) && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('⚠️ Chức năng order đang bị khóa! Vui lòng khai báo tiền két đầu ca để bắt đầu.'),
+          content: Text('Chức năng order đang bị khóa! Vui lòng khai báo tiền két đầu ca để bắt đầu.'),
           backgroundColor: TramColors.warningInk,
           duration: Duration(seconds: 4),
         ),
@@ -216,7 +312,7 @@ class _TableListScreenState extends State<TableListScreen> {
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.storefront, color: context.tc.primary),
+            Icon(LucideIcons.store, color: context.tc.primary),
             const SizedBox(width: 8),
             Text(
               'Chọn Chi Nhánh',
@@ -235,7 +331,7 @@ class _TableListScreenState extends State<TableListScreen> {
               final isCurrent = s.storeCode == _auth.currentStoreCode;
               return ListTile(
                 leading: Icon(
-                  isCurrent ? Icons.check_circle : Icons.store,
+                  isCurrent ? LucideIcons.circleCheck : LucideIcons.store,
                   color: isCurrent ? context.tc.primary : context.tc.textHint,
                 ),
                 title: Text(
@@ -310,7 +406,7 @@ class _TableListScreenState extends State<TableListScreen> {
             automaticallyImplyLeading: false,
             leading: Builder(
               builder: (ctx) => IconButton(
-                icon: const Icon(Icons.menu),
+                icon: const Icon(LucideIcons.menu),
                 tooltip: 'Menu chức năng',
                 onPressed: () => Scaffold.of(ctx).openDrawer(),
               ),
@@ -333,12 +429,12 @@ class _TableListScreenState extends State<TableListScreen> {
                       ),
                       if (_auth.canAccessManagerHub) ...[
                         const SizedBox(width: 4),
-                        const Icon(Icons.arrow_drop_down, size: 20, color: Colors.white70),
+                        const Icon(LucideIcons.chevronDown, size: 20, color: Colors.white70),
                       ],
                     ],
                   ),
                   Text(
-                    'CH: ${_auth.currentStoreCode} • ${_auth.currentUser?.fullName ?? ""}',
+                    'CH: ${_auth.currentStoreCode} • ${_auth.currentUser?.employeeCode.isNotEmpty == true ? "[${_auth.currentUser!.employeeCode}] " : ""}${_auth.currentUser?.fullName ?? ""}',
                     style: GoogleFonts.beVietnamPro(fontSize: 11, color: Colors.white70),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -372,19 +468,21 @@ class _TableListScreenState extends State<TableListScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isOpen ? Icons.point_of_sale : Icons.lock_clock,
+                          isOpen ? LucideIcons.calculator : LucideIcons.lockKeyhole,
                           size: 15,
                           color: Colors.white,
                         ),
                         const SizedBox(width: 5),
-                        Text(
+                        Flexible(child: Text(
                           isOpen ? 'Ca mở' : 'Mở ca',
                           style: GoogleFonts.beVietnamPro(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
-                        ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        )),
                       ],
                     ),
                   ),
@@ -397,7 +495,7 @@ class _TableListScreenState extends State<TableListScreen> {
               icon: Badge.count(
                 count: _readyOrders.length,
                 backgroundColor: TramColors.danger,
-                child: const Icon(Icons.notifications_active, color: Colors.amberAccent),
+                child: const Icon(LucideIcons.bellRing, color: Colors.amberAccent),
               ),
               tooltip: '${_readyOrders.length} đơn bếp đã xong chờ lấy',
               onPressed: () => _showReadyOrdersSheet(context),
@@ -414,14 +512,14 @@ class _TableListScreenState extends State<TableListScreen> {
                     count: pendingCount,
                     backgroundColor: TramColors.brandPrimary,
                     textColor: Colors.white,
-                    child: const Icon(Icons.notifications_active, color: Colors.amberAccent),
+                    child: const Icon(LucideIcons.bellRing, color: Colors.amberAccent),
                   ),
                   tooltip: '$pendingCount đơn online chờ duyệt',
                   onPressed: () => context.push('/online-orders'),
                 );
               }
               return IconButton(
-                icon: const Icon(Icons.notifications_outlined),
+                icon: const Icon(LucideIcons.bell),
                 tooltip: 'Đơn Online',
                 onPressed: () => context.push('/online-orders'),
               );
@@ -439,7 +537,7 @@ class _TableListScreenState extends State<TableListScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 0,
                 ),
-                icon: const Icon(Icons.analytics_outlined, size: 14),
+                icon: const Icon(LucideIcons.chartLine, size: 14),
                 label: Text(
                   'Quản Trị',
                   style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.bold),
@@ -517,11 +615,11 @@ class _TableListScreenState extends State<TableListScreen> {
                   return InfoBanner(
                     solid: true,
                     tone: BannerTone.warning,
-                    icon: Icons.lock,
+                    icon: LucideIcons.lock,
                     title: 'ĐANG KHÓA ORDER • CHƯA NHẬP KÉT TIỀN',
                     message: 'Vui lòng khai báo số tiền mặt đầu ca để mở khóa nhận đơn.',
                     actionLabel: 'Mở ca',
-                    actionIcon: Icons.point_of_sale,
+                    actionIcon: LucideIcons.calculator,
                     onAction: () => CashShiftDialog.show(context),
                   );
                 },
@@ -534,6 +632,48 @@ class _TableListScreenState extends State<TableListScreen> {
                   onPickUp: _handlePickUpKitchenOrder,
                   onViewAll: () => _showReadyOrdersSheet(context),
                 ),
+
+              // Banner Bếp gọi nhân viên hỗ trợ / phục vụ
+              StreamBuilder<List<StaffCallModel>>(
+                stream: _fb.pendingStaffCallsStream(),
+                builder: (context, snap) {
+                  final calls = snap.data ?? const <StaffCallModel>[];
+                  if (calls.isEmpty) return const SizedBox.shrink();
+                  final firstCall = calls.first;
+                  final title = calls.length == 1
+                      ? 'BẾP GỌI NHÂN VIÊN (${firstCall.fromName})'
+                      : 'BẾP GỌI NHÂN VIÊN (${calls.length} YÊU CẦU)';
+                  final message = calls.length == 1
+                      ? firstCall.message
+                      : '${firstCall.fromName}: "${firstCall.message}" + ${calls.length - 1} yêu cầu khác';
+                  return InfoBanner(
+                    solid: true,
+                    tone: BannerTone.danger,
+                    icon: LucideIcons.megaphone,
+                    title: title,
+                    message: message,
+                    actionLabel: calls.length > 1 ? 'Xem tất cả' : 'Tiếp nhận',
+                    actionIcon: LucideIcons.circleCheck,
+                    onAction: () async {
+                      if (calls.length == 1) {
+                        if (firstCall.firebaseKey != null) {
+                          await _fb.ackStaffCall(firstCall.firebaseKey!);
+                        }
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Đã tiếp nhận yêu cầu từ bếp'),
+                              backgroundColor: TramColors.success,
+                            ),
+                          );
+                        }
+                      } else {
+                        _showStaffCallsModal(context, calls);
+                      }
+                    },
+                  );
+                },
+              ),
 
               // Zone filter chips
               Container(
@@ -588,7 +728,7 @@ class _TableListScreenState extends State<TableListScreen> {
               Expanded(
                 child: list.isEmpty
                     ? EmptyState(
-                        icon: Icons.table_restaurant_outlined,
+                        icon: LucideIcons.armchair,
                         title: allTables.isEmpty ? 'Chưa có bàn nào' : 'Không có bàn phù hợp bộ lọc',
                         subtitle: allTables.isEmpty
                             ? 'Bấm "Thêm Bàn" để tạo sơ đồ bàn cho chi nhánh.'
@@ -600,7 +740,7 @@ class _TableListScreenState extends State<TableListScreen> {
                                   _statusFilter = 'ALL';
                                   _selectedZone = 'Tất cả';
                                 }),
-                                icon: const Icon(Icons.filter_alt_off_outlined),
+                                icon: const Icon(LucideIcons.funnelX),
                                 label: const Text('Bỏ lọc'),
                               )
                             : null,
@@ -638,7 +778,7 @@ class _TableListScreenState extends State<TableListScreen> {
       floatingActionButton: _auth.can(AppPermissions.manageTables)
           ? FloatingActionButton.extended(
               onPressed: () => _showAddTableDialog(),
-              icon: const Icon(Icons.add, color: Colors.white),
+              icon: const Icon(LucideIcons.plus, color: Colors.white),
               label: Text('Thêm Bàn', style: GoogleFonts.beVietnamPro(color: Colors.white, fontWeight: FontWeight.w600)),
               backgroundColor: context.tc.primary,
               foregroundColor: Colors.white,
@@ -672,7 +812,7 @@ class _TableListScreenState extends State<TableListScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⚠️ Chức năng order đang bị khóa! Vui lòng khai báo tiền két đầu ca để bắt đầu.'),
+            content: Text('Chức năng order đang bị khóa! Vui lòng khai báo tiền két đầu ca để bắt đầu.'),
             backgroundColor: TramColors.warningInk,
             duration: Duration(seconds: 3),
           ),
@@ -719,7 +859,7 @@ class _TableListScreenState extends State<TableListScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '⚡ ${table.baseName} đang có ${res.occupiedBy ?? "đơn khác"} → Đã tự động tạo không gian bàn riêng ${res.targetTable.name}!',
+            '${table.baseName} đang có ${res.occupiedBy ?? "đơn khác"} → Đã tự động tạo không gian bàn riêng ${res.targetTable.name}!',
           ),
           backgroundColor: TramColors.brandPrimary,
           duration: const Duration(seconds: 3),
@@ -736,7 +876,7 @@ class _TableListScreenState extends State<TableListScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('⚠️ Chức năng thao tác đơn đang bị khóa! Vui lòng khai báo tiền két đầu ca.'),
+              content: Text('Chức năng thao tác đơn đang bị khóa! Vui lòng khai báo tiền két đầu ca.'),
               backgroundColor: TramColors.warningInk,
             ),
           );
@@ -806,7 +946,7 @@ class _TableListScreenState extends State<TableListScreen> {
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.event_seat, color: context.tc.warning),
+            Icon(LucideIcons.armchair, color: context.tc.warning),
             const SizedBox(width: 8),
             Expanded(
               child: Text('Thông Tin Đặt Bàn - ${table.name}', style: GoogleFonts.beVietnamPro(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -858,7 +998,7 @@ class _TableListScreenState extends State<TableListScreen> {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('⚠️ Chức năng order đang bị khóa! Vui lòng khai báo tiền két đầu ca để bắt đầu.'),
+                      content: Text('Chức năng order đang bị khóa! Vui lòng khai báo tiền két đầu ca để bắt đầu.'),
                       backgroundColor: TramColors.warningInk,
                       duration: Duration(seconds: 3),
                     ),
@@ -913,7 +1053,7 @@ class _TableListScreenState extends State<TableListScreen> {
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   labelText: 'Tên khách hàng *',
-                  prefixIcon: Icon(Icons.person_outline),
+                  prefixIcon: Icon(LucideIcons.user),
                 ),
               ),
               const SizedBox(height: 10),
@@ -922,7 +1062,7 @@ class _TableListScreenState extends State<TableListScreen> {
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
                   labelText: 'Số điện thoại *',
-                  prefixIcon: Icon(Icons.phone_outlined),
+                  prefixIcon: Icon(LucideIcons.phone),
                 ),
               ),
               const SizedBox(height: 10),
@@ -930,7 +1070,7 @@ class _TableListScreenState extends State<TableListScreen> {
                 controller: timeCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Giờ hẹn (VD: 18:30)',
-                  prefixIcon: Icon(Icons.access_time),
+                  prefixIcon: Icon(LucideIcons.clock),
                 ),
               ),
               const SizedBox(height: 10),
@@ -939,7 +1079,7 @@ class _TableListScreenState extends State<TableListScreen> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Tiền đặt cọc (VND)',
-                  prefixIcon: Icon(Icons.attach_money),
+                  prefixIcon: Icon(LucideIcons.dollarSign),
                 ),
               ),
             ],
@@ -1017,10 +1157,10 @@ class _TableListScreenState extends State<TableListScreen> {
                   itemBuilder: (_, i) {
                     final target = emptyTables[i];
                     return ListTile(
-                      leading: Icon(Icons.table_restaurant, color: context.tc.success),
+                      leading: Icon(LucideIcons.armchair, color: context.tc.success),
                       title: Text(target.name, style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold)),
                       subtitle: Text(target.zone),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      trailing: const Icon(LucideIcons.chevronRight, size: 14),
                       onTap: () async {
                         try {
                           await _fb.transferTable(sourceTable, target);
@@ -1081,10 +1221,10 @@ class _TableListScreenState extends State<TableListScreen> {
                   itemBuilder: (_, i) {
                     final target = inUseTables[i];
                     return ListTile(
-                      leading: Icon(Icons.table_restaurant, color: context.tc.primary),
+                      leading: Icon(LucideIcons.armchair, color: context.tc.primary),
                       title: Text(target.name, style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold)),
                       subtitle: Text('${target.zone} • ${target.currentItems.length} món'),
-                      trailing: const Icon(Icons.call_merge, size: 16),
+                      trailing: const Icon(LucideIcons.merge, size: 16),
                       onTap: () async {
                         try {
                           await _fb.mergeTables(sourceTable, target);
@@ -1144,7 +1284,7 @@ class _TableListScreenState extends State<TableListScreen> {
                           color: context.tc.primary.withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.table_restaurant, color: context.tc.primary, size: 24),
+                        child: Icon(LucideIcons.armchair, color: context.tc.primary, size: 24),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -1188,7 +1328,7 @@ class _TableListScreenState extends State<TableListScreen> {
                 ),
                 const Divider(height: 20),
                 ListTile(
-                  leading: Icon(Icons.shopping_cart_checkout, color: context.tc.primary),
+                  leading: Icon(LucideIcons.shoppingCart, color: context.tc.primary),
                   title: Text('Xem giỏ hàng & Thanh toán', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Xem chi tiết các món, giảm giá, in tạm tính và thanh toán'),
                   onTap: () {
@@ -1201,7 +1341,7 @@ class _TableListScreenState extends State<TableListScreen> {
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.add_shopping_cart, color: context.tc.primary),
+                  leading: Icon(LucideIcons.shoppingCart, color: context.tc.primary),
                   title: Text('Gọi thêm món', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Mở thực đơn chọn món thêm vào bàn này'),
                   onTap: () {
@@ -1210,7 +1350,7 @@ class _TableListScreenState extends State<TableListScreen> {
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.call_split, color: context.tc.primary),
+                  leading: Icon(LucideIcons.split, color: context.tc.primary),
                   title: Text('Tạo đơn tách bàn mới (${table.baseName} (2))', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600)),
                   subtitle: const Text('Tạo không gian bàn riêng và hóa đơn riêng cho nhóm khách khác'),
                   onTap: () {
@@ -1219,7 +1359,7 @@ class _TableListScreenState extends State<TableListScreen> {
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.swap_horiz, color: context.ink(TramColors.managerAccent)),
+                  leading: Icon(LucideIcons.arrowLeftRight, color: context.ink(TramColors.managerAccent)),
                   title: Text('Chuyển sang bàn khác', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600)),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -1227,7 +1367,7 @@ class _TableListScreenState extends State<TableListScreen> {
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.call_merge, color: context.tc.warning),
+                  leading: Icon(LucideIcons.merge, color: context.tc.warning),
                   title: Text('Ghép vào bàn khác', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600)),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -1236,7 +1376,7 @@ class _TableListScreenState extends State<TableListScreen> {
                 ),
                 const Divider(),
                 ListTile(
-                  leading: Icon(Icons.cancel_outlined, color: context.tc.danger),
+                  leading: Icon(LucideIcons.circleX, color: context.tc.danger),
                   title: Text('Hủy hóa đơn (Trả bàn trống)', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, color: context.tc.danger)),
                   subtitle: Text('Xóa toàn bộ món và đặt lại bàn về trạng thái trống', style: TextStyle(color: context.tc.danger.withValues(alpha: 0.85))),
                   onTap: () {
@@ -1258,7 +1398,7 @@ class _TableListScreenState extends State<TableListScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⚠️ Chức năng hủy đơn bị khóa! Vui lòng mở ca trước.'),
+            content: Text('Chức năng hủy đơn bị khóa! Vui lòng mở ca trước.'),
             backgroundColor: TramColors.warningInk,
           ),
         );
@@ -1271,7 +1411,7 @@ class _TableListScreenState extends State<TableListScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⚠️ Bạn không có quyền hủy hóa đơn đã gửi bếp! Vui lòng liên hệ Quản Lý.'),
+            content: Text('Bạn không có quyền hủy hóa đơn đã gửi bếp! Vui lòng liên hệ Quản Lý.'),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -1304,7 +1444,7 @@ class _TableListScreenState extends State<TableListScreen> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
-                Icon(Icons.cancel_outlined, color: context.tc.danger, size: 24),
+                Icon(LucideIcons.circleX, color: context.tc.danger, size: 24),
                 const SizedBox(width: 8),
                 Flexible(child: Text('Hủy Hóa Đơn Bàn', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 16))),
               ],
@@ -1332,7 +1472,7 @@ class _TableListScreenState extends State<TableListScreen> {
                               child: Text(table.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 15, color: context.tc.primaryDark)),
                             ),
                             const SizedBox(width: 8),
-                            Text(table.zone, style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textSecondary)),
+                            Flexible(child: Text(table.zone, style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis)),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -1380,7 +1520,7 @@ class _TableListScreenState extends State<TableListScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '⚠️ Sau khi xác nhận, toàn bộ món sẽ bị hủy và bàn sẽ trở về trạng thái TRỐNG.',
+                    'Sau khi xác nhận, toàn bộ món sẽ bị hủy và bàn sẽ trở về trạng thái TRỐNG.',
                     style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.danger, fontStyle: FontStyle.italic),
                   ),
                 ],
@@ -1393,7 +1533,7 @@ class _TableListScreenState extends State<TableListScreen> {
               ),
               ElevatedButton.icon(
                 style: dialogActionStyle(background: context.tc.danger),
-                icon: const Icon(Icons.delete_forever, size: 18, color: Colors.white),
+                icon: const Icon(LucideIcons.trash2, size: 18, color: Colors.white),
                 label: const Text('Xác nhận Hủy Đơn', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 onPressed: () {
                   if (reasonCtrl.text.trim().isEmpty) {
@@ -1450,7 +1590,10 @@ class _TableListScreenState extends State<TableListScreen> {
             decoration: const BoxDecoration(
               gradient: AppColors.primaryGradient,
             ),
-            accountName: Text(_auth.currentUser?.fullName ?? 'Chủ Quán', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, color: const Color(0xFF143A2F))),
+            accountName: Text(
+              '${_auth.currentUser?.employeeCode.isNotEmpty == true ? "[${_auth.currentUser!.employeeCode}] " : ""}${_auth.currentUser?.fullName ?? "Chủ Quán"}',
+              style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, color: Colors.white),
+            ),
             accountEmail: Text('Chi nhánh: ${_auth.currentStoreCode} • ${FormatUtils.roleLabel(_auth.currentUser?.roleId ?? '')}', style: GoogleFonts.beVietnamPro(fontSize: 12, color: const Color(0xFF143A2F).withValues(alpha: 0.8))),
             currentAccountPicture: Container(
               padding: const EdgeInsets.all(2),
@@ -1466,7 +1609,7 @@ class _TableListScreenState extends State<TableListScreen> {
                     'assets/images/logo.jpg',
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Center(
-                      child: Icon(Icons.restaurant, color: Color(0xFF143A2F), size: 28),
+                      child: Icon(LucideIcons.utensilsCrossed, color: AppColors.primary, size: 28),
                     ),
                   ),
                 ),
@@ -1484,7 +1627,7 @@ class _TableListScreenState extends State<TableListScreen> {
                 ],
               ),
               child: ListTile(
-                leading: const Icon(Icons.analytics_outlined, color: Color(0xFF143A2F)),
+                leading: const Icon(LucideIcons.chartLine, color: Colors.white),
                 title: Text(
                   'CỔNG QUẢN LÝ & BÁO CÁO',
                   style: GoogleFonts.beVietnamPro(color: const Color(0xFF143A2F), fontWeight: FontWeight.bold, fontSize: 13),
@@ -1493,7 +1636,7 @@ class _TableListScreenState extends State<TableListScreen> {
                   'Toàn bộ báo cáo doanh thu & giám sát như Web',
                   style: GoogleFonts.beVietnamPro(color: const Color(0xFF143A2F).withValues(alpha: 0.8), fontSize: 11),
                 ),
-                trailing: const Icon(Icons.arrow_forward_ios, color: Color(0xFF143A2F), size: 14),
+                trailing: const Icon(LucideIcons.chevronRight, color: Color(0xFF143A2F), size: 14),
                 onTap: () {
                   Navigator.pop(context);
                   context.go('/manager-hub');
@@ -1502,7 +1645,7 @@ class _TableListScreenState extends State<TableListScreen> {
             ),
           if (_auth.canAccessManagerHub)
             ListTile(
-              leading: Icon(Icons.storefront, color: context.tc.primary),
+              leading: Icon(LucideIcons.store, color: context.tc.primary),
               title: const Text('Đổi Chi Nhánh (Cửa Hàng)'),
               subtitle: Text('Hiện tại: ${_auth.currentStoreCode} • ${_auth.currentStoreInfo?.storeName ?? ""}'),
               onTap: () {
@@ -1511,7 +1654,7 @@ class _TableListScreenState extends State<TableListScreen> {
               },
             ),
           ListTile(
-            leading: const Icon(Icons.table_restaurant),
+            leading: const Icon(LucideIcons.armchair),
             title: const Text('Sơ đồ bàn & Gọi món'),
             onTap: () {
               Navigator.pop(context);
@@ -1520,7 +1663,7 @@ class _TableListScreenState extends State<TableListScreen> {
           // Quản lý ca & két tiền (KiotViet cash shift)
           if (_auth.can(AppPermissions.manageCashShift) || _auth.can(AppPermissions.viewCashShifts))
           ListTile(
-            leading: Icon(Icons.point_of_sale, color: context.tc.success),
+            leading: Icon(LucideIcons.calculator, color: context.tc.success),
             title: const Text('Quản Lý Ca & Két Tiền'),
             subtitle: const Text('Mở ca, thu chi phát sinh, kết ca'),
             onTap: () {
@@ -1528,34 +1671,43 @@ class _TableListScreenState extends State<TableListScreen> {
               CashShiftDialog.show(context);
             },
           ),
-          if (_auth.can(AppPermissions.viewCashShifts) || _auth.can(AppPermissions.viewReports))
+          if (_auth.can(AppPermissions.viewShiftHandover) ||
+              _auth.can(AppPermissions.viewAllShifts) ||
+              _auth.can(AppPermissions.viewReports))
           ListTile(
-            leading: Icon(Icons.receipt_long, color: context.tc.primary),
+            leading: Icon(LucideIcons.receiptText, color: context.tc.primary),
             title: const Text('Phiếu Bàn Giao Ca'),
             subtitle: const Text('Xem phiên giao két & chênh lệch'),
             onTap: () => _navigateTo('/cash-shifts'),
           ),
           if (_auth.can(AppPermissions.viewReports))
           ListTile(
-            leading: Icon(Icons.summarize_outlined, color: context.tc.info),
+            leading: Icon(LucideIcons.fileText, color: context.tc.info),
             title: const Text('Báo Cáo Cuối Ngày'),
             subtitle: const Text('Tổng hợp, Thu chi, Hàng hóa, Phòng bàn'),
             onTap: () => _navigateTo('/end-of-day-report'),
           ),
           if (_auth.can(AppPermissions.viewKitchen) || _auth.can(AppPermissions.sendKitchen))
           ListTile(
-            leading: const Icon(Icons.soup_kitchen),
+            leading: const Icon(LucideIcons.chefHat),
             title: const Text('Màn hình Bếp / KDS'),
             onTap: () => _navigateTo('/kitchen'),
           ),
+          if (_auth.can(AppPermissions.viewReports))
+          ListTile(
+            leading: Icon(LucideIcons.gauge, color: context.tc.warning),
+            title: const Text('Báo Cáo Tốc Độ Phục Vụ (SOS / Bếp)'),
+            subtitle: const Text('Thời gian chế biến món, SLA & trễ đơn'),
+            onTap: () => _navigateTo('/kitchen-sla'),
+          ),
           if (_auth.can(AppPermissions.viewOnlineOrders))
           ListTile(
-            leading: Icon(Icons.delivery_dining, color: context.tc.warning),
+            leading: Icon(LucideIcons.bike, color: context.tc.warning),
             title: const Text('Đơn Hàng Online (App/Web)'),
             onTap: () => _navigateTo('/online-orders'),
           ),
           ListTile(
-            leading: const Icon(Icons.history),
+            leading: const Icon(LucideIcons.history),
             title: const Text('Lịch sử hóa đơn đã thanh toán'),
             onTap: () {
               Navigator.pop(context);
@@ -1571,13 +1723,13 @@ class _TableListScreenState extends State<TableListScreen> {
           // Quản lý nghiệp vụ (Theo phân quyền)
           if (_auth.isRootOwner || _auth.can(AppPermissions.managePromotions))
             ListTile(
-              leading: Icon(Icons.discount_outlined, color: context.ink(AppColors.accent)),
+              leading: Icon(LucideIcons.badgePercent, color: context.ink(AppColors.accent)),
               title: const Text('Khuyến Mãi & Voucher'),
               onTap: () => _navigateTo('/promotions'),
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.viewInventory))
             ListTile(
-              leading: const Icon(Icons.inventory_2_outlined),
+              leading: const Icon(LucideIcons.package),
               title: const Text('Kho hàng'),
               onTap: () {
                 Navigator.pop(context);
@@ -1586,7 +1738,7 @@ class _TableListScreenState extends State<TableListScreen> {
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.viewInventory))
             ListTile(
-              leading: Icon(Icons.assessment_outlined, color: context.tc.info),
+              leading: Icon(LucideIcons.chartColumn, color: context.tc.info),
               title: const Text('Báo cáo Kho hàng'),
               onTap: () {
                 Navigator.pop(context);
@@ -1595,7 +1747,7 @@ class _TableListScreenState extends State<TableListScreen> {
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.managePromotions))
             ListTile(
-              leading: Icon(Icons.insights_outlined, color: context.ink(AppColors.accent)),
+              leading: Icon(LucideIcons.sparkles, color: context.ink(AppColors.accent)),
               title: const Text('Hiệu suất Khuyến mãi'),
               onTap: () {
                 Navigator.pop(context);
@@ -1604,7 +1756,7 @@ class _TableListScreenState extends State<TableListScreen> {
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.viewAuditLogs))
             ListTile(
-              leading: Icon(Icons.security_outlined, color: context.tc.danger),
+              leading: Icon(LucideIcons.shieldCheck, color: context.tc.danger),
               title: const Text('Lịch Sử Thao Tác (Audit Log)'),
               onTap: () {
                 Navigator.pop(context);
@@ -1617,37 +1769,37 @@ class _TableListScreenState extends State<TableListScreen> {
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.manageRolesPermissions))
             ListTile(
-              leading: Icon(Icons.grid_on_outlined, color: context.tc.primary),
+              leading: Icon(LucideIcons.grid3x3, color: context.tc.primary),
               title: const Text('Ma Trận Phân Quyền Chi Tiết'),
               onTap: () => _navigateTo('/permissions-matrix'),
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.manageUsers))
             ListTile(
-              leading: const Icon(Icons.people_outline),
+              leading: const Icon(LucideIcons.users),
               title: const Text('Nhân viên và phân quyền'),
               onTap: () => _navigateTo('/user-management'),
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.manageTables))
             ListTile(
-              leading: const Icon(Icons.map_outlined),
+              leading: const Icon(LucideIcons.map),
               title: const Text('Khu vực & bàn'),
               onTap: () => _navigateTo('/zone-management'),
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.manageStoreSettings))
             ListTile(
-              leading: const Icon(Icons.storefront_outlined),
+              leading: const Icon(LucideIcons.store),
               title: const Text('Cài đặt cửa hàng'),
               onTap: () => _navigateTo('/store-settings'),
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.manageMenu) || _auth.can(AppPermissions.editMenu))
             ListTile(
-              leading: const Icon(Icons.menu_book_outlined),
+              leading: const Icon(LucideIcons.bookOpen),
               title: const Text('Quản Lý Thực Đơn'),
               onTap: () => _navigateTo('/menu-management'),
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.viewReports))
             ListTile(
-              leading: const Icon(Icons.analytics_outlined),
+              leading: const Icon(LucideIcons.chartLine),
               title: const Text('Báo Cáo Doanh Thu'),
               onTap: () {
                 Navigator.pop(context);
@@ -1660,7 +1812,7 @@ class _TableListScreenState extends State<TableListScreen> {
             ),
           if (_auth.isRootOwner || _auth.can(AppPermissions.viewReports))
             ListTile(
-              leading: Icon(Icons.bar_chart, color: context.tc.primary),
+              leading: Icon(LucideIcons.chartColumn, color: context.tc.primary),
               title: const Text('Trung Tâm Báo Cáo (12 Báo Cáo)'),
               subtitle: const Text('Doanh thu, Món ăn, Ca két, Lãi gộp, Xuất file'),
               onTap: () {
@@ -1670,7 +1822,7 @@ class _TableListScreenState extends State<TableListScreen> {
             ),
 
           ListTile(
-            leading: Icon(Icons.settings_outlined, color: context.tc.primary),
+            leading: Icon(LucideIcons.settings, color: context.tc.primary),
             title: const Text('Cài Đặt (Máy In & Giao Diện)'),
             subtitle: const Text('Máy in Bluetooth / LAN, khổ giấy, in thử • Sáng / Tối'),
             onTap: () {
@@ -1679,7 +1831,7 @@ class _TableListScreenState extends State<TableListScreen> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.palette_outlined, color: context.tc.primary),
+            leading: Icon(LucideIcons.palette, color: context.tc.primary),
             title: const Text('Giao Diện (Sáng / Tối)'),
             subtitle: const Text('Chọn Sáng, Tối hoặc Theo hệ thống'),
             onTap: () {
@@ -1688,7 +1840,7 @@ class _TableListScreenState extends State<TableListScreen> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.lock_reset, color: context.tc.warning),
+            leading: Icon(LucideIcons.rotateCcwKey, color: context.tc.warning),
             title: const Text('Đổi Mật Khẩu'),
             onTap: () {
               Navigator.pop(context);
@@ -1696,7 +1848,7 @@ class _TableListScreenState extends State<TableListScreen> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.info_outline, color: context.tc.primary),
+            leading: Icon(LucideIcons.info, color: context.tc.primary),
             title: const Text('Thông Tin Ứng Dụng'),
             subtitle: const Text('Phiên bản 1.0.2 (Build 4), hỗ trợ kỹ thuật & pháp lý'),
             onTap: () {
@@ -1705,7 +1857,7 @@ class _TableListScreenState extends State<TableListScreen> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.no_accounts_outlined, color: context.tc.danger),
+            leading: Icon(LucideIcons.userX, color: context.tc.danger),
             title: Text('Xóa tài khoản của tôi', style: TextStyle(color: context.tc.danger)),
             onTap: () {
               Navigator.pop(context);
@@ -1715,7 +1867,7 @@ class _TableListScreenState extends State<TableListScreen> {
 
           const Divider(),
           ListTile(
-            leading: Icon(Icons.logout, color: context.tc.danger),
+            leading: Icon(LucideIcons.logOut, color: context.tc.danger),
             title: Text('Đăng Xuất', style: TextStyle(color: context.tc.danger)),
             onTap: () async {
               await _auth.logout();
@@ -1744,7 +1896,7 @@ class _TableListScreenState extends State<TableListScreen> {
               controller: nameCtrl,
               decoration: const InputDecoration(
                 labelText: 'Tên bàn (VD: A6, B6, Bàn 01)',
-                prefixIcon: Icon(Icons.table_bar),
+                prefixIcon: Icon(LucideIcons.armchair),
               ),
             ),
             const SizedBox(height: 12),

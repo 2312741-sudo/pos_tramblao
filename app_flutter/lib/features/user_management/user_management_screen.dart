@@ -10,8 +10,10 @@ import '../../core/permissions/staff_password_policy.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
+import '../../core/utils/text_formatters.dart';
 import '../../data/models/app_models.dart';
 import '../../data/services/firebase_service.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -148,6 +150,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final isEditing = userToEdit != null;
     final fullNameCtrl = TextEditingController(text: userToEdit?.fullName ?? '');
     final usernameCtrl = TextEditingController(text: userToEdit?.username ?? '');
+    final employeeCodeCtrl = TextEditingController(text: userToEdit?.employeeCode ?? '');
     final passCtrl = TextEditingController();
     final phoneCtrl = TextEditingController(text: userToEdit?.phone ?? '');
 
@@ -196,7 +199,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.error_outline, color: context.tc.danger, size: 18),
+                              Icon(LucideIcons.circleAlert, color: context.tc.danger, size: 18),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -220,11 +223,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.workspace_premium, color: context.ink(Colors.brown), size: 20),
+                              Icon(LucideIcons.award, color: context.ink(Colors.brown), size: 20),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  '👑 Tài khoản Chủ Quán Tối Cao (Sovereign Owner). Không thể thay đổi vai trò hoặc hạ quyền.',
+                                  'Tài khoản Chủ Quán Tối Cao (Sovereign Owner). Không thể thay đổi vai trò hoặc hạ quyền.',
                                   style: TextStyle(color: context.ink(Colors.brown), fontSize: 12, fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -235,7 +238,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
                       TextField(
                         controller: fullNameCtrl,
-                        decoration: const InputDecoration(labelText: 'Họ và tên *', prefixIcon: Icon(Icons.person_outline)),
+                        decoration: const InputDecoration(labelText: 'Họ và tên *', prefixIcon: Icon(LucideIcons.user)),
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 12),
@@ -244,11 +247,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         controller: usernameCtrl,
                         decoration: InputDecoration(
                           labelText: 'Tên đăng nhập *',
-                          prefixIcon: const Icon(Icons.badge_outlined),
+                          prefixIcon: const Icon(LucideIcons.idCard),
                           hintText: 'VD: thungan1, ql_kho (3-30 ký tự)',
                           helperText: isEditing ? 'Không thể thay đổi tên đăng nhập đã tạo' : null,
                         ),
                         enabled: !isEditing,
+                      ),
+                      const SizedBox(height: 12),
+
+                      TextField(
+                        controller: employeeCodeCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Mã nhân viên (Mã NV)',
+                          prefixIcon: const Icon(LucideIcons.hash),
+                          hintText: 'VD: NV01, TN02 (để trống tự cấp)',
+                          helperText: isEditing ? null : 'Để trống hệ thống sẽ tự cấp mã theo thứ tự NV...',
+                        ),
+                        textCapitalization: TextCapitalization.characters,
+                        inputFormatters: [UpperCaseTextFormatter()],
                       ),
                       const SizedBox(height: 12),
 
@@ -258,11 +274,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           obscureText: obscure,
                           decoration: InputDecoration(
                             labelText: 'Mật khẩu khởi tạo *',
-                            prefixIcon: const Icon(Icons.lock_outline),
+                            prefixIcon: const Icon(LucideIcons.lock),
                             hintText: 'Tối thiểu 6 ký tự',
                             helperText: 'Nhân viên sẽ được yêu cầu đổi mật khẩu ở lần đăng nhập đầu tiên',
                             suffixIcon: IconButton(
-                              icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                              icon: Icon(obscure ? LucideIcons.eyeOff : LucideIcons.eye),
                               onPressed: () => setDlgState(() => obscure = !obscure),
                             ),
                           ),
@@ -273,7 +289,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       TextField(
                         controller: phoneCtrl,
                         keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(labelText: 'Số điện thoại', prefixIcon: Icon(Icons.phone_outlined)),
+                        decoration: const InputDecoration(labelText: 'Số điện thoại', prefixIcon: Icon(LucideIcons.phone)),
                       ),
                       const SizedBox(height: 12),
 
@@ -363,7 +379,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         backgroundColor: context.tc.primaryLight.withValues(alpha: 0.15),
                                       ),
-                                      icon: Icon(Icons.tune, size: 16, color: context.tc.primary),
+                                      icon: Icon(LucideIcons.slidersHorizontal, size: 16, color: context.tc.primary),
                                       label: Text(
                                         'Tùy chỉnh quyền',
                                         style: GoogleFonts.beVietnamPro(
@@ -427,7 +443,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                     backgroundColor: context.tc.primaryLight.withValues(alpha: 0.15),
                                   ),
-                                  icon: Icon(Icons.tune, size: 16, color: context.tc.primary),
+                                  icon: Icon(LucideIcons.slidersHorizontal, size: 16, color: context.tc.primary),
                                   label: Text(
                                     'Tùy chỉnh quyền',
                                     style: GoogleFonts.beVietnamPro(
@@ -490,12 +506,21 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           : () async {
                               final fullName = fullNameCtrl.text.trim();
                               final username = AuthUtils.normalizeUsername(usernameCtrl.text);
+                              final empCode = employeeCodeCtrl.text.trim().toUpperCase();
                               final rawPass = passCtrl.text;
                               final phone = phoneCtrl.text.trim();
 
                               if (fullName.isEmpty) {
                                 setDlgState(() => dlgError = 'Vui lòng nhập họ và tên nhân viên.');
                                 return;
+                              }
+
+                              if (empCode.isNotEmpty) {
+                                final duplicate = _users.any((u) => u.uid != userToEdit?.uid && u.employeeCode.toUpperCase() == empCode);
+                                if (duplicate) {
+                                  setDlgState(() => dlgError = 'Mã nhân viên "$empCode" đã được sử dụng trong chi nhánh.');
+                                  return;
+                                }
                               }
 
                               if (!isEditing) {
@@ -531,6 +556,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                     'storeCode': storeCode,
                                     'username': username,
                                     'fullName': fullName,
+                                    'employeeCode': empCode.isNotEmpty ? empCode : null,
                                     'roleId': selectedRole,
                                     'tempPassword': rawPass,
                                     'phone': phone,
@@ -550,7 +576,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                 } on FirebaseFunctionsException catch (e) {
                                   String msg = callableErrorMessage(e.code, e.message, fallback: 'Lỗi tạo tài khoản nhân viên.');
                                   if (e.code == 'already-exists') {
-                                    msg = 'Tên đăng nhập này đã được sử dụng trong chi nhánh.';
+                                    msg = 'Tên đăng nhập hoặc Mã nhân viên này đã được sử dụng trong chi nhánh.';
                                   }
                                   setDlgState(() {
                                     dlgError = msg;
@@ -567,6 +593,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                 try {
                                   final updatedUser = userToEdit.copyWith(
                                     fullName: fullName,
+                                    employeeCode: empCode,
                                     phone: phone,
                                     roleId: isRoot ? userToEdit.roleId : selectedRole,
                                     customPermissions: customPerms,
@@ -622,7 +649,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     if (user.isRootOwner) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('👑 Không thể khóa tài khoản Chủ Quán Tối Cao!'),
+          content: Text('Không thể khóa tài khoản Chủ Quán Tối Cao!'),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -720,7 +747,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     color: context.bg(Colors.purple.shade50),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.key_outlined, color: Colors.purple),
+                  child: const Icon(LucideIcons.key, color: Colors.purple),
                 ),
                 const SizedBox(width: 10),
                 const Text('Đặt lại mật khẩu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -761,7 +788,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         hintText: 'Tối thiểu 6 ký tự',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         suffixIcon: IconButton(
-                          icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                          icon: Icon(obscure ? LucideIcons.eyeOff : LucideIcons.eye),
                           onPressed: () => setDlgState(() => obscure = !obscure),
                         ),
                       ),
@@ -876,7 +903,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     if (user.isRootOwner) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('👑 Không thể xóa tài khoản Chủ Quán Tối Cao!'),
+          content: Text('Không thể xóa tài khoản Chủ Quán Tối Cao!'),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -924,12 +951,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         title: const Text('Quản Lý Tài Khoản Nhân Viên'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(LucideIcons.refreshCw),
             tooltip: 'Làm mới',
             onPressed: _loadData,
           ),
           IconButton(
-            icon: const Icon(Icons.grid_on),
+            icon: const Icon(LucideIcons.grid3x3),
             tooltip: 'Ma trận phân quyền',
             onPressed: () => context.push('/permissions-matrix'),
           ),
@@ -937,8 +964,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddEditUserDialog(),
-        icon: Icon(Icons.person_add_outlined, color: context.tc.onPrimary),
-        label: Text('Thêm Nhân Viên', style: GoogleFonts.beVietnamPro(color: context.tc.onPrimary, fontWeight: FontWeight.w600)),
+        icon: const Icon(LucideIcons.userPlus, color: Colors.white),
+        label: Text('Thêm Nhân Viên', style: GoogleFonts.beVietnamPro(color: Colors.white, fontWeight: FontWeight.w600)),
         backgroundColor: context.tc.primary,
         foregroundColor: context.tc.onPrimary,
       ),
@@ -949,7 +976,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.people_outline, size: 64, color: context.tc.textHint),
+                      Icon(LucideIcons.users, size: 64, color: context.tc.textHint),
                       const SizedBox(height: 12),
                       Text(
                         'Chưa có tài khoản nhân viên nào',
@@ -1021,6 +1048,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                         user.fullName,
                                         style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, fontSize: 15),
                                       ),
+                                      if (user.employeeCode.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: context.tc.primaryLight.withValues(alpha: 0.25),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: context.tc.primary.withValues(alpha: 0.5), width: 0.8),
+                                          ),
+                                          child: Text(
+                                            user.employeeCode,
+                                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: context.tc.primary),
+                                          ),
+                                        ),
                                       if (user.isRootOwner)
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1030,7 +1070,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                             border: Border.all(color: Colors.amber.shade400, width: 0.8),
                                           ),
                                           child: Text(
-                                            '👑 Chủ Quán Tối Cao',
+                                            'Chủ Quán Tối Cao',
                                             style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: context.ink(Colors.brown)),
                                           ),
                                         ),
@@ -1070,7 +1110,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Text(
-                                            '⚠️ Chưa đổi MK',
+                                            'Chưa đổi MK',
                                             style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: context.tc.warningInk),
                                           ),
                                         ),
@@ -1105,7 +1145,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Text(
-                                            '🌟 ${user.customPermissions.length} quyền riêng biệt',
+                                            '${user.customPermissions.length} quyền riêng biệt',
                                             style: GoogleFonts.beVietnamPro(
                                               fontSize: 10,
                                               color: context.tc.primaryDark,
@@ -1128,7 +1168,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                 if (!user.isRootOwner)
                                   IconButton(
                                     icon: Icon(
-                                      user.isActive ? Icons.lock_open_outlined : Icons.lock_outlined,
+                                      user.isActive ? LucideIcons.lockOpen : LucideIcons.lock,
                                       color: user.isActive ? context.tc.textSecondary : context.tc.danger,
                                       size: 20,
                                     ),
@@ -1138,7 +1178,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
                                 // Edit Action
                                 IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 20),
+                                  icon: const Icon(LucideIcons.pencil, size: 20),
                                   tooltip: 'Sửa thông tin',
                                   onPressed: () => _showAddEditUserDialog(user),
                                 ),
@@ -1155,7 +1195,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                       isSelf: user.uid.isNotEmpty && user.uid == _auth.currentUser?.uid,
                                     ))
                                   IconButton(
-                                    icon: const Icon(Icons.key_outlined, size: 20, color: Colors.purple),
+                                    icon: const Icon(LucideIcons.key, size: 20, color: Colors.purple),
                                     tooltip: 'Đặt lại mật khẩu',
                                     onPressed: () => _showResetPasswordDialog(user),
                                   ),
@@ -1163,7 +1203,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                 // Delete Action (Hidden for Root Owner)
                                 if (!user.isRootOwner)
                                   IconButton(
-                                    icon: Icon(Icons.delete_outline, color: context.tc.danger, size: 20),
+                                    icon: Icon(LucideIcons.trash2, color: context.tc.danger, size: 20),
                                     tooltip: 'Xóa tài khoản',
                                     onPressed: () => _deleteUser(user),
                                   ),

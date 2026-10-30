@@ -229,6 +229,17 @@ exports.applyLoyaltyEarn = (0, https_1.onCall)({ region: REGION }, async (reques
     const customerId = typeof bill.customerId === "string" ? bill.customerId.trim() : "";
     if (!customerId)
         return { success: true, status: "applied", applied: 0, skipped: "no-customer" };
+    // Khuyến mãi khóa tích điểm (vd. KM sinh nhật): đơn vẫn gắn khách nhưng không cộng điểm
+    const campaignIds = (0, sharedLoyalty_1.discountCampaignIds)(bill.discounts);
+    if (campaignIds.length > 0) {
+        const flags = {};
+        await Promise.all(campaignIds.map(async (id) => {
+            flags[id] = (await db.ref(`stores/${ctx.store}/campaigns/${id}/blockPoints`).get()).val() === true;
+        }));
+        if ((0, sharedLoyalty_1.billBlocksPoints)(bill.discounts, flags)) {
+            return { success: true, status: "applied", applied: 0, skipped: "campaign-blocks-points" };
+        }
+    }
     const [cfgSnap, infoSnap] = await Promise.all([db.ref("loyalty_config").get(), db.ref(`stores/${ctx.store}/storeInfo`).get()]);
     const rates = (0, sharedLoyalty_1.resolveRates)(cfgSnap.val(), infoSnap.val());
     const finalAmount = typeof bill.finalAmount === "number" ? bill.finalAmount : 0;
@@ -575,6 +586,19 @@ exports.linkBranchCustomer = (0, database_1.onValueWritten)({ ref: "/stores/{sto
         // Xóa khách ở chi nhánh: chỉ gỡ liên kết, số điểm chung được giữ nguyên
         if (oldKey)
             await db.ref(`loyalty_members/${oldKey}/branches/${storeCode}/${customerId}`).remove().catch(() => undefined);
+        // Nếu là chi nhánh thuộc chuỗi 4 cửa hàng Trạm: đồng bộ xóa node khách trên các chi nhánh Trạm còn lại
+        if ((0, sharedLoyalty_1.isTramChainStore)(storeCode)) {
+            const otherStores = sharedLoyalty_1.TRAM_CHAIN_STORES.filter((s) => s !== storeCode);
+            const delUpdates = {};
+            for (const other of otherStores) {
+                delUpdates[`stores/${other}/customers/${customerId}`] = null;
+                if (oldKey) {
+                    delUpdates[`loyalty_members/${oldKey}/branches/${other}/${customerId}`] = null;
+                }
+            }
+            if (Object.keys(delUpdates).length)
+                await db.ref().update(delUpdates).catch(() => undefined);
+        }
         return;
     }
     const key = keyOf(after);
@@ -620,6 +644,31 @@ exports.linkBranchCustomer = (0, database_1.onValueWritten)({ ref: "/stores/{sto
         const updates = (0, sharedLoyalty_1.planBranchCacheUpdates)(fm, [{ storeCode, customerId, node: after }]);
         if (Object.keys(updates).length)
             await db.ref().update(updates);
+    }
+    // Nếu là cửa hàng thuộc chuỗi 4 chi nhánh Trạm: đồng bộ sang toàn bộ chi nhánh Trạm còn lại
+    if ((0, sharedLoyalty_1.isTramChainStore)(storeCode)) {
+        const otherStores = sharedLoyalty_1.TRAM_CHAIN_STORES.filter((s) => s !== storeCode);
+        const chainUpdates = {};
+        for (const other of otherStores) {
+            const otherSnap = await db.ref(`stores/${other}/customers/${customerId}`).get();
+            const existing = otherSnap.val();
+            const needsSync = !existing ||
+                existing.ho_ten !== after.ho_ten ||
+                existing.so_dien_thoai !== after.so_dien_thoai ||
+                existing.ngay_sinh !== after.ngay_sinh ||
+                existing.gioi_tinh !== after.gioi_tinh ||
+                existing.name !== after.name ||
+                existing.phone !== after.phone ||
+                existing.birthday !== after.birthday ||
+                existing.gender !== after.gender;
+            if (needsSync) {
+                chainUpdates[`stores/${other}/customers/${customerId}`] = after;
+                chainUpdates[`loyalty_members/${key}/branches/${other}/${customerId}`] = true;
+            }
+        }
+        if (Object.keys(chainUpdates).length) {
+            await db.ref().update(chainUpdates).catch(() => undefined);
+        }
     }
 });
 /** Sổ cái chung → lịch sử điểm Firestore kmt_point_history (doc id cố định, chạy lại không trùng) */

@@ -586,7 +586,7 @@ export default function ProductsPage() {
       {/* Page Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "16px" }}>
         <div>
-          <h1 className="section-title">Thực đơn & Sản phẩm 🍜</h1>
+          <h1 className="section-title">Thực đơn & Sản phẩm</h1>
           <p className="section-subtitle">
             {currentStoreCode === "ALL"
               ? `Toàn hệ thống: ${products.length} món • ${categories.length} danh mục (${stores.length} chi nhánh)`
@@ -774,7 +774,7 @@ export default function ProductsPage() {
               color: currentStoreCode === "ALL" ? "#FFFFFF" : "var(--subtext)",
             }}
           >
-            🌐 Tất cả chi nhánh ({allProducts.length} món)
+            Tất cả chi nhánh ({allProducts.length} món)
           </button>
           {stores.map((s) => {
             const isSelected = currentStoreCode === s.storeCode;
@@ -797,7 +797,7 @@ export default function ProductsPage() {
                   color: isSelected ? "#FFFFFF" : "var(--subtext)",
                 }}
               >
-                🏪 {s.storeName} ({count} món • {catCount} nhóm)
+                {s.storeName} ({count} món • {catCount} nhóm)
               </button>
             );
           })}
@@ -858,7 +858,7 @@ export default function ProductsPage() {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    📂 {c.name} ({count})
+                    {c.name} ({count})
                   </button>
                 );
               })}
@@ -878,7 +878,7 @@ export default function ProductsPage() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  ⚠️ Chưa phân loại ({uncategorizedCount})
+                  Chưa phân loại ({uncategorizedCount})
                 </button>
               )}
             </div>
@@ -913,14 +913,14 @@ export default function ProductsPage() {
                 onChange={(e) => setFilterCategory(e.target.value)}
                 style={{ width: "auto", minWidth: "220px" }}
               >
-                <option value="">📂 Tất cả danh mục ({categories.length})</option>
+                <option value="">Tất cả danh mục ({categories.length})</option>
                 {categories.map((c, i) => (
                   <option key={`filter_cat_opt_${c.storeCode || ""}_${c.id || c.name}_${i}`} value={c.name}>
-                    📂 {c.name} ({categoryStats.counts[c.name] || 0} món)
+                    {c.name} ({categoryStats.counts[c.name] || 0} món)
                   </option>
                 ))}
                 {uncategorizedCount > 0 && (
-                  <option value="Chưa phân loại">⚠️ Chưa phân loại ({uncategorizedCount} món)</option>
+                  <option value="Chưa phân loại">Chưa phân loại ({uncategorizedCount} món)</option>
                 )}
               </select>
 
@@ -984,7 +984,6 @@ export default function ProductsPage() {
                       colSpan={currentStoreCode === "ALL" ? 10 : 9}
                       style={{ textAlign: "center", padding: "48px", color: "var(--muted)" }}
                     >
-                      <div style={{ fontSize: "36px", marginBottom: "8px" }}>🍽️</div>
                       Không có sản phẩm nào phù hợp
                     </td>
                   </tr>
@@ -1031,7 +1030,7 @@ export default function ProductsPage() {
                                 fontSize: "18px",
                               }}
                             >
-                              🍽️
+                              <UtensilsCrossed size={18} />
                             </div>
                           )}
                           <div>
@@ -1072,7 +1071,7 @@ export default function ProductsPage() {
                               color: "var(--primary)",
                             }}
                           >
-                            🏪 {p.storeCode || "TRAM01"}
+                            {p.storeCode || "TRAM01"}
                           </span>
                         </td>
                       )}
@@ -1291,7 +1290,6 @@ export default function ProductsPage() {
                       colSpan={currentStoreCode === "ALL" ? 6 : 5}
                       style={{ textAlign: "center", padding: "48px", color: "var(--muted)" }}
                     >
-                      <div style={{ fontSize: "36px", marginBottom: "8px" }}>📂</div>
                       {categorySearch ? "Không tìm thấy danh mục phù hợp" : "Chưa có danh mục nào được tạo"}
                       <div style={{ marginTop: "12px" }}>
                         <button className="btn-primary" onClick={openAddCategory} style={{ margin: "0 auto" }}>
@@ -1341,7 +1339,7 @@ export default function ProductsPage() {
                                 color: "var(--primary)",
                               }}
                             >
-                              🏪 {c.storeCode || "Tất cả"}
+                              {c.storeCode || "Tất cả"}
                             </span>
                           </td>
                         )}
@@ -1482,7 +1480,7 @@ export default function ProductsPage() {
           {/* Card Thêm ghi chú mới */}
           <div className="card" style={{ padding: "20px" }}>
             <h3 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text)", marginBottom: "8px" }}>
-              📝 Thêm ghi chú mẫu cho món ăn & thức uống
+              Thêm ghi chú mẫu cho món ăn & thức uống
             </h3>
             <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "14px", lineHeight: "1.5" }}>
               Các ghi chú mẫu sẽ xuất hiện dưới dạng chip chọn nhanh trên giao diện POS khi nhân viên order món (ví dụ: <em>Ít ngọt, Không đá, Uống nóng, Mang về, Để riêng đá...</em>).
@@ -1569,7 +1567,6 @@ export default function ProductsPage() {
 
             {notes.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--muted)" }}>
-                <div style={{ fontSize: "36px", marginBottom: "8px" }}>💬</div>
                 <div style={{ fontSize: "14px", fontWeight: "600", color: "var(--subtext)" }}>Chưa có ghi chú mẫu nào</div>
                 <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
                   Hãy nhập ghi chú vào ô trên và bấm &quot;Thêm ghi chú&quot; để nhân viên sử dụng nhanh trên POS.
@@ -1619,7 +1616,7 @@ export default function ProductsPage() {
                       </div>
                     ) : (
                       <>
-                        <span>💬 {n.text}</span>
+                        <span>{n.text}</span>
                         <button
                           onClick={() => {
                             setEditingNoteId(n.id);
@@ -1674,7 +1671,7 @@ export default function ProductsPage() {
                   >
                     {stores.map((s) => (
                       <option key={s.storeCode} value={s.storeCode}>
-                        🏪 {s.storeCode} - {s.storeName}
+                        {s.storeCode} - {s.storeName}
                       </option>
                     ))}
                   </select>
@@ -1701,7 +1698,7 @@ export default function ProductsPage() {
                   {productForm.imageBase64 ? (
                     <Image src={productForm.imageBase64} alt="Ảnh xem trước" fill unoptimized style={{ objectFit: "cover" }} />
                   ) : (
-                    <div style={{ fontSize: "32px" }}>🍽️</div>
+                    <UtensilsCrossed size={32} />
                   )}
                   {productForm.imageBase64 && (
                     <button
@@ -1804,7 +1801,7 @@ export default function ProductsPage() {
                   style={{ width: "18px", height: "18px", cursor: "pointer", accentColor: "#D97706" }}
                 />
                 <label htmlFor="isToppingCheckbox" style={{ fontSize: "13px", fontWeight: "600", color: "#92400E", cursor: "pointer", margin: 0 }}>
-                  ✨ Đây là món Topping (có thể đính kèm khi gọi các món chính trên POS)
+                  Đây là món Topping (có thể đính kèm khi gọi các món chính trên POS)
                 </label>
               </div>
 
@@ -1883,7 +1880,7 @@ export default function ProductsPage() {
                     <option value="">-- Chọn danh mục --</option>
                     {categories.map((c, i) => (
                       <option key={`modal_cat_opt_${c.storeCode || ""}_${c.id || c.name}_${i}`} value={c.name}>
-                        📂 {c.name}
+                        {c.name}
                       </option>
                     ))}
                   </select>
@@ -1973,10 +1970,10 @@ export default function ProductsPage() {
                   value={categoryForm.storeCode}
                   onChange={(e) => setCategoryForm((f) => ({ ...f, storeCode: e.target.value }))}
                 >
-                  <option value="ALL">🌐 Tất cả chi nhánh</option>
+                  <option value="ALL">Tất cả chi nhánh</option>
                   {stores.map((s) => (
                     <option key={s.storeCode} value={s.storeCode}>
-                      🏪 {s.storeCode} - {s.storeName}
+                      {s.storeCode} - {s.storeName}
                     </option>
                   ))}
                 </select>
@@ -2123,7 +2120,6 @@ export default function ProductsPage() {
         <div className="modal-overlay" onClick={() => setDeleteProductTarget(null)}>
           <div className="modal-content" style={{ maxWidth: "420px" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ padding: "28px", textAlign: "center" }}>
-              <div style={{ fontSize: "48px", marginBottom: "16px" }}>🗑️</div>
               <h2 style={{ fontSize: "18px", fontWeight: "700", color: "var(--text)", marginBottom: "8px" }}>
                 Xác nhận xóa món
               </h2>
@@ -2150,7 +2146,6 @@ export default function ProductsPage() {
         <div className="modal-overlay" onClick={() => setDeleteCategoryTarget(null)}>
           <div className="modal-content" style={{ maxWidth: "440px" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ padding: "28px", textAlign: "center" }}>
-              <div style={{ fontSize: "48px", marginBottom: "16px" }}>📁</div>
               <h2 style={{ fontSize: "18px", fontWeight: "700", color: "var(--text)", marginBottom: "8px" }}>
                 Xác nhận xóa danh mục
               </h2>
@@ -2171,7 +2166,7 @@ export default function ProductsPage() {
                     textAlign: "left",
                   }}
                 >
-                  ⚠️ Đang có{" "}
+                  Đang có{" "}
                   <strong>{categoryStats.counts[deleteCategoryTarget.name]} sản phẩm</strong> thuộc danh mục này. Khi xóa, các sản phẩm sẽ chuyển về trạng thái Chưa phân loại.
                 </div>
               )}
@@ -2203,7 +2198,7 @@ export default function ProductsPage() {
           <div className="modal-content" style={{ maxWidth: "460px" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ padding: "24px 24px 0", display: "flex", flexWrap: "wrap", rowGap: "8px", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
               <h2 style={{ fontSize: "18px", fontWeight: "700", color: "var(--text)" }}>
-                📝 Thêm ghi chú mẫu mới
+                Thêm ghi chú mẫu mới
               </h2>
               <button onClick={() => setShowNoteModal(false)} style={{ background: "none", border: "none", color: "var(--subtext)", cursor: "pointer" }}>
                 <X size={20} />

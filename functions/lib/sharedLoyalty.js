@@ -12,13 +12,15 @@
  * BẢN SAO ĐỌC của số dư (trigger mirrorMemberToBranches cập nhật).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAX_POINTS_PER_OP = exports.OPS_RING_MAX = void 0;
+exports.TRAM_CHAIN_STORES = exports.MAX_POINTS_PER_OP = exports.OPS_RING_MAX = void 0;
 exports.normalizePhone = normalizePhone;
 exports.sanitizeKey = sanitizeKey;
 exports.memberKeyFor = memberKeyFor;
 exports.isLocalMemberKey = isLocalMemberKey;
 exports.billOpId = billOpId;
 exports.computeEarnPoints = computeEarnPoints;
+exports.billBlocksPoints = billBlocksPoints;
+exports.discountCampaignIds = discountCampaignIds;
 exports.resolveRates = resolveRates;
 exports.readMember = readMember;
 exports.newMember = newMember;
@@ -29,6 +31,7 @@ exports.buildLedgerEntry = buildLedgerEntry;
 exports.branchCacheFields = branchCacheFields;
 exports.planBranchCacheUpdates = planBranchCacheUpdates;
 exports.planMigration = planMigration;
+exports.isTramChainStore = isTramChainStore;
 /** Số phần tử tối đa của vòng khóa thao tác lưu trong member.ops (chống làm phình bản ghi) */
 exports.OPS_RING_MAX = 200;
 /** Trần điểm một thao tác (chống nhập nhầm) */
@@ -64,6 +67,36 @@ function computeEarnPoints(finalAmount, earnRatePercent, redeemRate) {
         return 0;
     const p = Math.round((finalAmount * (earnRatePercent / 100)) / redeemRate);
     return p > 0 ? p : 0;
+}
+/**
+ * Hóa đơn có dùng chương trình khuyến mãi KHÓA TÍCH ĐIỂM (campaigns/{id}.blockPoints === true) không.
+ * [campaignFlags]: map campaignId → blockPoints đọc từ RTDB. Mã không có trong map = không khóa.
+ */
+function billBlocksPoints(discounts, campaignFlags) {
+    const list = Array.isArray(discounts)
+        ? discounts
+        : discounts && typeof discounts === "object"
+            ? Object.values(discounts)
+            : [];
+    return list.some((d) => {
+        const id = d && typeof d === "object" ? d.campaignId : undefined;
+        return typeof id === "string" && campaignFlags[id] === true;
+    });
+}
+/** Mã chương trình khuyến mãi xuất hiện trong bill.discounts */
+function discountCampaignIds(discounts) {
+    const list = Array.isArray(discounts)
+        ? discounts
+        : discounts && typeof discounts === "object"
+            ? Object.values(discounts)
+            : [];
+    const ids = new Set();
+    for (const d of list) {
+        const id = d && typeof d === "object" ? d.campaignId : undefined;
+        if (typeof id === "string" && id.trim())
+            ids.add(id.trim());
+    }
+    return [...ids];
 }
 function num(v) {
     return typeof v === "number" && Number.isFinite(v) ? v : undefined;
@@ -292,5 +325,10 @@ function planMigration(customers) {
             sharedTotalPoints: all.reduce((s, g) => s + g.totalPoints, 0),
         },
     };
+}
+/** Danh sách 4 chi nhánh chính thức dùng chung hệ thống khách hàng & tích điểm Trạm */
+exports.TRAM_CHAIN_STORES = ["TRAM01", "TRAM02", "TRAM03", "TRAM04"];
+function isTramChainStore(storeCode) {
+    return exports.TRAM_CHAIN_STORES.includes((storeCode || "").trim().toUpperCase());
 }
 //# sourceMappingURL=sharedLoyalty.js.map

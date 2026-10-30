@@ -9,11 +9,15 @@ import '../../core/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/app_models.dart';
 import '../../data/services/firebase_service.dart';
+import '../../data/models/campaign_models.dart';
+import '../../data/services/campaign_service.dart';
+import 'widgets/campaign_pricing.dart';
 import 'widgets/item_option_pickers.dart';
 import '../../core/utils/format_utils.dart';
 import '../cash_shift/cash_shift_dialog.dart';
 import '../../core/domain/product_availability.dart';
 import '../kitchen/sold_out_actions.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class OrderListScreen extends StatefulWidget {
   final TableModel table;
@@ -81,7 +85,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⚠️ Chức năng order đang bị khóa! Vui lòng khai báo tiền két đầu ca.'),
+            content: Text('Chức năng order đang bị khóa! Vui lòng khai báo tiền két đầu ca.'),
             backgroundColor: AppColors.warningInk,
             duration: Duration(seconds: 3),
           ),
@@ -107,8 +111,14 @@ class _OrderListScreenState extends State<OrderListScreen> {
     super.dispose();
   }
 
+  /// Chương trình KM (để không gộp món bấm khác khung giờ KM vào cùng dòng)
+  List<CampaignModel> _campaigns = [];
+
   void _loadData() {
     final storeCode = _auth.currentStoreCode;
+    CampaignService().campaignsStream().listen((list) {
+      if (mounted) _campaigns = list.where((c) => c.active).toList();
+    }, onError: (_) {});
     _fb.productsStream(storeCode: storeCode).listen((products) {
       if (mounted) setState(() { _products = products; _loading = false; });
     });
@@ -192,6 +202,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
       final idx = _cart.indexWhere((p) =>
           !p.isSentKitchen &&
           !p.hasDiscount &&
+          CartCampaignPricing.sameOrderWindow(p.orderedAt, now, _campaigns) &&
           p.productId == product.id &&
           p.name == product.name &&
           p.selectedSize.isEmpty &&
@@ -433,7 +444,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                             ),
                             const SizedBox(width: 6),
                             IconButton(
-                              icon: const Icon(Icons.close, size: 22),
+                              icon: const Icon(LucideIcons.x, size: 22),
                               tooltip: 'Đóng',
                               visualDensity: VisualDensity.compact,
                               padding: EdgeInsets.zero,
@@ -587,7 +598,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Ghi chú cho bếp / pha chế',
                       hintText: 'VD: ít ngọt, pha đậm vị...',
-                      prefixIcon: Icon(Icons.edit_note),
+                      prefixIcon: Icon(LucideIcons.notebookPen),
                     ),
                     onChanged: (_) => setModalState(() {}),
                   ),
@@ -671,12 +682,12 @@ class _OrderListScreenState extends State<OrderListScreen> {
                             child: Row(
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.remove, size: 18),
+                                  icon: const Icon(LucideIcons.minus, size: 18),
                                   onPressed: quantity > 1 ? () => setModalState(() => quantity--) : null,
                                 ),
                                 Text('$quantity', style: GoogleFonts.beVietnamPro(fontSize: 15, fontWeight: FontWeight.bold)),
                                 IconButton(
-                                  icon: const Icon(Icons.add, size: 18),
+                                  icon: const Icon(LucideIcons.plus, size: 18),
                                   onPressed: () => setModalState(() => quantity++),
                                 ),
                               ],
@@ -718,6 +729,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                                   final existingIdx = _cart.indexWhere((i) =>
                                       !i.isSentKitchen &&
                                       !i.hasDiscount &&
+                                      CartCampaignPricing.sameOrderWindow(i.orderedAt, now, _campaigns) &&
                                       i.productId == newItem.productId &&
                                       i.name == newItem.name &&
                                       i.selectedSize == newItem.selectedSize &&
@@ -776,7 +788,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
       backgroundColor: context.tc.background,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(LucideIcons.arrowLeft),
           onPressed: () {
             // Nếu chưa chọn món nào khi thoát:
             // - Với phiên mở bàn mới (_startedAsNewOrder): chỉ nhả khóa orderingBy an toàn
@@ -834,7 +846,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 color: Colors.amber.shade900,
                 child: Row(
                   children: [
-                    const Icon(Icons.lock, color: Colors.white, size: 18),
+                    const Icon(LucideIcons.lock, color: Colors.white, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -879,7 +891,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: Icon(widget.isAddingMore ? Icons.check_circle_outline : Icons.receipt_long, size: 22),
+                    icon: Icon(widget.isAddingMore ? LucideIcons.circleCheck : LucideIcons.receiptText, size: 22),
                     label: Text(
                       widget.isAddingMore
                           ? 'Xong, Quay Lại Đơn • ${FormatUtils.vnd(_cartTotal)} ($_cartCount món)'
@@ -933,7 +945,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                '⚡ ${widget.table.baseName} vừa có đơn khác → Đã tự động tách sang ${targetTable.name} (${targetTable.currentBillId})!',
+                                '${widget.table.baseName} vừa có đơn khác → Đã tự động tách sang ${targetTable.name} (${targetTable.currentBillId})!',
                               ),
                               backgroundColor: AppColors.primary,
                               duration: const Duration(seconds: 3),
@@ -963,11 +975,11 @@ class _OrderListScreenState extends State<OrderListScreen> {
         style: TextStyle(color: context.tc.textPrimary),
         decoration: InputDecoration(
           hintText: 'Tìm món ăn, thức uống, mã SKU...',
-          prefixIcon: Icon(Icons.search, color: context.tc.primary),
+          prefixIcon: Icon(LucideIcons.search, color: context.tc.primary),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           suffixIcon: _search.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.clear, color: context.tc.textSecondary, size: 18),
+                  icon: Icon(LucideIcons.x, color: context.tc.textSecondary, size: 18),
                   onPressed: () {
                     _searchCtrl.clear();
                     setState(() => _search = '');
@@ -1025,7 +1037,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.no_meals_outlined, size: 64, color: context.tc.textHint),
+            Icon(LucideIcons.utensilsCrossed, size: 64, color: context.tc.textHint),
             const SizedBox(height: 12),
             Text('Không tìm thấy món nào', style: GoogleFonts.beVietnamPro(color: context.tc.textSecondary)),
           ],
@@ -1173,11 +1185,11 @@ class _ProductListRow extends StatelessWidget {
                                 width: 58,
                                 height: 58,
                                 errorBuilder: (_, __, ___) => Center(
-                                  child: Icon(Icons.restaurant_menu, color: context.tc.primary, size: 28),
+                                  child: Icon(LucideIcons.utensils, color: context.tc.primary, size: 28),
                                 ),
                               )
                             : Center(
-                                child: Icon(Icons.restaurant_menu, color: context.tc.primary, size: 28),
+                                child: Icon(LucideIcons.utensils, color: context.tc.primary, size: 28),
                               )),
                   ),
                 ),
@@ -1215,14 +1227,16 @@ class _ProductListRow extends StatelessWidget {
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          Text(
+                          Flexible(child: Text(
                             FormatUtils.vnd(product.price),
                             style: GoogleFonts.beVietnamPro(
                               color: context.tc.primary,
                               fontWeight: FontWeight.w800,
                               fontSize: 14,
                             ),
-                          ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )),
                           if (product.unit.isNotEmpty)
                             Text(
                               ' / ${product.unit}',
@@ -1233,11 +1247,15 @@ class _ProductListRow extends StatelessWidget {
                             ),
                           if (product.category.isNotEmpty) ...[
                             Text(' • ', style: TextStyle(color: context.tc.textHint)),
-                            Text(
-                              product.category,
-                              style: GoogleFonts.beVietnamPro(
-                                color: context.tc.textSecondary,
-                                fontSize: 12,
+                            Flexible(
+                              child: Text(
+                                product.category,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.beVietnamPro(
+                                  color: context.tc.textSecondary,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ],
@@ -1246,18 +1264,16 @@ class _ProductListRow extends StatelessWidget {
                       const SizedBox(height: 4),
 
                       // Tags for options
-                      Row(
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
                         children: [
                           if (product.sizes.isNotEmpty)
                             _buildPillTag('Size S/M/L', context.ink(Colors.blue.shade700), context.bg(Colors.blue.shade50)),
-                          if (product.allowedToppings.isNotEmpty || hasOptions) ...[
-                            const SizedBox(width: 4),
+                          if (product.allowedToppings.isNotEmpty || hasOptions)
                             _buildPillTag('Topping', context.ink(Colors.orange.shade800), context.bg(Colors.orange.shade50)),
-                          ],
-                          if (product.hasIceSugarOptions || hasOptions) ...[
-                            const SizedBox(width: 4),
+                          if (product.hasIceSugarOptions || hasOptions)
                             _buildPillTag('Đường/Đá', context.ink(Colors.green.shade800), context.bg(Colors.green.shade50)),
-                          ],
                         ],
                       ),
                     ],
@@ -1292,7 +1308,7 @@ class _ProductListRow extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.add, color: Colors.white, size: 18),
+                          const Icon(LucideIcons.plus, color: Colors.white, size: 18),
                           const SizedBox(width: 4),
                           Text('Thêm', style: GoogleFonts.beVietnamPro(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                         ],
@@ -1314,7 +1330,7 @@ class _ProductListRow extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: context.tc.primary.withValues(alpha: 0.5)),
                           ),
-                          child: Icon(Icons.remove, color: context.tc.primary, size: 16),
+                          child: Icon(LucideIcons.minus, color: context.tc.primary, size: 16),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1337,7 +1353,7 @@ class _ProductListRow extends StatelessWidget {
                             color: soldOut ? context.tc.textHint : context.tc.primary,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.add, color: Colors.white, size: 16),
+                          child: const Icon(LucideIcons.plus, color: Colors.white, size: 16),
                         ),
                       ),
                     ],
@@ -1375,12 +1391,12 @@ class _ProductListRow extends StatelessWidget {
         width: 58,
         height: 58,
         errorBuilder: (_, __, ___) => Center(
-          child: Icon(Icons.restaurant_menu, color: context.tc.primary, size: 28),
+          child: Icon(LucideIcons.utensils, color: context.tc.primary, size: 28),
         ),
       );
     } catch (_) {
       return Center(
-        child: Icon(Icons.restaurant_menu, color: context.tc.primary, size: 28),
+        child: Icon(LucideIcons.utensils, color: context.tc.primary, size: 28),
       );
     }
   }

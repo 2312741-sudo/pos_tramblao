@@ -8,6 +8,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/app_models.dart';
 import '../../../data/services/firebase_service.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class AuditTab extends StatefulWidget {
   const AuditTab({super.key});
@@ -132,10 +133,10 @@ class _AuditTabState extends State<AuditTab> {
                   children: [
                     Expanded(child: Row(
                       children: [
-                        Icon(Icons.security, size: 22, color: context.tc.danger),
+                        Icon(LucideIcons.shieldCheck, size: 22, color: context.tc.danger),
                         const SizedBox(width: 8),
                         Flexible(child: Text(
-                          'Giám Sát & Chống Gian Lận 🛡️',
+                          'Giám Sát & Chống Gian Lận',
                           style: GoogleFonts.beVietnamPro(fontSize: 16, fontWeight: FontWeight.bold, color: context.tc.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis)),
                       ],
                     )),
@@ -163,7 +164,7 @@ class _AuditTabState extends State<AuditTab> {
                       child: _buildMiniStatChip(
                         title: 'Nghi vấn',
                         count: '$_suspiciousCount ca',
-                        icon: Icons.warning_amber_rounded,
+                        icon: LucideIcons.triangleAlert,
                         color: context.tc.danger,
                         active: _categoryFilter == 'SUSPICIOUS',
                         onTap: () => setState(() => _categoryFilter = _categoryFilter == 'SUSPICIOUS' ? 'ALL' : 'SUSPICIOUS'),
@@ -174,7 +175,7 @@ class _AuditTabState extends State<AuditTab> {
                       child: _buildMiniStatChip(
                         title: 'Hủy món bếp',
                         count: '$_cancelItemCount lần',
-                        icon: Icons.soup_kitchen_outlined,
+                        icon: LucideIcons.chefHat,
                         color: context.tc.warning,
                         active: _categoryFilter == 'CANCEL',
                         onTap: () => setState(() => _categoryFilter = _categoryFilter == 'CANCEL' ? 'ALL' : 'CANCEL'),
@@ -185,7 +186,7 @@ class _AuditTabState extends State<AuditTab> {
                       child: _buildMiniStatChip(
                         title: 'Giảm giá tay',
                         count: '$_discountCount lần',
-                        icon: Icons.discount_outlined,
+                        icon: LucideIcons.badgePercent,
                         color: context.tc.info,
                         active: _categoryFilter == 'PAYMENT',
                         onTap: () => setState(() => _categoryFilter = _categoryFilter == 'PAYMENT' ? 'ALL' : 'PAYMENT'),
@@ -200,10 +201,10 @@ class _AuditTabState extends State<AuditTab> {
                   decoration: InputDecoration(
                     hintText: 'Tìm theo nhân viên, bàn, món, thao tác...',
                     hintStyle: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.textHint),
-                    prefixIcon: Icon(Icons.search, size: 20, color: context.tc.primary),
+                    prefixIcon: Icon(LucideIcons.search, size: 20, color: context.tc.primary),
                     suffixIcon: _search.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
+                            icon: const Icon(LucideIcons.x, size: 18),
                             onPressed: () => setState(() => _search = ''),
                           )
                         : null,
@@ -230,15 +231,15 @@ class _AuditTabState extends State<AuditTab> {
                     children: [
                       _buildFilterChip('Tất cả', 'ALL'),
                       const SizedBox(width: 6),
-                      _buildFilterChip('⚠️ Nghi vấn', 'SUSPICIOUS', isWarning: true),
+                      _buildFilterChip('Nghi vấn', 'SUSPICIOUS', isWarning: true),
                       const SizedBox(width: 6),
-                      _buildFilterChip('🍳 Hủy món bếp', 'CANCEL'),
+                      _buildFilterChip('Hủy món bếp', 'CANCEL'),
                       const SizedBox(width: 6),
-                      _buildFilterChip('💳 Thanh toán & Giảm giá', 'PAYMENT'),
+                      _buildFilterChip('Thanh toán & Giảm giá', 'PAYMENT'),
                       const SizedBox(width: 6),
-                      _buildFilterChip('🔀 Đổi/Gộp bàn', 'TABLE'),
+                      _buildFilterChip('Đổi/Gộp bàn', 'TABLE'),
                       const SizedBox(width: 6),
-                      _buildFilterChip('💰 Ca & Két tiền', 'SHIFT'),
+                      _buildFilterChip('Ca & Két tiền', 'SHIFT'),
                     ],
                   ),
                 ),
@@ -272,7 +273,7 @@ class _AuditTabState extends State<AuditTab> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.shield_outlined, size: 56, color: context.tc.textHint),
+                        Icon(LucideIcons.shield, size: 56, color: context.tc.textHint),
                         const SizedBox(height: 10),
                         Text(
                           'Không có nhật ký nào phù hợp bộ lọc',
@@ -367,19 +368,19 @@ class _AuditTabState extends State<AuditTab> {
 
     if (_isCancelLike(log.action)) {
       iconColor = context.tc.danger;
-      iconData = Icons.cancel_outlined;
+      iconData = LucideIcons.circleX;
     } else if (log.action.contains('DISCOUNT') || log.action.contains('GIẢM')) {
       iconColor = context.tc.warning;
-      iconData = Icons.discount_outlined;
+      iconData = LucideIcons.badgePercent;
     } else if (log.action.contains('TABLE') || log.action.contains('BÀN')) {
       iconColor = const Color(0xFF0284C7);
-      iconData = Icons.swap_horiz;
+      iconData = LucideIcons.arrowLeftRight;
     } else if (log.action.contains('PAY') || log.action.contains('THANH')) {
       iconColor = context.tc.success;
-      iconData = Icons.check_circle_outline;
+      iconData = LucideIcons.circleCheck;
     } else {
       iconColor = context.tc.info;
-      iconData = Icons.history;
+      iconData = LucideIcons.history;
     }
 
     return Container(
@@ -410,16 +411,16 @@ class _AuditTabState extends State<AuditTab> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning, size: 14, color: context.tc.danger),
+                  Icon(LucideIcons.triangleAlert, size: 14, color: context.tc.danger),
                   const SizedBox(width: 6),
-                  Text(
+                  Flexible(child: Text(
                     'CẢNH BÁO THAO TÁC NGHI VẤN GIAN LẬN',
                     style: GoogleFonts.beVietnamPro(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: context.tc.danger,
                     ),
-                  ),
+                  )),
                 ],
               ),
             ),
@@ -521,7 +522,7 @@ class _AuditTabState extends State<AuditTab> {
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(Icons.arrow_forward, size: 14, color: context.tc.textHint),
+                    child: Icon(LucideIcons.arrowRight, size: 14, color: context.tc.textHint),
                   ),
                   Expanded(
                     child: Column(

@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../data/models/app_models.dart';
 import '../../../data/services/firebase_service.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Banner / Floating Notification Card nổi bật thông báo món bếp đã nấu xong.
 class ReadyKitchenOrdersBanner extends StatelessWidget {
@@ -91,7 +92,7 @@ class ReadyKitchenOrdersBanner extends StatelessWidget {
                     ],
                   ),
                   child: const Icon(
-                    Icons.notifications_active,
+                    LucideIcons.bellRing,
                     color: Colors.white,
                     size: 24,
                   ),
@@ -175,7 +176,7 @@ class ReadyKitchenOrdersBanner extends StatelessWidget {
                       ),
                       elevation: 1,
                     ),
-                    icon: const Icon(Icons.check_circle_outline, size: 16),
+                    icon: const Icon(LucideIcons.circleCheck, size: 16),
                     label: Text(
                       'Đã lấy món',
                       style: GoogleFonts.beVietnamPro(
@@ -292,7 +293,7 @@ class ReadyKitchenOrdersBanner extends StatelessWidget {
                             border: Border.all(color: const Color(0xFFA5D6A7)),
                           ),
                           child: const Icon(
-                            Icons.restaurant,
+                            LucideIcons.utensilsCrossed,
                             color: Color(0xFF2E7D32),
                             size: 20,
                           ),
@@ -328,7 +329,7 @@ class ReadyKitchenOrdersBanner extends StatelessWidget {
                               foregroundColor: const Color(0xFF2E7D32),
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                             ),
-                            icon: const Icon(Icons.done_all, size: 16),
+                            icon: const Icon(LucideIcons.checkCheck, size: 16),
                             label: Text(
                               'Lấy tất cả',
                               style: GoogleFonts.beVietnamPro(
@@ -344,7 +345,7 @@ class ReadyKitchenOrdersBanner extends StatelessWidget {
                           const SizedBox(width: 4),
                         ],
                         IconButton(
-                          icon: const Icon(Icons.close, size: 20),
+                          icon: const Icon(LucideIcons.x, size: 20),
                           tooltip: 'Đóng',
                           onPressed: () => Navigator.pop(ctx),
                         ),
@@ -363,7 +364,7 @@ class ReadyKitchenOrdersBanner extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    Icons.check_circle_outline,
+                                    LucideIcons.circleCheck,
                                     size: 56,
                                     color: Colors.green.shade400,
                                   ),
@@ -426,47 +427,58 @@ class ReadyKitchenOrdersBanner extends StatelessWidget {
                                       ),
                                       child: Row(
                                         children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF2E7D32),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              'BÀN ${order.tableName.toUpperCase()}',
-                                              style: GoogleFonts.beVietnamPro(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
+                                          Flexible(
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Flexible(
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFF2E7D32),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: Text(
+                                                      'BÀN ${order.tableName.toUpperCase()}',
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: GoogleFonts.beVietnamPro(
+                                                        fontSize: 12.5,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (timeStr.isNotEmpty) ...[
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    'Xong $timeStr',
+                                                    style: GoogleFonts.beVietnamPro(
+                                                      fontSize: 11.5,
+                                                      color: TramColors.textSecondary,
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
                                           ),
-                                          if (timeStr.isNotEmpty) ...[
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              'Xong lúc $timeStr',
-                                              style: GoogleFonts.beVietnamPro(
-                                                fontSize: 12,
-                                                color: TramColors.textSecondary,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
-                                          const Spacer(),
+                                          const SizedBox(width: 8),
                                           ElevatedButton.icon(
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: const Color(0xFF2E7D32),
                                               foregroundColor: Colors.white,
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                              minimumSize: const Size(0, 32),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              minimumSize: const Size(0, 30),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius: BorderRadius.circular(6),
                                               ),
                                               elevation: 0,
                                             ),
-                                            icon: const Icon(Icons.check, size: 14),
+                                            icon: const Icon(LucideIcons.check, size: 14),
                                             label: Text(
-                                              'Đã lấy món',
+                                              'Đã lấy',
                                               style: GoogleFonts.beVietnamPro(
                                                 fontSize: 11.5,
                                                 fontWeight: FontWeight.bold,
@@ -483,30 +495,38 @@ class ReadyKitchenOrdersBanner extends StatelessWidget {
                                       padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.person_outline, size: 14, color: Colors.grey),
+                                          const Icon(LucideIcons.user, size: 14, color: Colors.grey),
                                           const SizedBox(width: 4),
                                           Text(
-                                            'Nhân viên gửi: ',
+                                            'Gửi bởi: ',
                                             style: GoogleFonts.beVietnamPro(
                                               fontSize: 11.5,
                                               color: TramColors.textSecondary,
                                             ),
                                           ),
-                                          Text(
-                                            staff,
-                                            style: GoogleFonts.beVietnamPro(
-                                              fontSize: 11.5,
-                                              fontWeight: FontWeight.w600,
-                                              color: TramColors.textPrimary,
+                                          Flexible(
+                                            child: Text(
+                                              staff,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.beVietnamPro(
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w600,
+                                                color: TramColors.textPrimary,
+                                              ),
                                             ),
                                           ),
                                           if (order.orderCode != null || order.billCode != null) ...[
-                                            const Spacer(),
-                                            Text(
-                                              order.orderCode ?? order.billCode ?? '',
-                                              style: GoogleFonts.beVietnamPro(
-                                                fontSize: 11,
-                                                color: TramColors.textHint,
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                              child: Text(
+                                                '• ${order.orderCode ?? order.billCode}',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: GoogleFonts.beVietnamPro(
+                                                  fontSize: 11,
+                                                  color: TramColors.textHint,
+                                                ),
                                               ),
                                             ),
                                           ],

@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/models/app_models.dart';
 import '../../data/services/firebase_service.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class OnlineOrderDetailScreen extends StatelessWidget {
   final OnlineOrderModel order;
@@ -63,10 +64,12 @@ class OnlineOrderDetailScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.access_time, color: context.tc.textSecondary, size: 14),
+                      Icon(LucideIcons.clock, color: context.tc.textSecondary, size: 14),
                       const SizedBox(width: 6),
-                      Text(FormatUtils.dateTime(order.timestamp), style: GoogleFonts.beVietnamPro(
-                        color: context.tc.textSecondary, fontSize: 13)),
+                      Flexible(child: Text(FormatUtils.dateTime(order.timestamp), style: GoogleFonts.beVietnamPro(
+                        color: context.tc.textSecondary, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis)),
                     ],
                   ),
                   if (order.type == 'CALL_WAITER') ...[
@@ -80,7 +83,7 @@ class OnlineOrderDetailScreen extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.campaign, color: context.tc.warningInk, size: 20),
+                          Icon(LucideIcons.megaphone, color: context.tc.warningInk, size: 20),
                           const SizedBox(width: 10),
                           Text(
                             'Khách gọi nhân viên phục vụ',
@@ -122,11 +125,15 @@ class OnlineOrderDetailScreen extends StatelessWidget {
                         children: [
                           Expanded(child: Text(item.name, style: GoogleFonts.beVietnamPro(
                             color: context.tc.textPrimary, fontWeight: FontWeight.w500))),
-                          Text('x${item.quantity}', style: GoogleFonts.beVietnamPro(
-                            color: context.tc.textSecondary, fontSize: 13)),
+                          Flexible(child: Text('x${item.quantity}', style: GoogleFonts.beVietnamPro(
+                            color: context.tc.textSecondary, fontSize: 13),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis)),
                           const SizedBox(width: 16),
-                          Text(FormatUtils.vnd(item.itemTotal), style: GoogleFonts.beVietnamPro(
-                            color: context.tc.primary, fontWeight: FontWeight.w700)),
+                          Flexible(child: Text(FormatUtils.vnd(item.itemTotal), style: GoogleFonts.beVietnamPro(
+                            color: context.tc.primary, fontWeight: FontWeight.w700),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis)),
                         ],
                       ),
                     );
@@ -146,8 +153,10 @@ class OnlineOrderDetailScreen extends StatelessWidget {
                   children: [
                     Text('Tổng cộng', style: GoogleFonts.beVietnamPro(
                       color: context.tc.textPrimary, fontWeight: FontWeight.w700, fontSize: 15)),
-                    Text(FormatUtils.currency(total), style: GoogleFonts.beVietnamPro(
-                      color: context.tc.primary, fontWeight: FontWeight.w800, fontSize: 20)),
+                    Flexible(child: Text(FormatUtils.currency(total), style: GoogleFonts.beVietnamPro(
+                      color: context.tc.primary, fontWeight: FontWeight.w800, fontSize: 20),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis)),
                   ],
                 ),
               ),
@@ -187,7 +196,7 @@ class OnlineOrderDetailScreen extends StatelessWidget {
                               backgroundColor: context.tc.danger,
                               content: Row(
                                 children: [
-                                  const Icon(Icons.cancel_outlined, color: Colors.white, size: 20),
+                                  const Icon(LucideIcons.circleX, color: Colors.white, size: 20),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -239,7 +248,7 @@ class OnlineOrderDetailScreen extends StatelessWidget {
                               content: Row(
                                 children: [
                                   Icon(
-                                    success ? Icons.check_circle_outline : Icons.error_outline,
+                                    success ? LucideIcons.circleCheck : LucideIcons.circleAlert,
                                     color: Colors.white,
                                     size: 20,
                                   ),

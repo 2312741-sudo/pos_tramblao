@@ -57,25 +57,21 @@ const UNIFIED_ROLES = [
   {
     id: ROLE_OWNER,
     name: "Chủ Quán (Toàn quyền)",
-    icon: "👑",
     desc: "Toàn quyền quản trị tất cả chi nhánh và phân quyền",
   },
   {
     id: ROLE_MANAGER,
     name: MANAGER_ROLE_LABEL,
-    icon: "⭐",
     desc: "Điều hành ca, bán hàng, kho, khuyến mãi, két tiền, chiết khấu, báo cáo",
   },
   {
     id: ROLE_STAFF,
     name: `${STAFF_ROLE_LABEL} (${STAFF_ROLE_DESCRIPTION})`,
-    icon: "🍽️",
     desc: "Mở bàn, gọi món gửi bếp, tính tiền, in hóa đơn, áp dụng khuyến mãi",
   },
   {
     id: ROLE_KITCHEN,
     name: KITCHEN_ROLE_LABEL,
-    icon: "🍳",
     desc: "Xem màn hình bếp KDS, cập nhật trạng thái chế biến",
   },
 ];
@@ -100,6 +96,7 @@ export interface DashboardUser {
   uid?: string;
   username: string;
   fullName: string;
+  employeeCode?: string;
   roleId: string;
   role: string;
   isRootOwner?: boolean;
@@ -120,6 +117,7 @@ export interface DashboardUser {
 interface UserForm {
   fullName: string;
   username: string;
+  employeeCode: string;
   password: string;
   role: string;
   phone: string;
@@ -131,6 +129,7 @@ interface UserForm {
 const emptyForm: UserForm = {
   fullName: "",
   username: "",
+  employeeCode: "",
   password: "",
   role: ROLE_STAFF,
   phone: "",
@@ -174,6 +173,7 @@ export default function UsersPage() {
         uid: (typeof u.uid === "string" && u.uid) || u.id || u.username || "",
         username: u.username || "",
         fullName: u.fullName || u.username || "",
+        employeeCode: (u.employeeCode || u.staffCode || "") as string,
         roleId: u.roleId || u.role || ROLE_STAFF,
         role: u.roleId || u.role || ROLE_STAFF,
         isRootOwner: u.isRootOwner,
@@ -237,6 +237,7 @@ export default function UsersPage() {
         !q ||
         u.fullName.toLowerCase().includes(q) ||
         u.username.toLowerCase().includes(q) ||
+        (u.employeeCode && u.employeeCode.toLowerCase().includes(q)) ||
         (u.phone && u.phone.includes(q));
 
       const matchRole = filterRole === "ALL" || normalizeRoleId(u.roleId || u.role) === filterRole;
@@ -275,6 +276,7 @@ export default function UsersPage() {
     setForm({
       fullName: u.fullName,
       username: u.username,
+      employeeCode: u.employeeCode || "",
       password: "",
       role: normalizeRoleId(u.roleId || u.role || ROLE_STAFF),
       phone: u.phone || "",
@@ -336,6 +338,7 @@ export default function UsersPage() {
     setSaving(true);
     const cleanStore = form.storeCode.trim().toUpperCase();
     const cleanUser = normalizeUsername(form.username);
+    const cleanEmpCode = form.employeeCode.trim().toUpperCase();
 
     try {
       if (editUser) {
@@ -343,8 +346,20 @@ export default function UsersPage() {
         const targetUid = editUser.uid || editUser.id;
         const isRoot = editUser.isRootOwner === true;
 
+        if (cleanEmpCode) {
+          const duplicate = currentUsers.find(
+            (u) => (u.uid || u.id) !== targetUid && u.employeeCode?.trim().toUpperCase() === cleanEmpCode
+          );
+          if (duplicate) {
+            setError(`Mã nhân viên "${cleanEmpCode}" đã được sử dụng bởi @${duplicate.username}`);
+            setSaving(false);
+            return;
+          }
+        }
+
         const updateData: Record<string, unknown> = {
           fullName: form.fullName.trim(),
+          employeeCode: cleanEmpCode,
           phone: form.phone.trim(),
           roleId: isRoot ? editUser.roleId : normalizeRoleId(form.role),
           role: isRoot ? editUser.role : normalizeRoleId(form.role),
@@ -371,30 +386,43 @@ export default function UsersPage() {
           username: currentUser?.username || "admin",
           userFullName: currentUser?.fullName || "Quản trị viên",
           userRole: currentUser?.roleId || "ROLE_OWNER",
-          details: `Cập nhật thông tin nhân viên: ${form.fullName.trim()} (@${cleanUser})`,
+          details: `Cập nhật thông tin nhân viên: ${form.fullName.trim()} (@${cleanUser}) - Mã NV: ${cleanEmpCode || "(chưa cấp)"}`,
           timestamp: Date.now(),
         }).catch(() => {});
 
         closeModal();
       } else {
         // TẠO NHÂN VIÊN MỚI QUA CLOUD FUNCTIONS (An toàn tuyệt đối)
+        if (cleanEmpCode) {
+          const duplicate = currentUsers.find(
+            (u) => u.employeeCode?.trim().toUpperCase() === cleanEmpCode
+          );
+          if (duplicate) {
+            setError(`Mã nhân viên "${cleanEmpCode}" đã được sử dụng bởi @${duplicate.username}`);
+            setSaving(false);
+            return;
+          }
+        }
+
         const createStaffFn = httpsCallable<
           {
             storeCode: string;
             username: string;
             fullName: string;
+            employeeCode?: string;
             roleId: string;
             tempPassword: string;
             phone?: string;
             customPermissions?: string[];
           },
-          { success: boolean; uid: string; message: string }
+          { success: boolean; uid: string; employeeCode?: string; message: string }
         >(functions, "createStaffAccount");
 
         await createStaffFn({
           storeCode: cleanStore,
           username: cleanUser,
           fullName: form.fullName.trim(),
+          employeeCode: cleanEmpCode || undefined,
           roleId: normalizeRoleId(form.role),
           tempPassword: form.password.trim(),
           phone: form.phone.trim(),
@@ -559,7 +587,7 @@ export default function UsersPage() {
     if (role === ROLE_OWNER) {
       return (
         <span className="badge badge-danger" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-          👑 Chủ Quán
+          Chủ Quán
         </span>
       );
     }
@@ -576,20 +604,20 @@ export default function UsersPage() {
             gap: "4px",
           }}
         >
-          ⭐ {MANAGER_ROLE_LABEL}
+          {MANAGER_ROLE_LABEL}
         </span>
       );
     }
     if (role === ROLE_KITCHEN) {
       return (
         <span className="badge badge-warning" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-          🍳 {KITCHEN_ROLE_LABEL}
+          {KITCHEN_ROLE_LABEL}
         </span>
       );
     }
     return (
       <span className="badge badge-info" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-        🍽️ {STAFF_ROLE_LABEL}
+        {STAFF_ROLE_LABEL}
       </span>
     );
   };
@@ -615,7 +643,7 @@ export default function UsersPage() {
         }}
       >
         <div>
-          <h1 className="section-title">Quản lý Tài khoản & Phân quyền 👥</h1>
+          <h1 className="section-title">Quản lý Tài khoản & Phân quyền</h1>
           <p className="section-subtitle">
             Hệ thống xác thực Firebase Authentication &amp; Phân quyền đa chi nhánh ({currentUsers.length} tài khoản)
           </p>
@@ -650,7 +678,7 @@ export default function UsersPage() {
               color: currentStoreCode === "ALL" ? "#FFFFFF" : "var(--subtext)",
             }}
           >
-            🌐 Tất cả chi nhánh ({Object.values(usersMap).reduce((acc, l) => acc + l.length, 0)} NV)
+            Tất cả chi nhánh ({Object.values(usersMap).reduce((acc, l) => acc + l.length, 0)} NV)
           </button>
           {storesList.map((s) => {
             const isSelected = currentStoreCode === s.storeCode;
@@ -672,7 +700,7 @@ export default function UsersPage() {
                   color: isSelected ? "#FFFFFF" : "var(--subtext)",
                 }}
               >
-                🏪 {s.storeName} ({count} NV)
+                {s.storeName} ({count} NV)
               </button>
             );
           })}
@@ -787,7 +815,7 @@ export default function UsersPage() {
               <option value="ALL">Tất cả vai trò</option>
               {UNIFIED_ROLES.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.icon} {r.name}
+                  {r.name}
                 </option>
               ))}
             </select>
@@ -844,19 +872,38 @@ export default function UsersPage() {
                     )}
                   </td>
                   <td>
-                    <span
-                      style={{
-                        fontFamily: "monospace",
-                        color: "var(--primary)",
-                        fontWeight: "700",
-                        fontSize: "13px",
-                        background: "rgba(27,77,62,0.06)",
-                        padding: "2px 8px",
-                        borderRadius: "6px",
-                      }}
-                    >
-                      @{u.username}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                      {u.employeeCode && (
+                        <span
+                          style={{
+                            fontFamily: "monospace",
+                            color: "#1e40af",
+                            backgroundColor: "#dbeafe",
+                            border: "1px solid #bfdbfe",
+                            fontWeight: "700",
+                            fontSize: "11px",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                          }}
+                          title="Mã nhân viên"
+                        >
+                          {u.employeeCode}
+                        </span>
+                      )}
+                      <span
+                        style={{
+                          fontFamily: "monospace",
+                          color: "var(--primary)",
+                          fontWeight: "700",
+                          fontSize: "13px",
+                          background: "rgba(27,77,62,0.06)",
+                          padding: "2px 8px",
+                          borderRadius: "6px",
+                        }}
+                      >
+                        @{u.username}
+                      </span>
+                    </div>
                     {u.authProvider === "chamcong" && (
                       <span
                         className="badge badge-info"
@@ -868,7 +915,7 @@ export default function UsersPage() {
                     )}
                     {u.mustChangePassword && u.authProvider !== "chamcong" && (
                       <div style={{ fontSize: "10px", color: "var(--warning)", fontWeight: "600", marginTop: "2px" }}>
-                        ⚡ Cần đổi MK lần đầu
+                        Cần đổi MK lần đầu
                       </div>
                     )}
                   </td>
@@ -882,7 +929,7 @@ export default function UsersPage() {
                         borderColor: "var(--border)",
                       }}
                     >
-                      🏪 {u.storeName || u.storeCode}
+                      {u.storeName || u.storeCode}
                     </span>
                   </td>
                   <td>{getRoleBadge(u.roleId || u.role)}</td>
@@ -1090,7 +1137,7 @@ export default function UsersPage() {
                 />
               </div>
 
-              {/* Username & Phone */}
+              {/* Username & Mã NV */}
               <div className="grid-stack-sm" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
                   <label
@@ -1134,15 +1181,43 @@ export default function UsersPage() {
                       marginBottom: "6px",
                     }}
                   >
-                    Số điện thoại
+                    Mã nhân viên (Mã NV)
                   </label>
                   <input
                     className="input-field"
-                    placeholder="0987xxxxxx"
-                    value={form.phone}
-                    onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                    placeholder="VD: NV01 (để trống tự cấp)"
+                    value={form.employeeCode}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        employeeCode: e.target.value.toUpperCase().trim(),
+                      }))
+                    }
+                    style={{ textTransform: "uppercase" }}
                   />
+                  <span style={{ fontSize: "11px", color: "var(--muted)" }}>Tự động in hoa, có thể đăng nhập bằng Mã NV</span>
                 </div>
+              </div>
+
+              {/* Số điện thoại */}
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    color: "var(--text)",
+                    marginBottom: "6px",
+                  }}
+                >
+                  Số điện thoại
+                </label>
+                <input
+                  className="input-field"
+                  placeholder="0987xxxxxx"
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                />
               </div>
 
               {/* Password khi tạo mới */}
@@ -1204,7 +1279,7 @@ export default function UsersPage() {
                 >
                   {storesList.map((s) => (
                     <option key={s.storeCode} value={s.storeCode}>
-                      🏪 {s.storeName} ({s.storeCode})
+                      {s.storeName} ({s.storeCode})
                     </option>
                   ))}
                 </select>
@@ -1251,7 +1326,7 @@ export default function UsersPage() {
                               gap: "6px",
                             }}
                           >
-                            <span>{r.icon}</span> {r.name}
+                            {r.name}
                           </div>
                           <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>{r.desc}</div>
                         </div>

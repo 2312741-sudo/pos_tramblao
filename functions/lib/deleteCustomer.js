@@ -48,6 +48,7 @@ const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const customerSync_1 = require("./customerSync");
 const deleteCustomerLogic_1 = require("./deleteCustomerLogic");
+const sharedLoyalty_1 = require("./sharedLoyalty");
 const FUNCTION_REGION = "asia-southeast1";
 const db = () => admin.database();
 exports.deleteCustomer = (0, https_1.onCall)({ region: FUNCTION_REGION }, async (request) => {
@@ -104,6 +105,16 @@ exports.deleteCustomer = (0, https_1.onCall)({ region: FUNCTION_REGION }, async 
             details: (0, deleteCustomerLogic_1.buildDeleteAuditDetails)(customer.ho_ten ?? customer.name, customer.so_dien_thoai ?? customer.phone, plan.removedMember),
         },
     };
+    if ((0, sharedLoyalty_1.isTramChainStore)(storeCode)) {
+        for (const other of sharedLoyalty_1.TRAM_CHAIN_STORES) {
+            if (other !== storeCode) {
+                updates[`stores/${other}/customers/${customerId}`] = null;
+                if (memberKey) {
+                    updates[`loyalty_members/${memberKey}/branches/${other}/${customerId}`] = null;
+                }
+            }
+        }
+    }
     await db().ref().update(updates);
     // Bản sao Firestore (best-effort): chỉ xóa khi bản sao đúng của chi nhánh này
     try {
