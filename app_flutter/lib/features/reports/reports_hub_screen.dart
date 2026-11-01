@@ -1,5 +1,5 @@
 // lib/features/reports/reports_hub_screen.dart
-// Trung tâm Báo cáo Tài chính & Vận hành Chuẩn mực POS Trạm BLAO
+// Trung tâm Báo cáo Tài chính & Vận hành Chuẩn mực POS Trạm
 // Tuân thủ 100% đặc tả REPORT_SPEC.md (12 Báo cáo, lọc đa chiều, biểu đồ fl_chart, xuất Excel/PDF)
 
 import 'dart:async';
@@ -292,7 +292,7 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
       (s) => s.storeCode == _selectedStoreCode,
       orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(
         storeCode: _selectedStoreCode,
-        storeName: 'POS Trạm BLAO',
+        storeName: 'POS Trạm',
       ),
     );
   }
@@ -620,8 +620,8 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
           ['Chuyển khoản QR thu được', ReportExportService.formatCurrency(z.tab2ThuChi.transferSales), 'VietQR ngân hàng'],
           ['Tổng sản phẩm bán ra', z.tab3HangHoa.totalItemsSold, 'Ly / Đĩa'],
           ['Số hóa đơn đã hủy', z.tab1TongHop.cancelledBillsCount, ReportExportService.formatCurrency(z.tab1TongHop.cancelledBillsAmount)],
-          ['Số món xóa', z.tab1TongHop.deletedItemsCount, 'Món đã lưu bị xóa'],
-          ['Tổng tiền xóa món', ReportExportService.formatCurrency(z.tab1TongHop.deletedItemsAmount), 'Từ HĐ hoàn thành + đã hủy'],
+          ['Số món xóa / hủy', z.tab1TongHop.deletedItemsCount, 'Món đã lưu bị xóa + món của đơn hủy'],
+          ['Tổng tiền xóa / hủy món', ReportExportService.formatCurrency(z.tab1TongHop.deletedItemsAmount), 'Không cộng chung với giá trị đơn hủy'],
         ];
     }
   }
@@ -723,10 +723,7 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
               onPressed: _loadInitialData,
               icon: const Icon(LucideIcons.refreshCw),
               label: const Text('Thử lại'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: context.tc.primary,
-                foregroundColor: context.tc.onPrimary,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: context.tc.primary),
             ),
           ],
         ),

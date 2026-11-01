@@ -257,7 +257,8 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
   }
 
   List<BillModel> get _paidBills => _rangeBills.where((b) => b.status == 'PAID').toList();
-  List<BillModel> get _cancelledBills => _rangeBills.where((b) => b.status == 'CANCELLED').toList();
+  /// Hóa đơn ĐÃ thanh toán rồi bị hủy (hủy đơn trên bàn khi chưa thanh toán tính vào số món hủy)
+  List<BillModel> get _cancelledBills => ReportCalculator.deduplicateBills(_rangeBills).where((b) => b.isPaidCancel).toList();
 
   // Serving tables (current active state)
   List<TableModel> get _servingTables => _tables.where((t) => t.inUse).toList();
@@ -438,7 +439,8 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
 
         // Topping tách thành dòng riêng (số bán + doanh thu), không gộp vào món gốc
         for (final part in splitLineParts(item, mainKey: item.name.trim(), mainUnitCost: 0, productsMap: _productsMap)) {
-          final key = part.isTopping ? part.key : item.name.trim();
+          // Gom theo mã món: Thạch dừa gọi riêng và gọi làm topping cùng một dòng
+          final key = part.isTopping ? productMergeKey(part.code, part.name) : productMergeKey(_codeOf(item.productId, item.name.trim()), item.name.trim());
           final entry = productMap.putIfAbsent(key, () => {
                 'name': part.isTopping ? part.name : key,
                 'code': part.isTopping ? part.code : _codeOf(item.productId, key),
@@ -509,7 +511,9 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
             }
           }
           final itemTotal = (price + toppingSum) * qty;
-          final tableName = table.zone.isNotEmpty ? '${table.name} (${table.zone})' : table.name;
+          // Bàn tự tách ('Bàn 01 (2)') gộp vào bàn gốc
+          final baseName = BillModel.baseTableName(table.name);
+          final tableName = table.zone.isNotEmpty ? '$baseName (${table.zone})' : baseName;
 
           if (!productMap.containsKey(name)) {
             productMap[name] = {
@@ -782,7 +786,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
 
       final currentStoreName = _stores.firstWhere(
         (s) => s.storeCode == _selectedStoreCode,
-        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO - ${_auth.currentStoreCode}'),
+        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm - ${_auth.currentStoreCode}'),
       ).storeName;
 
       // Header Info
@@ -907,7 +911,8 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
             final pMap = staffMap[itemStaff]!;
             // Topping tách thành dòng riêng
             for (final part in splitLineParts(item, mainKey: item.name.trim(), mainUnitCost: 0, productsMap: _productsMap)) {
-              final key = part.isTopping ? part.key : item.name.trim();
+              // Gom theo mã món: Thạch dừa gọi riêng và gọi làm topping cùng một dòng
+          final key = part.isTopping ? productMergeKey(part.code, part.name) : productMergeKey(_codeOf(item.productId, item.name.trim()), item.name.trim());
               final e = pMap.putIfAbsent(key, () => {
                     'name': part.isTopping ? '${part.name} (topping)' : key,
                     'code': part.isTopping ? part.code : _codeOf(item.productId, key),
@@ -1065,7 +1070,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
   Widget build(BuildContext context) {
     final currentStoreName = _stores.firstWhere(
       (s) => s.storeCode == _selectedStoreCode,
-      orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO - ${_auth.currentStoreCode}'),
+      orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm - ${_auth.currentStoreCode}'),
     ).storeName;
 
     return Scaffold(
@@ -1311,7 +1316,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
     try {
       final store = _stores.firstWhere(
         (s) => s.storeCode == _selectedStoreCode,
-        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO - ${_auth.currentStoreCode}'),
+        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm - ${_auth.currentStoreCode}'),
       );
       final z = ReportCalculator.generateEndOfDayZReport(
         bills: _rangeBills,
@@ -1344,8 +1349,8 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
         ['Tổng tiền hoàn trả khách', ReportExportService.formatCurrency(t2.refundTotal), 'VND'],
         ['Số hóa đơn đã hủy', t1.cancelledBillsCount, 'Đơn'],
         ['Giá trị hóa đơn hủy', ReportExportService.formatCurrency(t1.cancelledBillsAmount), 'VND'],
-        ['Số món xóa', t1.deletedItemsCount, 'Món'],
-        ['Tổng tiền xóa món', ReportExportService.formatCurrency(t1.deletedItemsAmount), 'VND'],
+        ['Số món xóa / hủy', t1.deletedItemsCount, 'Món'],
+        ['Tổng tiền xóa / hủy món', ReportExportService.formatCurrency(t1.deletedItemsAmount), 'VND'],
       ];
       final now = DateTime.now();
       final start = _customStartDate ?? DateTime(now.year, now.month, now.day);
@@ -1380,7 +1385,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
     try {
       final store = _stores.firstWhere(
         (s) => s.storeCode == _selectedStoreCode,
-        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO - ${_auth.currentStoreCode}'),
+        orElse: () => _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm - ${_auth.currentStoreCode}'),
       );
       final z = ReportCalculator.generateEndOfDayZReport(
         bills: _rangeBills,
@@ -1413,8 +1418,8 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
         ['Tổng tiền hoàn trả khách', ReportExportService.formatCurrency(t2.refundTotal), 'VND'],
         ['Số hóa đơn đã hủy', t1.cancelledBillsCount, 'Đơn'],
         ['Giá trị hóa đơn hủy', ReportExportService.formatCurrency(t1.cancelledBillsAmount), 'VND'],
-        ['Số món xóa', t1.deletedItemsCount, 'Món'],
-        ['Tổng tiền xóa món', ReportExportService.formatCurrency(t1.deletedItemsAmount), 'VND'],
+        ['Số món xóa / hủy', t1.deletedItemsCount, 'Món'],
+        ['Tổng tiền xóa / hủy món', ReportExportService.formatCurrency(t1.deletedItemsAmount), 'VND'],
       ];
       final now = DateTime.now();
       final start = _customStartDate ?? DateTime(now.year, now.month, now.day);
@@ -1595,7 +1600,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
             _buildReportRow('Số lượng đơn hủy', _cancelledBills.length.toString()),
             _buildReportRow(
               'Giá trị hủy',
-              FormatUtils.vnd(_cancelledBills.fold(0, (s, b) => s + b.subTotal)),
+              FormatUtils.vnd(_cancelledBills.fold(0, (s, b) => s + ReportCalculator.cancelledBillValue(b))),
             ),
           ],
         ),
@@ -1608,9 +1613,9 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
           return _buildSectionCard(
             title: 'XÓA MÓN',
             rows: [
-              _buildReportRow('Số món xóa', deleted.count.toString()),
+              _buildReportRow('Số món xóa / hủy', deleted.count.toString()),
               _buildReportRow(
-                'Tổng tiền xóa món',
+                'Tổng tiền xóa / hủy món',
                 FormatUtils.vnd(deleted.amount),
                 color: deleted.amount > 0 ? context.tc.danger : null,
               ),

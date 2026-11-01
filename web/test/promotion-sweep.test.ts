@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { addLineToOrder, sameOrderWindow } from "../lib/web-order";
-import { buildAppliedDiscount, calculatePrice, isEligibleAt, lateOrderBlock, linesFromOrder, outsideScheduleMessage, parseCampaign, listEligibleCampaigns, quoteCampaign, recalculateDiscounts, type Campaign, type PricingLine } from "../lib/pricing-engine";
+import { buildAppliedDiscount, calculatePrice, isEligibleAt, lateOrderBlock, linesFromOrder, quoteStacked, rewardPlanFor, outsideScheduleMessage, parseCampaign, listEligibleCampaigns, quoteCampaign, recalculateDiscounts, type Campaign, type PricingLine } from "../lib/pricing-engine";
 
 // Giờ Việt Nam (UTC+7) → timestamp
 const vn = (y: number, mo: number, d: number, h: number, mi = 0) => Date.UTC(y, mo - 1, d, h - 7, mi);
@@ -256,5 +256,156 @@ describe("Khung giờ: lúc bấm phải trong giờ VÀ chỉ món GỌI trong 
     const r = recalculateDiscounts(applied, { CAM_HD1: combo() }, [cart[1]], ctx(vn(2026, 10, 22, 20, 30)));
     expect(r.discounts).toEqual([]);
     expect(r.dropped).toHaveLength(1);
+  });
+});
+
+describe("Tặng món theo giá trị đơn: món tặng là dòng RIÊNG (rewardCampaignId)", () => {
+  const raw = {
+    campaignId: "CAM_CHANH", programCode: "KM/CHANH", name: "Tặng 1 chanh đơn 100K", campaignType: "ORDER_VALUE_ITEM_BENEFIT", active: true,
+    branchIds: ["TRAM01"], hasCodes: false, stackingMode: "ENABLED", priority: 0, createdAt: 1, schedule: {},
+    tiers: [{ tierId: "T1", conditionBasis: "TOTALAMOUNT", threshold: 100000, benefitMode: "FREEITEM", value: 0, maxRewardQty: 1, rewardItemIds: ["8"], sortOrder: 1 }],
+  };
+  const c = () => parseCampaign("CAM_CHANH", raw as never);
+  const ctx = { branchId: "TRAM01", nowMs: vn(2026, 10, 22, 10) };
+  const xoai = line("1", "5", 2, 45000, "TRÀ");
+  const chanh = (id: string, reward?: string): PricingLine => ({ ...line(id, "8", 1, 30000, "TRÀ"), rewardCampaignId: reward ?? null });
+
+  it("dòng tặng riêng được ưu tiên; ly khách gọi không bị trừ; dòng tặng không tính mốc", () => {
+    const q = quoteCampaign(c(), [xoai, chanh("2"), chanh("3", "CAM_CHANH")], ctx);
+    expect(q.totalPromotionDiscount).toBe(30000);
+    expect(q.rewardBenefits.map((b) => b.lineId)).toEqual(["3"]);
+    expect(quoteCampaign(c(), [xoai, chanh("3", "CAM_CHANH")], ctx).totalPromotionDiscount).toBe(0);
+  });
+  it("chưa có dòng tặng: web (đơn cũ) vẫn giảm món có sẵn; dedicatedRewardOnly thì không", () => {
+    expect(quoteCampaign(c(), [xoai, chanh("2")], ctx).totalPromotionDiscount).toBe(30000);
+    expect(calculatePrice({ ...ctx, lines: [xoai, chanh("2")], dedicatedRewardOnly: true }, [c()]).totalPromotionDiscount).toBe(0);
+  });
+  it("linesFromOrder đọc rewardCampaignId", () => {
+    expect(linesFromOrder([{ productId: 8, name: "Chanh", price: 30000, quantity: 1, rewardCampaignId: "CAM_CHANH" }])[0].rewardCampaignId).toBe("CAM_CHANH");
+  });
+});
+
+describe("Tặng món theo giá trị đơn: tặng kèm topping trên dòng tặng", () => {
+  const raw = (n: number) => ({
+    campaignId: "CAM_CHANH", programCode: "KM/CHANH", name: "Tặng chanh kèm topping", campaignType: "ORDER_VALUE_ITEM_BENEFIT", active: true,
+    branchIds: ["TRAM01"], hasCodes: false, stackingMode: "ENABLED", priority: 0, createdAt: 1, schedule: {},
+    tiers: [{ tierId: "T1", threshold: 100000, benefitMode: "FREEITEM", value: 0, maxRewardQty: 1, rewardToppingQty: n, rewardItemIds: ["8"] }],
+  });
+  const ctx = { branchId: "TRAM01", nowMs: vn(2026, 10, 22, 10) };
+  const lines = (tops: number, topPrice: number): PricingLine[] => [
+    line("1", "5", 3, 45000, "TRÀ"),
+    { ...line("2", "8", 1, 30000 + topPrice, "TRÀ"), rewardCampaignId: "CAM_CHANH", toppingUnitPrice: topPrice, toppingCount: tops },
+  ];
+  it("kèm 1 topping: ly + 1 topping miễn phí; topping thứ 2 tính tiền; 0 topping tặng thì topping tính tiền", () => {
+    expect(quoteCampaign(parseCampaign("C", raw(1) as never), lines(1, 5000), ctx).totalPromotionDiscount).toBe(35000);
+    expect(quoteCampaign(parseCampaign("C", raw(1) as never), lines(2, 10000), ctx).totalPromotionDiscount).toBe(35000);
+    expect(quoteCampaign(parseCampaign("C", raw(0) as never), lines(1, 5000), ctx).totalPromotionDiscount).toBe(30000);
+  });
+});
+
+describe("Cộng dồn KM: giảm hóa đơn KHÔNG tính lại trên ly đã tặng", () => {
+  const gift = parseCampaign("CAM_CHANH", {
+    campaignId: "CAM_CHANH", name: "Tặng chanh", campaignType: "ORDER_VALUE_ITEM_BENEFIT", active: true, branchIds: [], stackingMode: "ENABLED", schedule: {},
+    tiers: [{ tierId: "T1", threshold: 100000, benefitMode: "FREEITEM", value: 0, maxRewardQty: 1, rewardItemIds: ["8"] }],
+  } as never);
+  const bill20 = parseCampaign("CAM_20", {
+    campaignId: "CAM_20", name: "Giảm 20%", campaignType: "BILL_DISCOUNT", active: true, branchIds: [], stackingMode: "ENABLED", schedule: {},
+    tiers: [{ tierId: "B1", threshold: 0, benefitMode: "PERCENT", value: 2000 }],
+  } as never);
+  const ctx = { branchId: "TRAM01", nowMs: vn(2026, 10, 22, 10) };
+  const lines: PricingLine[] = [line("1", "5", 3, 45000, "TRÀ"), { ...line("2", "8", 1, 22000, "TRÀ"), rewardCampaignId: "CAM_CHANH" }];
+  it("tặng chanh 22K + giảm 20% → 20% chỉ trên 135K (27.000đ); recalculate cũng vậy bất kể thứ tự", () => {
+    const st = quoteStacked([bill20, gift], lines, ctx);
+    expect(st.CAM_CHANH.totalPromotionDiscount).toBe(22000);
+    expect(st.CAM_20.totalPromotionDiscount).toBe(27000);
+    const r = recalculateDiscounts([buildAppliedDiscount(bill20, 1), buildAppliedDiscount(gift, 1)], { CAM_20: bill20, CAM_CHANH: gift }, lines, ctx);
+    expect(Object.fromEntries(r.discounts.map((d) => [d.campaignId, d.amount]))).toEqual({ CAM_20: 27000, CAM_CHANH: 22000 });
+  });
+});
+
+describe("Món tặng chỉ miễn phí giá món + size, topping / phụ thu Grab vẫn tính tiền", () => {
+  const gift = parseCampaign("CAM_CHANH", {
+    campaignId: "CAM_CHANH", name: "Grab - Tặng 1 trà chanh đơn trên 100K", campaignType: "ORDER_VALUE_ITEM_BENEFIT", active: true, branchIds: [], stackingMode: "ENABLED", schedule: {},
+    tiers: [{ tierId: "T1", threshold: 100000, benefitMode: "FREEITEM", value: 0, maxRewardQty: 1, rewardItemIds: ["8"] }],
+  } as never);
+  const ctx = { branchId: "TRAM01", nowMs: vn(2026, 10, 22, 10) };
+  it("đơn trong ảnh: 3 bánh 32K + trà chanh 27K (20K + thạch dừa 5K + Grab 2K) → giảm 20.000đ, không 27.000đ", () => {
+    const lines = linesFromOrder([
+      { productId: 4, name: "Bánh lăn choco - vừa", price: 30000, quantity: 3, selectedToppings: ["Tăng giá Grab 2K"], toppingPrice: 2000 },
+      { productId: 8, name: "Trà Olong - Chanh tươi", price: 20000, quantity: 1, selectedToppings: ["Thạch dừa", "Tăng giá Grab 2K"], toppingPrice: 7000 },
+    ]);
+    expect(quoteCampaign(gift, lines, ctx).totalPromotionDiscount).toBe(20000);
+  });
+});
+
+describe("rewardPlanFor: món có thể làm món tặng (web thêm dòng tặng riêng)", () => {
+  it("theo mã món / nhóm món; bỏ topping & món loại trừ", () => {
+    const c = parseCampaign("G", {
+      campaignId: "G", name: "Tặng chanh", campaignType: "ORDER_VALUE_ITEM_BENEFIT", active: true, branchIds: [], schedule: {}, excludedItemIds: ["X"],
+      tiers: [{ tierId: "T1", threshold: 100000, benefitMode: "FREEITEM", value: 0, maxRewardQty: 2, rewardItemIds: ["DR2"], rewardGroupIds: ["Bánh"] }],
+    } as never);
+    const prods = [
+      { id: "-a", name: "Trà Olong - Chanh tươi", code: "DR2", price: 22000 },
+      { id: "-b", name: "Bánh A", category: "BÁNH", price: 30000 },
+      { id: "-c", name: "Thạch", code: "DR2X", price: 5000, isTopping: true, category: "Bánh" },
+      { id: "X", name: "Bánh loại trừ", category: "Bánh", price: 1 },
+    ];
+    const plan = rewardPlanFor(c, prods);
+    expect(plan?.units).toBe(2);
+    expect(plan?.candidates.map((p) => p.id)).toEqual(["-a", "-b"]);
+    expect(rewardPlanFor(parseCampaign("B", { campaignType: "BILL_DISCOUNT", tiers: [] } as never), prods)).toBeNull();
+  });
+});
+
+describe("Topping luôn kèm món tặng (vd 'Tăng giá Grab 2K') — dòng tặng 22K về 0đ", () => {
+  const camp = parseCampaign("CAM_CHANH", {
+    campaignId: "CAM_CHANH", name: "Grab - Tặng 1 trà chanh", campaignType: "ORDER_VALUE_ITEM_BENEFIT", active: true, branchIds: [], stackingMode: "ENABLED", schedule: {},
+    tiers: [{ tierId: "T1", threshold: 100000, benefitMode: "FREEITEM", value: 0, maxRewardQty: 1, rewardItemIds: ["8"], rewardToppingIds: ["-grab2k"] }],
+  } as never);
+  const ctx = { branchId: "TRAM01", nowMs: vn(2026, 10, 22, 10) };
+  it("rewardPlanFor trả topping kèm; dòng tặng chanh 20K + Grab 2K = 22K giảm đủ 22K; ly 27K khách gọi giữ nguyên", () => {
+    const prods = [
+      { id: "8", name: "Trà Olong - Chanh tươi", price: 20000 },
+      { id: "-grab2k", name: "Tăng giá Grab 2K (tính theo hoa hồng)", price: 2000, isTopping: true },
+    ];
+    expect(rewardPlanFor(camp, prods)?.toppings.map((t) => t.name)).toEqual(["Tăng giá Grab 2K (tính theo hoa hồng)"]);
+    const lines = linesFromOrder([
+      { productId: 4, name: "Bánh lăn choco - vừa", price: 30000, quantity: 3, selectedToppings: ["Tăng giá Grab 2K"], toppingPrice: 2000 },
+      { productId: 8, name: "Trà Olong - Chanh tươi", price: 20000, quantity: 1, selectedToppings: ["Thạch dừa", "Tăng giá Grab 2K"], toppingPrice: 7000 },
+      { productId: 8, name: "Trà Olong - Chanh tươi", price: 20000, quantity: 1, selectedToppings: ["Tăng giá Grab 2K (tính theo hoa hồng)"], toppingPrice: 2000, rewardCampaignId: "CAM_CHANH" },
+    ]);
+    const q = quoteCampaign(camp, lines, ctx);
+    expect(q.totalPromotionDiscount).toBe(22000);
+    expect(q.rewardBenefits.map((b) => b.lineId)).toEqual(["L2"]);
+  });
+});
+
+describe("recalculateDiscounts với dedicatedOnlyFor (trang bàn web)", () => {
+  const camp = parseCampaign("CAM_CHANH", {
+    campaignId: "CAM_CHANH", name: "Tặng chanh", campaignType: "ORDER_VALUE_ITEM_BENEFIT", active: true, branchIds: [], stackingMode: "ENABLED", schedule: {},
+    tiers: [{ tierId: "T1", threshold: 100000, benefitMode: "FREEITEM", value: 0, maxRewardQty: 1, rewardItemIds: ["8"] }],
+  } as never);
+  const ctx = { branchId: "TRAM01", nowMs: vn(2026, 10, 22, 10) };
+  const only = new Set(["CAM_CHANH"]);
+  it("không có ly tặng riêng → gỡ (không trừ ly khách gọi); có ly tặng → giảm ly đó; dưới mốc → gỡ", () => {
+    const base = [line("1", "5", 3, 45000, "TRÀ"), line("2", "8", 1, 27000, "TRÀ")];
+    expect(recalculateDiscounts([buildAppliedDiscount(camp, 1)], { CAM_CHANH: camp }, base, ctx, { dedicatedOnlyFor: only }).discounts).toEqual([]);
+    const withGift = [...base, { ...line("3", "8", 1, 22000, "TRÀ"), rewardCampaignId: "CAM_CHANH" }];
+    expect(recalculateDiscounts([buildAppliedDiscount(camp, 1)], { CAM_CHANH: camp }, withGift, ctx, { dedicatedOnlyFor: only }).discounts.map((d) => d.amount)).toEqual([22000]);
+    const small = [line("1", "5", 1, 45000, "TRÀ"), { ...line("3", "8", 1, 22000, "TRÀ"), rewardCampaignId: "CAM_CHANH" }];
+    expect(recalculateDiscounts([buildAppliedDiscount(camp, 1)], { CAM_CHANH: camp }, small, ctx, { dedicatedOnlyFor: only }).dropped).toHaveLength(1);
+  });
+});
+
+describe("Giảm 1 ly (giảm tiền / %) theo giá trị đơn: giảm thẳng món khách gọi, không cần ly tặng riêng", () => {
+  it("giảm 16K cho 1 ly xoài: chỉ 1 ly trong 3 ly được giảm, kể cả khi dedicatedOnly", () => {
+    const c = parseCampaign("X1", {
+      campaignId: "X1", name: "Giảm 16K 1 ly xoài", campaignType: "ORDER_VALUE_ITEM_BENEFIT", active: true, branchIds: [], stackingMode: "ENABLED", schedule: {},
+      tiers: [{ tierId: "T", threshold: 0, benefitMode: "FIXED", value: 16000, maxRewardQty: 1, rewardItemIds: ["XOAI"] }],
+    } as never);
+    const lines = [line("L0", "XOAI", 3, 45000, "TRÀ"), line("L1", "BANH", 2, 40000, "BÁNH")];
+    const q = quoteStacked([c], lines, { branchId: "B", nowMs: vn(2026, 10, 22, 10) }, { dedicatedOnlyFor: new Set(["X1"]) }).X1;
+    expect(q.totalPromotionDiscount).toBe(16000);
+    expect(q.rewardBenefits.map((b) => [b.lineId, b.quantity])).toEqual([["L0", 1]]);
   });
 });

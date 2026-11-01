@@ -33,6 +33,7 @@ import { exportHistory, exportSingleBillExcel, exportCancellationReport } from "
 import { useDashboardData, HistoryOrder } from "@/lib/data-context";
 import { billItemDiscount, billLevelDiscount, billPointsDiscount, billPointsUsed, billStatusLabel, calculateCancellationReport, getBillTimestamp, formatNumber, formatVND, isRevenueBill } from "@/lib/reports";
 import { billDeletedItems } from "@/lib/item-deletion";
+import { baseTableName } from "@/lib/table-status";
 import { lineDiscountLabel, lineDiscountTotal, lineQuantity, lineUnitPrice, type RawOrderLine } from "@/lib/order-math";
 import { buildOrderReceiptHtml } from "@/lib/print-html";
 import { useAuth, hasPermission } from "@/lib/auth";
@@ -81,12 +82,13 @@ export default function OrdersPage() {
     const set = new Set<string>();
     tables.forEach((t) => {
       if (!filterZone || t.zone === filterZone || (filterZone === "Mang về" && (t.zone.toLowerCase().includes("mang về") || t.name.toLowerCase().includes("mang về")))) {
-        if (t.name) set.add(t.name);
+        // Bàn tự tách ('Mang về 01 (2)') gộp về bàn gốc — hóa đơn của chúng đã ghi theo bàn gốc
+        if (t.name) set.add(baseTableName(t.name));
       }
     });
     historyData.forEach((h) => {
       if (!filterZone || h.zone === filterZone || (filterZone === "Mang về" && isTakeaway(h))) {
-        if (h.tableName) set.add(h.tableName);
+        if (h.tableName) set.add(baseTableName(h.tableName));
       }
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
@@ -134,7 +136,7 @@ export default function OrdersPage() {
         !filterZone ||
         (filterZone === "Mang về" ? isTakeaway(h) : (h.zone || "").toLowerCase() === filterZone.toLowerCase());
       const matchTable =
-        !filterTable || (h.tableName || "").toLowerCase() === filterTable.toLowerCase();
+        !filterTable || baseTableName(h.tableName).toLowerCase() === baseTableName(filterTable).toLowerCase();
       const matchStatus =
         !filterStatus || (h.status || "PAID").toUpperCase() === filterStatus;
 
@@ -178,7 +180,7 @@ export default function OrdersPage() {
     if (currentStoreCode === "ALL") return { storeName: "Tất cả chi nhánh", storeCode: "ALL" };
     return (
       stores.find((s) => s.storeCode === currentStoreCode) || {
-        storeName: "POS Trạm BLAO",
+        storeName: "POS Trạm",
         storeCode: currentStoreCode,
       }
     );
@@ -303,7 +305,7 @@ export default function OrdersPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: "16px" }}>
         <div className="stat-card">
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#1B4D3E18", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)", flexShrink: 0 }}>
+            <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#7E293018", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)", flexShrink: 0 }}>
               <DollarSign size={20} />
             </div>
             <div>

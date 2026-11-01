@@ -252,7 +252,7 @@ class _CustomerManagementScreenState extends State<CustomerManagementScreen> {
               child: const Text('Hủy'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: context.tc.primary, foregroundColor: context.tc.onPrimary),
+              style: ElevatedButton.styleFrom(backgroundColor: context.tc.primary),
               onPressed: isSaving ? null : () async {
                 final name = nameCtrl.text.trim().toUpperCase();
                 final phone = phoneCtrl.text.trim();
@@ -491,7 +491,7 @@ class _CustomerManagementScreenState extends State<CustomerManagementScreen> {
     ];
 
     final storeCode = _auth.currentStoreCode;
-    final storeName = _storeInfo?.storeName ?? 'POS Trạm BLAO F&B';
+    final storeName = _storeInfo?.storeName ?? 'POS Trạm F&B';
     final storeAddress = _storeInfo?.address ?? 'Đà Lạt, Lâm Đồng';
     final storePhone = _storeInfo?.phone ?? '0987654321';
     final now = DateTime.now();
@@ -517,7 +517,7 @@ class _CustomerManagementScreenState extends State<CustomerManagementScreen> {
   }
 
   Future<void> _showConfigPointRateDialog() async {
-    final redeemCtrl = TextEditingController(text: _pointRedeemRate.toString());
+    final redeemCtrl = TextEditingController(text: moneyInputText(_pointRedeemRate));
     final earnCtrl = TextEditingController(text: _pointEarnRate.toString());
 
     await showDialog(
@@ -544,7 +544,7 @@ class _CustomerManagementScreenState extends State<CustomerManagementScreen> {
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: redeemCtrl,
+              controller: redeemCtrl, inputFormatters: [ThousandsSeparatorInputFormatter()],
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: 'Giá trị 1 điểm đổi thưởng (VNĐ)',
@@ -575,17 +575,18 @@ class _CustomerManagementScreenState extends State<CustomerManagementScreen> {
             child: const Text('Hủy'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: context.tc.primary, foregroundColor: context.tc.onPrimary),
+            style: ElevatedButton.styleFrom(backgroundColor: context.tc.primary),
             onPressed: () async {
               final newRedeem = int.tryParse(redeemCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1000;
               final newEarn = double.tryParse(earnCtrl.text.trim()) ?? 1.0;
 
-              final updatedInfo = (_storeInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO')).copyWith(
+              final updatedInfo = (_storeInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm', isFallback: true)).copyWith(
                 pointRedeemRate: newRedeem,
                 pointEarnRate: newEarn,
               );
 
-              await _fb.saveStoreInfo(updatedInfo);
+              // Chỉ ghi 2 trường điểm — ghi cả storeInfo từ bản trong máy có thể đè tài khoản ngân hàng thật
+              await _fb.updateStorePaths({'storeInfo/pointRedeemRate': newRedeem, 'storeInfo/pointEarnRate': newEarn});
               if (ctx.mounted) {
                 Navigator.pop(ctx);
               }
@@ -652,7 +653,7 @@ class _CustomerManagementScreenState extends State<CustomerManagementScreen> {
       floatingActionButton: _canManageCustomer
           ? FloatingActionButton.extended(
               backgroundColor: context.tc.primary,
-              foregroundColor: context.tc.onPrimary,
+              foregroundColor: Colors.white,
               icon: const Icon(LucideIcons.userPlus),
               label: Text('Thêm khách hàng', style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600)),
               onPressed: () => _showAddOrEditCustomerDialog(),

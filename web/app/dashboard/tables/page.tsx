@@ -278,6 +278,13 @@ function TablesPageContent() {
     [categoryById]
   );
   const promoStore = stores.find((s) => s.storeCode === promoStoreCode) || currentStore;
+  const promoRewardProducts = useMemo(
+    () =>
+      products
+        .filter((p) => (p.storeCode || promoStoreCode) === promoStoreCode)
+        .map((p) => ({ id: p.id, name: p.name, price: Number(p.price) || 0, code: p.code, category: p.category, unit: p.unit, isTopping: p.isTopping })),
+    [products, promoStoreCode]
+  );
   const promo = usePromotions({
     storeCode: promoStoreCode,
     tableKey: selectedTableForOrder ? `${promoStoreCode}/${selectedTableForOrder.id}` : "",
@@ -285,6 +292,37 @@ function TablesPageContent() {
     groupOf: promoGroupOf,
     guestCount: selectedTableForOrder?.guestCount,
     allowStack: promoStore?.allowStackPromotions ?? true,
+    // Tặng món theo giá trị đơn: thêm DÒNG TẶNG riêng vào đơn của bàn (không trừ món khách đã gọi) — giống app
+    rewardProducts: promoRewardProducts,
+    actor: { username: user?.username || "admin_web", fullName: user?.fullName, role: user?.roleId || user?.role },
+    onAddLines: async (lines) => {
+      const table = selectedTableForOrder;
+      if (!table) return null;
+      const orderJson = table.currentOrderJson || "";
+      const next = [...(parseOrderItems(orderJson) as unknown as RawOrderLine[]), ...lines];
+      const err = await writeOrderLines(
+        table,
+        orderJson,
+        next,
+        "ADD_ITEM",
+        `Thêm món tặng KM: ${lines.map((l) => `${String(l.quantity ?? 1)} x ${String(l.name ?? "")}`).join(", ")}`
+      );
+      if (err) {
+        alert(err);
+        return null;
+      }
+      return next;
+    },
+    onRemoveRewardLines: async (campaignId) => {
+      const table = selectedTableForOrder;
+      if (!table) return;
+      const orderJson = table.currentOrderJson || "";
+      const items = parseOrderItems(orderJson) as unknown as RawOrderLine[];
+      const next = items.filter((l) => !(String(l.rewardCampaignId ?? "") === campaignId && l.isSentKitchen !== true));
+      if (next.length === items.length) return;
+      const err = await writeOrderLines(table, orderJson, next, "REMOVE_REWARD_ITEM", "Gỡ món tặng khuyến mãi (bỏ chương trình / đơn không còn đủ điều kiện)");
+      if (err) alert(err);
+    },
   });
   const canApplyPromotion = hasPermission(user, "APPLY_PROMOTION");
 
@@ -445,7 +483,7 @@ function TablesPageContent() {
       const tableKey = `${zone}_${name}`;
 
       const res = await saveTable({
-        id: editId || tableKey,
+        oldId: editId || undefined,
         name,
         zone,
       });
@@ -637,7 +675,7 @@ function TablesPageContent() {
         inUse: true,
         isReserved: false,
         openedAt: new Date().toISOString(),
-        guestCount: 2,
+        guestCount: 1,
         reservationCustomer: null,
         reservationPhone: null,
         reservationTime: null,
@@ -1007,7 +1045,7 @@ function TablesPageContent() {
           role="alert"
           style={{ background: "var(--warning-bg, #FFF4E5)", border: "1.5px solid var(--warning, #F59E0B)", borderRadius: "12px", padding: "12px 18px", color: "var(--text)", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}
         >
-          <span>⚠ {loyaltyWarn}</span>
+          <span>{loyaltyWarn}</span>
           <button onClick={() => setLoyaltyWarn(null)} aria-label="Đóng" style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text)" }}>
             <X size={16} />
           </button>
@@ -1237,7 +1275,7 @@ function TablesPageContent() {
             {statusCounts.RESERVED} <span style={{ fontSize: "14px", fontWeight: "600", color: "#B45309" }}>bàn</span>
           </div>
           <div style={{ fontSize: "12px", color: "#B45309", marginTop: "4px", fontWeight: "600" }}>
-            🟡 Đã có khách hẹn
+            Đã có khách hẹn
           </div>
         </div>
       </div>
@@ -1387,7 +1425,6 @@ function TablesPageContent() {
               color: "var(--subtext)",
             }}
           >
-            <div style={{ fontSize: "48px", marginBottom: "12px" }}>🪑</div>
             <div style={{ fontSize: "16px", fontWeight: "700", color: "var(--text)", marginBottom: "6px" }}>
               Không tìm thấy bàn nào
             </div>
@@ -1420,7 +1457,7 @@ function TablesPageContent() {
                       background: "var(--surface)",
                       borderRadius: "16px",
                       border: `2px solid ${accent}`,
-                      boxShadow: "0 6px 18px rgba(27, 77, 62, 0.15)",
+                      boxShadow: "0 6px 18px rgba(126, 41, 48, 0.15)",
                       overflow: "hidden",
                       cursor: "pointer",
                       display: "flex",
@@ -1430,11 +1467,11 @@ function TablesPageContent() {
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-4px)";
-                      e.currentTarget.style.boxShadow = "0 10px 24px rgba(27, 77, 62, 0.25)";
+                      e.currentTarget.style.boxShadow = "0 10px 24px rgba(126, 41, 48, 0.25)";
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 6px 18px rgba(27, 77, 62, 0.15)";
+                      e.currentTarget.style.boxShadow = "0 6px 18px rgba(126, 41, 48, 0.15)";
                     }}
                   >
                     {/* Header bàn */}
@@ -1499,11 +1536,11 @@ function TablesPageContent() {
                         )}
                         <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "12px", color: "var(--subtext)" }}>
                           <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <Users size={14} color="#1B4D3E" />
+                            <Users size={14} color="#7E2930" />
                             <strong>{t.guestCount || 1} khách</strong>
                           </span>
                           <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <Clock size={14} color="#1B4D3E" />
+                            <Clock size={14} color="#7E2930" />
                             <strong>{elapsedMinutes} ph</strong>
                           </span>
                         </div>
@@ -1521,7 +1558,7 @@ function TablesPageContent() {
                                 background: "var(--primary-light)",
                                 padding: "2px 8px",
                                 borderRadius: "4px",
-                                border: "1px solid rgba(27, 77, 62, 0.2)",
+                                border: "1px solid rgba(126, 41, 48, 0.2)",
                                 letterSpacing: "0.02em",
                               }}
                             >
@@ -1553,7 +1590,7 @@ function TablesPageContent() {
                           background: "var(--primary-light)",
                           borderRadius: "10px",
                           padding: "10px 12px",
-                          border: "1px dashed rgba(27, 77, 62, 0.25)",
+                          border: "1px dashed rgba(126, 41, 48, 0.25)",
                           minHeight: "70px",
                           display: "flex",
                           flexDirection: "column",
@@ -1866,104 +1903,83 @@ function TablesPageContent() {
                           paddingTop: "10px",
                           borderTop: "1px solid var(--border-light)",
                           display: "flex",
-                          flexDirection: "column",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                          justifyContent: "flex-end",
                           gap: "8px",
                         }}
                       >
                         {canOrderOnWeb && (
                           <button
                             className="btn-primary"
-                            style={{
-                              width: "100%",
-                              padding: "8px 12px",
-                              fontSize: "13px",
-                              justifyContent: "center",
-                            }}
+                            style={{ padding: "7px 12px", fontSize: "13px", flex: "1 1 100%", justifyContent: "center", whiteSpace: "nowrap" }}
                             onClick={() => openOrderDialog(t)}
                           >
-                            <ChefHat size={15} />
+                            <ChefHat size={14} />
                             Gọi món
                           </button>
                         )}
-                        <div
+                        <button
+                          onClick={() => {
+                            setQrSelectedTable(t);
+                            setShowQrModal(true);
+                          }}
                           style={{
+                            padding: "6px 10px",
+                            borderRadius: "8px",
+                            background: "rgba(126, 41, 48, 0.08)",
+                            border: "1px solid rgba(126, 41, 48, 0.2)",
+                            color: "var(--primary)",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                            cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
-                            gap: "6px",
-                            width: "100%",
+                            gap: "4px",
+                          }}
+                          title="Xem & in mã QR gọi món"
+                        >
+                          <QrCode size={13} />
+                          QR
+                        </button>
+                        <button
+                          onClick={() => openEdit(t)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: "8px",
+                            background: "rgba(18, 108, 195, 0.08)",
+                            border: "1px solid rgba(18, 108, 195, 0.2)",
+                            color: "#126CC3",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
                           }}
                         >
-                          <button
-                            onClick={() => {
-                              setQrSelectedTable(t);
-                              setShowQrModal(true);
-                            }}
-                            style={{
-                              flex: 1,
-                              padding: "6px 8px",
-                              borderRadius: "8px",
-                              background: "rgba(20, 58, 47, 0.08)",
-                              border: "1px solid rgba(20, 58, 47, 0.2)",
-                              color: "var(--primary-dark)",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: "4px",
-                              whiteSpace: "nowrap",
-                            }}
-                            title="Xem & in mã QR gọi món"
-                          >
-                            <QrCode size={13} />
-                            QR
-                          </button>
-                          <button
-                            onClick={() => openEdit(t)}
-                            style={{
-                              flex: 1,
-                              padding: "6px 8px",
-                              borderRadius: "8px",
-                              background: "rgba(18, 108, 195, 0.08)",
-                              border: "1px solid rgba(18, 108, 195, 0.2)",
-                              color: "#126CC3",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: "4px",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            <Edit2 size={13} />
-                            Sửa
-                          </button>
-                          <button
-                            onClick={() => setDeleteId(t.id)}
-                            style={{
-                              flex: 1,
-                              padding: "6px 8px",
-                              borderRadius: "8px",
-                              background: "rgba(180, 35, 44, 0.08)",
-                              border: "1px solid rgba(180, 35, 44, 0.2)",
-                              color: "var(--danger)",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: "4px",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            <Trash2 size={13} />
-                            Xóa
-                          </button>
-                        </div>
+                          <Edit2 size={13} />
+                          Sửa
+                        </button>
+                        <button
+                          onClick={() => setDeleteId(t.id)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: "8px",
+                            background: "rgba(180, 35, 44, 0.08)",
+                            border: "1px solid rgba(180, 35, 44, 0.2)",
+                            color: "var(--danger)",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          <Trash2 size={13} />
+                          Xóa
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -2038,16 +2054,16 @@ function TablesPageContent() {
                       <td>
                         {t.inUse ? (
                           <div style={{ fontSize: "13px" }}>
-                            <div>👥 {t.guestCount || 1} khách</div>
+                            <div>{t.guestCount || 1} khách</div>
                             <div style={{ fontSize: "11px", color: "var(--subtext)" }}>
-                              ⏱ {getElapsedMinutes(t.openedAt)} phút
+                              {getElapsedMinutes(t.openedAt)} phút
                             </div>
                           </div>
                         ) : t.isReserved ? (
                           <div style={{ fontSize: "12px", color: "#B45309" }}>
-                            <div style={{ fontWeight: "700" }}>👤 {t.reservationCustomer || "Khách hẹn"}</div>
+                            <div style={{ fontWeight: "700" }}>{t.reservationCustomer || "Khách hẹn"}</div>
                             <div style={{ fontSize: "11px", color: "#78350F" }}>
-                              {t.reservationTime ? `⏰ ${t.reservationTime}` : ""} {t.reservationPhone ? `• 📞 ${t.reservationPhone}` : ""}
+                              {t.reservationTime ? `${t.reservationTime}` : ""} {t.reservationPhone ? `• ${t.reservationPhone}` : ""}
                             </div>
                           </div>
                         ) : (
@@ -2081,7 +2097,7 @@ function TablesPageContent() {
                                 padding: "6px 10px",
                                 borderRadius: "8px",
                                 background: "var(--primary-light)",
-                                border: "1px solid rgba(27, 77, 62, 0.3)",
+                                border: "1px solid rgba(126, 41, 48, 0.3)",
                                 color: "var(--primary)",
                                 cursor: "pointer",
                                 fontSize: "12px",
@@ -2125,9 +2141,9 @@ function TablesPageContent() {
                             style={{
                               padding: "6px",
                               borderRadius: "8px",
-                              background: "rgba(20, 58, 47, 0.08)",
-                              border: "1px solid rgba(20, 58, 47, 0.2)",
-                              color: "var(--primary-dark)",
+                              background: "rgba(126, 41, 48, 0.08)",
+                              border: "1px solid rgba(126, 41, 48, 0.2)",
+                              color: "var(--primary)",
                               cursor: "pointer",
                             }}
                             title="Xem & in mã QR gọi món"
@@ -2499,7 +2515,7 @@ function TablesPageContent() {
                   background: "var(--primary-light)",
                   borderRadius: "12px",
                   padding: "16px 20px",
-                  border: "1.5px solid rgba(27, 77, 62, 0.2)",
+                  border: "1.5px solid rgba(126, 41, 48, 0.2)",
                   display: "flex", flexWrap: "wrap", rowGap: "8px",
                   alignItems: "center",
                   justifyContent: "space-between",
@@ -2579,13 +2595,20 @@ function TablesPageContent() {
 
                 {/* Khối VietQR nếu chọn Chuyển khoản */}
                 {paymentMethod === "TRANSFER" && (() => {
-                  const targetStore =
-                    stores.find(
-                      (s) => s.storeCode === (selectedTableForOrder.storeCode || currentStoreCode)
-                    ) || currentStore;
+                  // CHỈ tài khoản của đúng chi nhánh của bàn — không lấy chi nhánh đang chọn hay tài khoản mặc định
+                  const targetStore = stores.find(
+                    (s) => s.storeCode === (selectedTableForOrder.storeCode || currentStoreCode)
+                  );
                   const bankId = targetStore?.bankId || "MB";
-                  const bankAccount = targetStore?.bankAccount || "0987654321";
-                  const accountName = targetStore?.accountName || "CHU CUA HANG TRAM FNB";
+                  const bankAccount = (targetStore?.bankAccount || "").trim();
+                  const accountName = targetStore?.accountName || "";
+                  if (!bankAccount) {
+                    return (
+                      <div role="alert" style={{ marginTop: "12px", padding: "12px 14px", borderRadius: "12px", border: "1.5px dashed var(--danger)", color: "var(--danger)", fontSize: "12px", fontWeight: 600 }}>
+                        Chi nhánh {selectedTableForOrder.storeCode || currentStoreCode} chưa có tài khoản ngân hàng (Cài đặt cửa hàng → Thanh toán QR) — chưa tạo mã QR để tránh nhầm tài khoản.
+                      </div>
+                    );
+                  }
                   const orderTotal = Math.max(
                     0,
                     calculateTableTotal(parseOrderItems(selectedTableForOrder.currentOrderJson)) - promo.total - pointsDiscountNow
@@ -2598,56 +2621,41 @@ function TablesPageContent() {
                     <div
                       style={{
                         marginTop: "12px",
-                        padding: "16px",
-                        borderRadius: "14px",
+                        padding: "12px 14px",
+                        borderRadius: "12px",
                         background: "var(--surface-muted)",
                         border: "1.5px dashed var(--success)",
                         display: "flex",
-                        flexDirection: "column",
                         alignItems: "center",
-                        textAlign: "center",
-                        gap: "12px",
+                        gap: "14px",
                       }}
                     >
-                      <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--success)" }}>
-                        Quét mã VietQR để thanh toán
-                      </div>
-                      <div
+                      <Image
+                        src={qrUrl}
+                        alt="Mã VietQR thanh toán"
+                        width={90}
+                        height={90}
+                        unoptimized
                         style={{
-                          padding: "10px",
-                          borderRadius: "12px",
-                          background: "#FFFFFF",
+                          width: "90px",
+                          height: "90px",
+                          borderRadius: "8px",
                           border: "1px solid var(--border)",
-                          boxShadow: "0 4px 14px rgba(0, 0, 0, 0.06)",
-                          display: "inline-flex",
-                          justifyContent: "center",
-                          alignItems: "center",
+                          objectFit: "contain",
+                          background: "#FFFFFF", // QR luôn cần nền trắng để quét được
                         }}
-                      >
-                        <Image
-                          src={qrUrl}
-                          alt="Mã VietQR thanh toán"
-                          width={280}
-                          height={280}
-                          unoptimized
-                          style={{
-                            width: "min(100%, 280px)",
-                            height: "auto",
-                            aspectRatio: "1 / 1",
-                            borderRadius: "8px",
-                            objectFit: "contain",
-                            background: "#FFFFFF", // QR luôn cần nền trắng để quét được
-                          }}
-                        />
-                      </div>
-                      <div style={{ fontSize: "13px", lineHeight: "1.6", color: "var(--text)" }}>
+                      />
+                      <div style={{ fontSize: "12px", lineHeight: "1.6", color: "var(--text)", flex: 1 }}>
+                        <div style={{ fontWeight: "700", color: "var(--success)", marginBottom: "2px" }}>
+                          Quét mã VietQR để thanh toán:
+                        </div>
                         <div>
-                          Ngân hàng / Ví: <strong>{bankId.toUpperCase()}</strong> • STK: <strong>{bankAccount}</strong>
+                          Ngân hàng: <strong>{bankId}</strong> • STK: <strong>{bankAccount}</strong>
                         </div>
                         <div>
                           Chủ TK: <strong>{accountName}</strong>
                         </div>
-                        <div style={{ color: "var(--primary)", fontWeight: "800", fontSize: "15px", marginTop: "4px" }}>
+                        <div style={{ color: "var(--primary)", fontWeight: "700", marginTop: "2px" }}>
                           Số tiền: {formatVND(orderTotal)} VNĐ
                         </div>
                       </div>
@@ -2954,7 +2962,6 @@ function TablesPageContent() {
         <div className="modal-overlay" onClick={() => setDeleteId(null)}>
           <div className="modal-content" style={{ maxWidth: "380px" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ padding: "28px", textAlign: "center" }}>
-              
               <h2 style={{ fontSize: "18px", fontWeight: "800", color: "var(--text)", marginBottom: "8px" }}>
                 Xác nhận xóa bàn
               </h2>
@@ -2987,7 +2994,7 @@ function TablesPageContent() {
             <div
               style={{
                 padding: "16px 20px",
-                background: "linear-gradient(135deg, var(--sidebar-bg-top) 0%, var(--sidebar-bg-bottom) 100%)",
+                background: "linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)",
                 color: "#FFFFFF",
                 display: "flex",
                 alignItems: "center",
@@ -3034,9 +3041,9 @@ function TablesPageContent() {
               {(() => {
                 const activeTbl = qrSelectedTable || tables[0];
                 if (!activeTbl) return <div>Chưa có bàn nào trong hệ thống</div>;
-                const domain = typeof window !== "undefined" ? window.location.origin : "https://ungdungdidong-94edd.web.app";
-                const targetStore = (activeTbl.storeCode || (currentStoreCode !== "ALL" ? currentStoreCode : "BLAO")).toUpperCase();
-                const cleanDomain = domain.includes("localhost") ? "https://ungdungdidong-94edd.web.app" : domain;
+                const domain = typeof window !== "undefined" ? window.location.origin : "https://tramapp-36f53.web.app";
+                const targetStore = (activeTbl.storeCode || (currentStoreCode !== "ALL" ? currentStoreCode : "TRAM01")).toUpperCase();
+                const cleanDomain = domain.includes("localhost") ? "https://tramapp-36f53.web.app" : domain;
                 const orderUrl = `${cleanDomain}/order?table=${encodeURIComponent(activeTbl.name)}&zone=${encodeURIComponent(activeTbl.zone)}&store=${encodeURIComponent(targetStore)}`;
                 const qrImgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&data=${encodeURIComponent(orderUrl)}`;
 
@@ -3055,11 +3062,8 @@ function TablesPageContent() {
                         color: "#1C1A2D",
                       }}
                     >
-                      <div style={{ fontSize: "11px", letterSpacing: "2px", fontWeight: "800", color: "#143A2F", marginBottom: "2px" }}>
-                        🌿 TRẠM BLAO
-                      </div>
-                      <div style={{ fontSize: "11px", fontStyle: "italic", color: "#5D5B63", marginBottom: "6px" }}>
-                        Trạm trà - Trạm bánh
+                      <div style={{ fontSize: "11px", letterSpacing: "2px", fontWeight: "800", color: "#143A2F", marginBottom: "4px" }}>
+                        TRẠM F&amp;B
                       </div>
                       <div style={{ fontSize: "20px", fontWeight: "900", color: "#1C1A2D", marginBottom: "2px" }}>
                         BÀN {activeTbl.name}
@@ -3072,7 +3076,7 @@ function TablesPageContent() {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={qrImgSrc}
-                          alt={`QR Code Bàn ${activeTbl.name}`}
+                          alt={`QR Code ${activeTbl.name}`}
                           width={180}
                           height={180}
                           style={{ display: "block", borderRadius: "6px" }}
@@ -3090,7 +3094,7 @@ function TablesPageContent() {
                     {/* URL info */}
                     <div style={{ width: "100%", background: "var(--surface-muted)", padding: "8px 12px", borderRadius: "10px", fontSize: "11px", wordBreak: "break-all" }}>
                       <span style={{ color: "var(--subtext)" }}>Link: </span>
-                      <a href={orderUrl} target="_blank" rel="noreferrer" style={{ color: "var(--primary-dark)", fontWeight: "600" }}>
+                      <a href={orderUrl} target="_blank" rel="noreferrer" style={{ color: "var(--primary)", fontWeight: "600" }}>
                         {orderUrl}
                       </a>
                     </div>
@@ -3124,7 +3128,7 @@ function TablesPageContent() {
 
                     <button
                       className="btn-secondary"
-                      style={{ width: "100%", justifyContent: "center", background: "var(--surface)", border: "1.5px solid var(--primary-dark)", color: "var(--primary-dark)", fontWeight: "700", fontSize: "13px" }}
+                      style={{ width: "100%", justifyContent: "center", background: "var(--surface)", border: "1.5px solid var(--primary)", color: "var(--primary)", fontWeight: "700", fontSize: "13px" }}
                       onClick={() => {
                         const printWindow = window.open("", "_blank");
                         if (!printWindow) return;
@@ -3136,9 +3140,8 @@ function TablesPageContent() {
                             <style>
                               body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #fff; }
                               .card { width: 280px; border: 2px solid #143A2F; border-radius: 16px; padding: 24px; text-align: center; }
-                              .brand { font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #143A2F; margin-bottom: 2px; }
-                              .slogan { font-size: 11px; font-style: italic; color: #666; margin-bottom: 8px; }
-                              .table { font-size: 26px; font-weight: 900; margin-bottom: 4px; color: #1C1A2D; }
+                              .brand { font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #143A2F; margin-bottom: 6px; }
+                              .table { font-size: 26px; font-weight: 900; margin-bottom: 4px; }
                               .zone { font-size: 13px; color: #555; margin-bottom: 16px; font-weight: 600; }
                               .qr { width: 200px; height: 200px; margin: 0 auto; display: block; }
                               .guide { margin-top: 16px; font-size: 14px; font-weight: 700; color: #143A2F; }

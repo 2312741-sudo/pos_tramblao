@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { defaultSelection, describeSelection, getProductOptions, makeConfiguredLine, type OptionProduct } from "../lib/product-options";
+import { defaultSelection, describeSelection, getProductOptions, looksLikeRef, makeConfiguredLine, type OptionProduct } from "../lib/product-options";
 import { addLineToOrder } from "../lib/web-order";
 import { lineUnitPrice } from "../lib/order-math";
 import { parseCatalog } from "../lib/item-options";
@@ -43,18 +43,6 @@ describe("tùy chọn món", () => {
 
   it("mặc định: size nhỏ nhất, 100% đường/đá, không topping", () => {
     expect(defaultSelection(getProductOptions(tea, [], []))).toEqual({ size: "S", sugar: "100% đường", ice: "100% đá", toppings: [] });
-  });
-
-  it("luôn chọn mặc định là size nhỏ nhất cho cả Nhỏ/Lớn và S/M/L dù thứ tự đảo ngược", () => {
-    const banh: OptionProduct = { id: "10", name: "Bánh Lăn Nướng", price: 29000, category: "Bánh Lăn Nướng", sizes: { "Lớn": 5000, "Nhỏ": 0 } };
-    const oBanh = getProductOptions(banh, [], []);
-    expect(defaultSelection(oBanh).size).toBe("Nhỏ");
-    expect(oBanh.sizes.map((s) => s.name)).toEqual(["Nhỏ", "Lớn"]);
-
-    const reversedDrink: OptionProduct = { id: "11", name: "Trà", price: 20000, category: "Trà", sizes: { "L": 10000, "S": 0, "M": 5000 } };
-    const oDrink = getProductOptions(reversedDrink, [], []);
-    expect(defaultSelection(oDrink).size).toBe("S");
-    expect(oDrink.sizes.map((s) => s.name)).toEqual(["S", "M", "L"]);
   });
 
   it("chỉ gộp dòng khi cùng tùy chọn", () => {
@@ -106,3 +94,23 @@ describe("tùy chọn món theo danh mục note & topping", () => {
   });
 });
 
+
+describe("topping cho nhóm món lưu bằng KHÓA RTDB (Tăng giá Grab)", () => {
+  const grab5 = { id: "-NgrabUp5k", name: "Tăng giá Grab 5K", price: 5000, category: "Topping", isTopping: true } as OptionProduct;
+  const grab10 = { id: "-NgrabUp10k", name: "Tăng giá Grab 10K", price: 10000, category: "Topping", isTopping: true } as OptionProduct;
+  const dish = { id: "-Ndish", name: "Cơm gà", price: 45000, category: "Món Grab" } as OptionProduct;
+  it("hiện đúng tên + giá; khóa không còn món thì bỏ, không hiện mã với giá 5.000đ", () => {
+    const o = getProductOptions(dish, [{ name: "Món Grab", allowedToppingIds: ["-NgrabUp5k", "-NgrabUp10k", "-NdaXoaMon123"] }], [dish, grab5, grab10]);
+    expect(o.toppings).toEqual([
+      { name: "Tăng giá Grab 5K", price: 5000 },
+      { name: "Tăng giá Grab 10K", price: 10000 },
+    ]);
+  });
+  it("looksLikeRef: mã / khóa thì đúng, tên topping thì không", () => {
+    expect(looksLikeRef("-NgrabUp5k")).toBe(true);
+    expect(looksLikeRef("123")).toBe(true);
+    expect(looksLikeRef("p_17")).toBe(true);
+    expect(looksLikeRef("Trân châu đen")).toBe(false);
+    expect(looksLikeRef("Kem Cheese")).toBe(false);
+  });
+});

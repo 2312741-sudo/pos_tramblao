@@ -1,7 +1,7 @@
 "use client";
 import { isEligibleAt, parseCampaign } from "@/lib/pricing-engine";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Search, Plus, Tag, Ticket } from "lucide-react";
+import { Search, Plus, Tag, Ticket, RefreshCw } from "lucide-react";
 import { ref, onValue, set, update, get } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useDashboardData, type ProductItem, type CategoryItem } from "@/lib/data-context";
@@ -13,6 +13,9 @@ import {
   normalizeStackingMode,
 } from "@/lib/campaign-form";
 import {
+  DEFAULT_LINKED_BRANCHES,
+  buildCrossBranchVoucherCancelUpdates,
+  buildCrossBranchVoucherCreateUpdates,
   buildVoucherCancelUpdate, buildVoucherCreateUpdates, canCancelVoucher, checkVoucher, filterVouchers,
   generateRandomCodes, newVoucherId, normalizeVoucherCode, parseVoucherCodes, toVoucherView,
   voucherStatusColor, voucherStatusText, voucherStats as computeVoucherStats, VOUCHER_CODE_RE,
@@ -283,10 +286,9 @@ export default function PromotionsPage() {
 
   const writeVoucherCodes = async (campaignId: string, codes: string[], targetBranches?: string[]) => {
     const now = Date.now();
-    const branches = targetBranches && targetBranches.length > 0 ? targetBranches : [targetStoreCode];
-    for (const b of branches) {
-      await update(ref(db, `stores/${b}`), buildVoucherCreateUpdates(campaignId, codes, now, (i) => newVoucherId(now, i)));
-    }
+    const branches = targetBranches && targetBranches.length > 0 ? targetBranches : [...DEFAULT_LINKED_BRANCHES];
+    const rootUpdates = buildCrossBranchVoucherCreateUpdates(campaignId, codes, branches, now);
+    await update(ref(db), rootUpdates);
   };
 
   // Handle Save Campaign
@@ -379,11 +381,64 @@ export default function PromotionsPage() {
   };
 
   const handleCancelVoucher = async (v: VoucherView) => {
-    if (!window.confirm(`Hủy mã ${v.code}? Mã đã hủy không thể dùng lại.`)) return;
+    if (!window.confirm(`Hủy mã ${v.code}? Mã đã hủy không thể dùng lại trên bất kỳ chi nhánh nào.`)) return;
     try {
-      await update(ref(db, `stores/${targetStoreCode}/vouchers/${v.campaignId}/${v.voucherId}`), buildVoucherCancelUpdate());
+      const cam = campaigns.find(c => c.campaignId === v.campaignId);
+      const branches = cam?.branchIds && cam.branchIds.length > 0 ? cam.branchIds : [...DEFAULT_LINKED_BRANCHES];
+      const rootUpdates = buildCrossBranchVoucherCancelUpdates(v.campaignId, v.voucherId, branches);
+      await update(ref(db), rootUpdates);
     } catch (e) {
       window.alert(errorMessage(e) || "Không hủy được mã");
+    }
+  };
+
+  const [syncingVouchers, setSyncingVouchers] = useState(false);
+  const handleSyncVouchersToAllBranches = async () => {
+    if (!selectedVoucherCampaign) {
+      window.alert("Vui lòng chọn một chương trình khuyến mãi để đồng bộ");
+      return;
+    }
+    const cam = campaigns.find(c => c.campaignId === selectedVoucherCampaign);
+    const targetBranches = cam?.branchIds && cam.branchIds.length > 0 ? cam.branchIds : [...DEFAULT_LINKED_BRANCHES];
+    if (vouchers.length === 0) {
+      window.alert("Chương trình này chưa có mã voucher nào để đồng bộ");
+      return;
+    }
+    if (!window.confirm(`Đồng bộ ${vouchers.length} mã voucher của chương trình "${cam?.name || selectedVoucherCampaign}" sang tất cả các chi nhánh (${targetBranches.join(", ")})?`)) return;
+
+    setSyncingVouchers(true);
+    try {
+      // Đọc toàn bộ node vouchers của campaign hiện tại từ store hiện tại
+      const snap = await get(ref(db, `stores/${targetStoreCode}/vouchers/${selectedVoucherCampaign}`));
+      const vouchersData = (snap.val() || {}) as Record<string, Record<string, unknown>>;
+      const updates: Record<string, unknown> = {};
+      const now = Date.now();
+
+      for (const [vId, vRecord] of Object.entries(vouchersData)) {
+        if (!vRecord) continue;
+        const code = normalizeVoucherCode(String(vRecord.normalizedCode || vRecord.code || ""));
+        for (const b of targetBranches) {
+          updates[`stores/${b}/vouchers/${selectedVoucherCampaign}/${vId}`] = vRecord;
+          if (code) {
+            updates[`stores/${b}/voucher_lookup/${code}`] = {
+              campaignId: selectedVoucherCampaign,
+              voucherId: vId,
+            };
+          }
+        }
+      }
+
+      for (const b of targetBranches) {
+        updates[`stores/${b}/campaigns/${selectedVoucherCampaign}/hasCodes`] = true;
+        updates[`stores/${b}/campaigns/${selectedVoucherCampaign}/updatedAt`] = now;
+      }
+
+      await update(ref(db), updates);
+      window.alert(`Đã đồng bộ thành công ${Object.keys(vouchersData).length} mã voucher sang các chi nhánh: ${targetBranches.join(", ")}`);
+    } catch (err) {
+      window.alert(`Lỗi đồng bộ voucher: ${errorMessage(err)}`);
+    } finally {
+      setSyncingVouchers(false);
     }
   };
 
@@ -544,7 +599,7 @@ export default function PromotionsPage() {
               {tab.label}
               {tab.key === "campaigns" && (
                 <span style={{
-                  background: isActive ? "var(--primary)" : "var(--border)", color: isActive ? "#143A2F" : "var(--subtext)",
+                  background: isActive ? "var(--primary)" : "var(--border)", color: isActive ? "#fff" : "var(--subtext)",
                   fontSize: "11px", fontWeight: "700", padding: "1px 6px", borderRadius: "10px",
                 }}>
                   {tab.count}
@@ -568,7 +623,7 @@ export default function PromotionsPage() {
                   {["ALL", "Đang chạy", "Sắp tới", "Đã kết thúc", "Tạm dừng", "Ngoài khung giờ"].map(st => (
                     <button key={st} onClick={() => setFilterStatus(st)} style={{
                       padding: "6px 12px", borderRadius: "20px", fontSize: "13px", fontWeight: "600", cursor: "pointer", border: "none",
-                      background: filterStatus === st ? "var(--primary)" : "#f1f1f1", color: filterStatus === st ? "#143A2F" : "var(--text)", whiteSpace: "nowrap"
+                      background: filterStatus === st ? "var(--primary)" : "#f1f1f1", color: filterStatus === st ? "#fff" : "var(--text)", whiteSpace: "nowrap"
                     }}>
                       {st === "ALL" ? "Tất cả" : st}
                     </button>
@@ -758,6 +813,21 @@ export default function PromotionsPage() {
                 }} style={btnPrimary} disabled={!selectedVoucherCampaign}>
                   <Plus size={16} /> Thêm mã voucher
                 </button>
+                <button
+                  onClick={handleSyncVouchersToAllBranches}
+                  style={{
+                    ...btnSecondary,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    background: syncingVouchers ? "#f1f5f9" : "var(--surface)",
+                  }}
+                  disabled={!selectedVoucherCampaign || syncingVouchers}
+                  title="Đồng bộ danh sách mã voucher của chương trình này sang tất cả các chi nhánh liên kết"
+                >
+                  <RefreshCw size={16} style={{ animation: syncingVouchers ? "spin 1s linear infinite" : "none" }} />
+                  {syncingVouchers ? "Đang đồng bộ..." : "Đồng bộ sang tất cả chi nhánh"}
+                </button>
               </div>
 
               {selectedVoucherCampaign ? (
@@ -933,6 +1003,8 @@ export default function PromotionsPage() {
               {campaignForm.campaignType === "ITEMPRICERULE" && (
                 <div style={{ background: "var(--surface-muted)", padding: "12px", borderRadius: "8px", border: "1px solid #fecdd3" }}>
                   <FormField label="Giá đồng giá (VND) *" value={campaignForm.fixedPriceValue} onChange={(v) => setCampaignForm({ ...campaignForm, fixedPriceValue: v })} type="number" placeholder="VD: 25000" />
+                  <div style={{ height: "10px" }} />
+                  <FormField label="Số phần tối đa mỗi đơn (để trống = áp cho mọi phần)" value={campaignForm.itemMaxQty} onChange={(v) => setCampaignForm({ ...campaignForm, itemMaxQty: v })} type="number" placeholder="VD: 1" />
                 </div>
               )}
               {campaignForm.campaignType === "ORDERVALUEITEMBENEFIT" && (
@@ -1402,6 +1474,21 @@ export default function PromotionsPage() {
 }
 
 // ==================== UI HELPERS ====================
+/**
+ * Món hiển thị trong ô chọn: ở chế độ "Tất cả chi nhánh" mỗi cửa hàng có một bản cùng tên,
+ * nên chỉ giữ 1 dòng cho mỗi tên món (khuyến mãi khớp món theo tên giữa các chi nhánh) và ẩn món đã chọn.
+ */
+function pickerOptions(products: ProductItem[], selected: string[]): ProductItem[] {
+  const norm = (v: string) => v.trim().toLowerCase();
+  const seen = new Set(selected.map((id) => norm(products.find((p) => String(p.id) === String(id))?.name ?? id)));
+  return products.filter((p) => {
+    const key = norm(p.name);
+    if (selected.includes(String(p.id)) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /** Chọn nhiều món (select + chip). */
 function ItemMultiPicker({ label, color, products, selected, onChange, emptyText }: {
   label: string; color: string; products: ProductItem[]; selected: string[];
@@ -1421,7 +1508,7 @@ function ItemMultiPicker({ label, color, products, selected, onChange, emptyText
           }}
         >
           <option value="">-- Bấm để thêm món --</option>
-          {products.filter(p => !selected.includes(String(p.id))).map(p => (
+          {pickerOptions(products, selected).map(p => (
             <option key={p.id} value={String(p.id)}>{p.name} {p.price ? `(${formatVND(p.price)})` : ""} {p.category ? `• ${p.category}` : ""}</option>
           ))}
         </select>
@@ -1523,6 +1610,27 @@ function RewardEditor({ form, setForm, products, categories, title }: {
         />
       </div>
       <FormField label="Số lượng món được tặng/giảm *" value={form.rewardQty} onChange={(v) => setForm(prev => ({ ...prev, rewardQty: v }))} type="number" placeholder="VD: 1" />
+      {form.campaignType === "ORDERVALUEITEMBENEFIT" && (
+        <div style={{ gridColumn: "1 / -1" }}>
+          <ItemMultiPicker
+            label={`Topping luôn kèm món tặng — tặng luôn, vd "Tăng giá Grab 2K" (${form.rewardToppingIds.length})`}
+            color="#b45309"
+            products={products.filter((p) => p.isTopping || String(p.category ?? "").toLowerCase().includes("topping"))}
+            selected={form.rewardToppingIds}
+            onChange={(ids) => setForm(prev => ({ ...prev, rewardToppingIds: ids }))}
+            emptyText="Không kèm topping"
+          />
+        </div>
+      )}
+      {form.campaignType === "ORDERVALUEITEMBENEFIT" && (
+        <FormField
+          label="Cho chọn thêm topping tặng (số topping nhân viên được chọn thêm, miễn phí)"
+          value={form.rewardToppingQty}
+          onChange={(v) => setForm(prev => ({ ...prev, rewardToppingQty: v }))}
+          type="number"
+          placeholder="VD: 1 — 0 = topping thêm tính tiền"
+        />
+      )}
       <div>
         <label style={labelStyle}>Hình thức ưu đãi *</label>
         <select value={form.rewardBenefit} onChange={(e) => setForm(prev => ({ ...prev, rewardBenefit: e.target.value as RewardBenefit }))} style={inputStyle}>
@@ -1574,7 +1682,7 @@ function FormField({ label, value, onChange, type = "text", placeholder = "", di
 // Styles
 const btnPrimary: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: "6px", padding: "10px 18px",
-  background: "#7FE3C7", color: "#143A2F", border: "none", borderRadius: "10px",
+  background: "#7E2930", color: "#fff", border: "none", borderRadius: "10px",
   fontSize: "13px", fontWeight: "700", cursor: "pointer",
 };
 const btnSecondary: React.CSSProperties = {

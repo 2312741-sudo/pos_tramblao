@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/text_formatters.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
@@ -39,6 +40,8 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
   late TextEditingController _discountValueController;
   late TextEditingController _maxDiscountController;
   late TextEditingController _fixedPriceController;
+  // Đồng giá: số phần tối đa được áp giá trong 1 đơn (trống = mọi phần)
+  final TextEditingController _itemMaxQtyController = TextEditingController();
   String _discountType = 'PERCENT'; // 'PERCENT' | 'AMOUNT'
 
   CampaignType _campaignType = CampaignType.billDiscount;
@@ -76,7 +79,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
     _nameController = TextEditingController(text: widget.campaign?.name ?? '');
     _codeController = TextEditingController(text: widget.campaign?.programCode ?? '');
     _descController = TextEditingController(text: widget.campaign?.description ?? '');
-    _budgetController = TextEditingController(text: widget.campaign?.budgetMoney?.toString() ?? '');
+    _budgetController = TextEditingController(text: widget.campaign?.budgetMoney != null ? moneyInputText(widget.campaign!.budgetMoney!) : '');
     _maxUsesController = TextEditingController(text: widget.campaign?.maxUses?.toString() ?? '');
     _maxUsesPerCustomerController = TextEditingController(text: widget.campaign?.maxUsesPerCustomer?.toString() ?? '');
     _priorityController = TextEditingController(text: widget.campaign?.priority.toString() ?? '1');
@@ -110,15 +113,15 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
         final isPercent = tier.benefitMode == BenefitMode.percent.toMap() || tier.benefitMode == 'PERCENT';
         _discountType = isPercent ? 'PERCENT' : 'AMOUNT';
         final val = isPercent ? (tier.value > 100 ? tier.value ~/ 100 : tier.value) : tier.value;
-        _discountValueController = TextEditingController(text: val > 0 ? val.toString() : '');
-        _thresholdController = TextEditingController(text: tier.threshold > 0 ? tier.threshold.toString() : '');
-        _maxDiscountController = TextEditingController(text: tier.maxDiscountMoney > 0 ? tier.maxDiscountMoney.toString() : '');
+        _discountValueController = TextEditingController(text: val > 0 ? moneyInputText(val) : '');
+        _thresholdController = TextEditingController(text: tier.threshold > 0 ? moneyInputText(tier.threshold) : '');
+        _maxDiscountController = TextEditingController(text: tier.maxDiscountMoney > 0 ? moneyInputText(tier.maxDiscountMoney) : '');
         _fixedPriceController = TextEditingController();
       } else if (_tiers.isNotEmpty && _campaignType == CampaignType.itemPriceRule) {
         _thresholdController = TextEditingController();
         _discountValueController = TextEditingController();
         _maxDiscountController = TextEditingController();
-        _fixedPriceController = TextEditingController(text: _tiers.first.value > 0 ? _tiers.first.value.toString() : '');
+        _fixedPriceController = TextEditingController(text: _tiers.first.value > 0 ? moneyInputText(_tiers.first.value) : '');
       } else {
         _thresholdController = TextEditingController();
         _discountValueController = TextEditingController();
@@ -131,6 +134,10 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
       _maxDiscountController = TextEditingController();
       _fixedPriceController = TextEditingController();
       _generateCode();
+    }
+
+    if (_campaignType == CampaignType.itemPriceRule && _tiers.isNotEmpty && _tiers.first.maxRewardQty > 0) {
+      _itemMaxQtyController.text = _tiers.first.maxRewardQty.toString();
     }
 
     _loadMeta();
@@ -172,6 +179,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
     _discountValueController.dispose();
     _maxDiscountController.dispose();
     _fixedPriceController.dispose();
+    _itemMaxQtyController.dispose();
     _codesController.dispose();
     super.dispose();
   }
@@ -193,7 +201,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
       return;
     }
     if (_campaignType == CampaignType.itemPriceRule) {
-      final fixedVal = int.tryParse(_fixedPriceController.text.trim()) ?? -1;
+      final fixedVal = parseMoneyInput(_fixedPriceController.text) ?? -1;
       if (fixedVal < 0) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Vui lòng nhập mức giá cố định hợp lệ (VND)')));
@@ -223,9 +231,9 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
       // Xây dựng Tiers nếu là billDiscount
       List<CampaignTier> finalTiers = List.from(_tiers);
       if (_campaignType == CampaignType.billDiscount) {
-        final val = int.tryParse(_discountValueController.text.trim()) ?? 0;
-        final threshold = int.tryParse(_thresholdController.text.trim()) ?? 0;
-        final maxDisc = int.tryParse(_maxDiscountController.text.trim()) ?? 0;
+        final val = parseMoneyInput(_discountValueController.text) ?? 0;
+        final threshold = parseMoneyInput(_thresholdController.text) ?? 0;
+        final maxDisc = parseMoneyInput(_maxDiscountController.text) ?? 0;
         final isPercent = _discountType == 'PERCENT';
 
         finalTiers = [
@@ -248,7 +256,11 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
           for (int i = 0; i < _tiers.length; i++) _tiers[i].copyWith(sortOrder: i + 1),
         ];
       } else if (_campaignType == CampaignType.itemPriceRule) {
-        final fixedVal = int.tryParse(_fixedPriceController.text.trim()) ?? 0;
+        final fixedVal = parseMoneyInput(_fixedPriceController.text) ?? 0;
+        final isMangoTea = _codeController.text.trim() == 'KM/G-003' || _nameController.text.toLowerCase().contains('trà xoài');
+        final defaultQty = isMangoTea ? 1 : 0;
+        final rawQty = int.tryParse(_itemMaxQtyController.text.trim()) ?? defaultQty;
+        final maxQty = (rawQty <= 0 && isMangoTea ? 1 : rawQty).clamp(0, 999);
         finalTiers = [
           CampaignTier(
             tierId: _tiers.isNotEmpty ? _tiers.first.tierId : 'TIER_1',
@@ -257,7 +269,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
             benefitMode: 'FIXEDPRICE',
             value: fixedVal,
             maxDiscountMoney: 0,
-            maxRewardQty: 0,
+            maxRewardQty: maxQty,
             rewardItemIds: const [],
             sortOrder: 1,
           )
@@ -281,7 +293,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
         excludedItemIds: widget.campaign?.excludedItemIds ?? [],
         tiers: finalTiers,
         buyConditions: _campaignType == CampaignType.buyXGetY ? _buyConditions : const [],
-        budgetMoney: int.tryParse(_budgetController.text),
+        budgetMoney: parseMoneyInput(_budgetController.text),
         maxUses: int.tryParse(_maxUsesController.text),
         maxUsesPerCustomer: int.tryParse(_maxUsesPerCustomerController.text),
         warnRepeatedCustomer: false,
@@ -625,7 +637,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
                 const Divider(),
                 const SizedBox(height: 8),
                 TextFormField(
-                  controller: _discountValueController,
+                  controller: _discountValueController, inputFormatters: [ThousandsSeparatorInputFormatter()],
                   decoration: InputDecoration(
                     labelText: _discountType == 'PERCENT' ? 'Tỷ lệ giảm (%) *' : 'Số tiền giảm trực tiếp (VND) *',
                     suffixText: _discountType == 'PERCENT' ? '%' : 'đ',
@@ -643,7 +655,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
                 const SizedBox(height: 12),
                 if (_discountType == 'PERCENT') ...[
                   TextFormField(
-                    controller: _maxDiscountController,
+                    controller: _maxDiscountController, inputFormatters: [ThousandsSeparatorInputFormatter()],
                     decoration: const InputDecoration(
                       labelText: 'Giảm tối đa (VND)',
                       hintText: 'Bỏ trống = Không giới hạn',
@@ -655,7 +667,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
                   const SizedBox(height: 12),
                 ],
                 TextFormField(
-                  controller: _thresholdController,
+                  controller: _thresholdController, inputFormatters: [ThousandsSeparatorInputFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'Đơn hàng từ (VND)',
                     hintText: 'Bỏ trống = Áp dụng mọi hóa đơn',
@@ -684,12 +696,22 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
               _buildSectionTitle('Cấu hình mức đồng giá'),
               _buildCard([
                 TextFormField(
-                  controller: _fixedPriceController,
+                  controller: _fixedPriceController, inputFormatters: [ThousandsSeparatorInputFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'Mức giá cố định sau giảm (VND) *',
                     hintText: 'VD: 19000 (Món sẽ được giảm về mức giá này)',
                     border: OutlineInputBorder(),
                     suffixText: 'VND',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _itemMaxQtyController,
+                  decoration: const InputDecoration(
+                    labelText: 'Số phần tối đa mỗi đơn (để trống = mọi phần)',
+                    hintText: 'VD: 1 (chỉ giảm 1 ly dù khách gọi nhiều ly)',
+                    border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
                 ),
@@ -881,7 +903,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
             _buildSectionTitle('Hạn mức'),
             _buildCard([
               TextFormField(
-                controller: _budgetController,
+                controller: _budgetController, inputFormatters: [ThousandsSeparatorInputFormatter()],
                 decoration: const InputDecoration(labelText: 'Ngân sách tổng (VND)', border: OutlineInputBorder(), hintText: 'Bỏ trống = Không giới hạn'),
                 keyboardType: TextInputType.number,
               ),
@@ -1123,7 +1145,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
       if (_modeKey(mode) != 'FREEITEM') ...[
         const SizedBox(height: 8),
         TextField(
-          controller: valueCtrl,
+          controller: valueCtrl, inputFormatters: [ThousandsSeparatorInputFormatter()],
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
             labelText: _modeKey(mode) == 'PERCENT' ? 'Giảm (%) mỗi món' : 'Giảm số tiền mỗi món (VND)',
@@ -1149,7 +1171,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
 
   String _valueToInput(String mode, int value) {
     if (_modeKey(mode) == 'PERCENT') return value > 0 ? '${value ~/ 100}' : '';
-    if (_modeKey(mode) == 'FIXED') return value > 0 ? '$value' : '';
+    if (_modeKey(mode) == 'FIXED') return value > 0 ? moneyInputText(value) : '';
     return '';
   }
 
@@ -1179,7 +1201,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
 
   Future<void> _editTier(int? index) async {
     final old = index != null ? _tiers[index] : null;
-    final thresholdCtrl = TextEditingController(text: old != null && old.threshold > 0 ? '${old.threshold}' : '');
+    final thresholdCtrl = TextEditingController(text: old != null && old.threshold > 0 ? moneyInputText(old.threshold) : '');
     String mode = old?.benefitMode ?? 'FREEITEM';
     final valueCtrl = TextEditingController(text: old != null ? _valueToInput(old.benefitMode, old.value) : '');
     final qtyCtrl = TextEditingController(text: '${old != null && old.maxRewardQty > 0 ? old.maxRewardQty : 1}');
@@ -1196,7 +1218,7 @@ class _CampaignFormScreenState extends State<CampaignFormScreen> {
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 TextField(
-                  controller: thresholdCtrl,
+                  controller: thresholdCtrl, inputFormatters: [ThousandsSeparatorInputFormatter()],
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: 'Áp dụng khi đơn hàng từ', suffixText: 'đ', border: OutlineInputBorder()),
                 ),

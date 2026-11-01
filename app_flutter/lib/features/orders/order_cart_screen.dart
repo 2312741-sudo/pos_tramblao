@@ -1,5 +1,6 @@
 // lib/features/orders/order_cart_screen.dart
 import 'package:intl/intl.dart';
+import '../../core/domain/topping_ref.dart';
 import '../../core/domain/order_integrity.dart';
 import '../../core/domain/product_availability.dart';
 import '../crm/customer_management_screen.dart';
@@ -115,7 +116,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     _isShiftOpen = _fb.activeShiftCache != null && _fb.activeShiftCache!.isOpen;
     widget.table.ensureCodes();
     _cart = List.from(widget.initialProducts.isNotEmpty ? widget.initialProducts : widget.table.currentItems);
-    _guestCount = widget.table.guestCount ?? 2;
+    _guestCount = widget.table.guestCount ?? 1;
     // Phục hồi ưu đãi khuyến mãi đã áp dụng từ bàn (giúp treo đơn qua giờ combo không bị mất)
     _appliedDiscounts = List.from(widget.table.currentDiscounts);
     if (_cart.isNotEmpty) {
@@ -129,7 +130,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         if (mounted) _autoApplyBirthdayCampaigns();
       }));
     }
-    _storeInfo = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _fb.currentStoreCode, storeName: 'POS Trạm BLAO');
+    _storeInfo = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _fb.currentStoreCode, storeName: 'POS Trạm');
     _loadStoreAndPromotions();
     _loadAutoPrintSetting();
     _loadTreeViewSetting();
@@ -212,6 +213,28 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     } catch (_) {}
   }
 
+  /// VietQR của CHÍNH cửa hàng đang bán. Chưa có tài khoản thật (chưa tải được storeInfo) → '' — KHÔNG tạo QR
+  /// bằng tài khoản mặc định / của cửa hàng khác.
+  String _vietQrUrl(int amount, String orderInfo) {
+    final s = _storeInfo;
+    if (s == null || !s.hasBankAccount || s.storeCode != _fb.currentStoreCode) return '';
+    return VietQrGenerator.generateImageUrl(
+      bankId: s.bankId,
+      bankAccount: s.bankAccount,
+      accountName: s.accountName,
+      amount: amount,
+      orderInfo: orderInfo,
+    );
+  }
+
+  /// Tải lại thông tin cửa hàng (nút "Thử lại" ở QR); bản tạm do mạng lỗi không đè bản thật đang có
+  Future<void> _reloadStoreInfo() async {
+    final info = await _fb.getStoreInfo();
+    if (!mounted) return;
+    if (info.isFallback && (_storeInfo?.hasBankAccount ?? false) && _storeInfo?.storeCode == info.storeCode) return;
+    setState(() => _storeInfo = info);
+  }
+
   Future<void> _loadStoreAndPromotions() async {
     try {
       final info = await _fb.getStoreInfo();
@@ -250,8 +273,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
 
       if (mounted) {
         setState(() {
-          _storeInfo = info;
-          _vatRate = (info.defaultVatRate == 8.0) ? 0.0 : info.defaultVatRate;
+          // Mạng lỗi → bản tạm: giữ thông tin thật đang có của đúng cửa hàng này
+          final keepCurrent = info.isFallback && _storeInfo != null && !_storeInfo!.isFallback && _storeInfo!.storeCode == info.storeCode;
+          if (!keepCurrent) _storeInfo = info;
+          _vatRate = (_storeInfo!.defaultVatRate == 8.0) ? 0.0 : _storeInfo!.defaultVatRate;
           _allPromotions = promos;
           _campaigns = campaigns;
           for (final c in campaigns) {
@@ -304,13 +329,14 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     final now = DateTime.now().millisecondsSinceEpoch;
     // Khác khung giờ KM so với lúc gọi dòng này → tách dòng mới (KM khung giờ chỉ tính món gọi trong giờ)
     bool sameWindow(OrderItemModel i) => CartCampaignPricing.sameOrderWindow(i.orderedAt, now, _campaigns);
-    if (item.isSentKitchen || item.hasDiscount || !sameWindow(item)) {
+    if (item.isSentKitchen || item.hasDiscount || !sameWindow(item) || item.rewardCampaignId.isNotEmpty) {
       // Dòng này đã gửi bếp hoặc đã có giảm giá món: không cộng dồn trực tiếp vào dòng này
       // (vì phần tăng thêm chưa gửi bếp và không tự động được hưởng giảm giá).
       // Tìm xem đã có dòng mới chưa gửi bếp & không giảm giá cùng loại món này chưa:
       final existingNewIdx = _cart.indexWhere((i) =>
           !i.isSentKitchen &&
           !i.hasDiscount &&
+          i.rewardCampaignId.isEmpty &&
           sameWindow(i) &&
           i.productId == item.productId &&
           i.name == item.name &&
@@ -991,20 +1017,38 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     if (picked == null) return false;
     final staffUser = _auth.currentUser?.username ?? 'staff';
     final staffName = _auth.currentUser?.fullName ?? 'Nhân viên';
+    // Topping luôn kèm món tặng (vd 'Tăng giá Grab 2K') — gắn sẵn vào dòng tặng, được tặng luôn
+    final fixedTops = <ProductModel>[
+      for (final t in c.tiers.expand((t) => t.rewardToppingIds))
+        if (ToppingRef.find(t, _products) case final p?) p,
+    ];
     setState(() {
+      // Món tặng là dòng RIÊNG gắn chương trình (không gộp với món khách gọi, không tính vào mốc giá trị đơn)
       _cart.add(OrderItemModel(
         productId: picked.id,
         name: picked.name,
         price: picked.price,
         quantity: plan.units,
+        selectedToppings: [for (final p in fixedTops) p.name],
+        toppingPrice: fixedTops.fold<int>(0, (s, p) => s + p.price),
+        note: 'Tặng KM: ${c.name}',
         orderedBy: staffUser,
         orderedByName: staffName,
         orderedAt: DateTime.now().millisecondsSinceEpoch,
         isSentKitchen: false,
+        rewardCampaignId: c.campaignId,
       ));
     });
     widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
     await _fb.saveTable(widget.table).catchError((_) {});
+    // Cho nhân viên chọn thêm topping tặng: mở ngay bảng chọn size / đường / đá / topping cho dòng tặng
+    final freeToppings = c.tiers.fold<int>(0, (m, t) => t.rewardToppingQty > m ? t.rewardToppingQty : m);
+    if (freeToppings > 0 && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Món tặng được kèm $freeToppings topping miễn phí — chọn topping cho ly tặng (thêm nữa sẽ tính tiền).'),
+      ));
+      await _showEditItemNoteAndToppingDialog(_cart.length - 1);
+    }
     return true;
   }
 
@@ -1117,15 +1161,48 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
   /// Pricing Engine cho 1 chương trình trên giỏ hàng hiện tại (khung giờ theo lúc bấm — xem quoteForApply)
   PriceQuoteModel _quoteCampaign(CampaignModel c) {
     final isApplied = _appliedDiscounts.any((d) => d.campaignId == c.campaignId);
-    return CartCampaignPricing.quoteForApply(
-      c,
+    // Cộng dồn: tính cùng các chương trình đang áp dụng khác (KM theo món trước, giảm hóa đơn sau) để chương
+    // trình này chỉ giảm trên phần còn lại
+    final others = <CampaignModel>[
+      for (final d in _appliedDiscounts)
+        if (d.campaignId != null && d.campaignId != c.campaignId && _campaignById[d.campaignId] != null) _campaignById[d.campaignId]!,
+    ];
+    final stacked = CartCampaignPricing.quoteStacked(
+      [...others, c],
       cart: _cart,
       products: _products,
       branchId: _fb.currentStoreCode,
       guestCount: _guestCount,
       customerBirthday: _selectedCustomer?.birthday,
-      isApplied: isApplied,
+      ignoreScheduleFor: {for (final o in others) o.campaignId, if (isApplied) c.campaignId},
+      dedicatedOnlyFor: {if (!isApplied) c.campaignId},
     );
+    return stacked[c.campaignId]!;
+  }
+
+  /// Cập nhật lại số tiền của mọi chương trình đang áp dụng theo cách tính cộng dồn (sau khi thêm / bỏ chương trình)
+  void _restackAppliedAmounts() {
+    final camps = <CampaignModel>[
+      for (final d in _appliedDiscounts)
+        if (d.campaignId != null && _campaignById[d.campaignId] != null) _campaignById[d.campaignId]!,
+    ];
+    if (camps.isEmpty) return;
+    final stacked = CartCampaignPricing.quoteStacked(
+      camps,
+      cart: _cart,
+      products: _products,
+      branchId: _fb.currentStoreCode,
+      guestCount: _guestCount,
+      customerBirthday: _selectedCustomer?.birthday,
+      ignoreScheduleFor: {for (final c in camps) c.campaignId},
+    );
+    _appliedDiscounts = [
+      for (final d in _appliedDiscounts)
+        if (d.campaignId != null && stacked[d.campaignId] != null)
+          d.copyWith(amount: stacked[d.campaignId]!.totalPromotionDiscount)
+        else
+          d,
+    ];
   }
 
   /// Đơn đang dùng chương trình KM khóa tích điểm?
@@ -1159,7 +1236,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       added.add(c.name);
     }
     if (added.isNotEmpty) {
-      setState(() {});
+      setState(_restackAppliedAmounts);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Sinh nhật khách: đã tự áp dụng ${added.join(", ")}'),
         backgroundColor: AppColors.success,
@@ -1218,7 +1295,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     }
 
     if (newlyApplied.isNotEmpty && mounted) {
-      setState(() {});
+      setState(_restackAppliedAmounts);
     }
     _notifyLateOrderPromotions(now);
   }
@@ -1260,22 +1337,32 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
   void _recalculateDiscounts() {
     final List<BillDiscountModel> valid = [];
     final List<String> dropped = [];
+    // Chương trình KM mới: tính lại CỘNG DỒN cả nhóm bằng Pricing Engine (bỏ qua khung giờ nếu đã áp dụng)
+    final campaignDs = _appliedDiscounts.where((d) => d.campaignId != null && _campaignById.containsKey(d.campaignId)).toList();
+    final campRes = CartCampaignPricing.recalculate(
+      campaignDs,
+      _campaignById,
+      cart: _cart,
+      products: _products,
+      branchId: _fb.currentStoreCode,
+      guestCount: _guestCount,
+      customerBirthday: _selectedCustomer?.birthday,
+      orderTimestampMs: widget.table.openedAt,
+      isExistingOrder: true,
+    );
+    final campById = {for (final d in campRes.discounts) d.campaignId: d};
+    dropped.addAll(campRes.dropped);
+    // Đơn không còn đủ điều kiện → gỡ ly tặng CHƯA gửi bếp của các chương trình bị gỡ (không để thành ly tính tiền)
+    final droppedIds = {for (final d in campaignDs) if (!campById.containsKey(d.campaignId)) d.campaignId};
+    if (droppedIds.isNotEmpty && _cart.any((i) => droppedIds.contains(i.rewardCampaignId) && !i.isSentKitchen)) {
+      _cart.removeWhere((i) => droppedIds.contains(i.rewardCampaignId) && !i.isSentKitchen);
+      widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
+      unawaited(_fb.saveTable(widget.table).catchError((_) {}));
+    }
     for (final d in _appliedDiscounts) {
       if (d.campaignId != null && _campaignById.containsKey(d.campaignId)) {
-        // Chương trình KM mới: tính lại bằng Pricing Engine (bỏ qua khung giờ nếu đơn đã áp dụng trước đó)
-        final r = CartCampaignPricing.recalculate(
-          [d],
-          _campaignById,
-          cart: _cart,
-          products: _products,
-          branchId: _fb.currentStoreCode,
-          guestCount: _guestCount,
-          customerBirthday: _selectedCustomer?.birthday,
-          orderTimestampMs: widget.table.openedAt,
-          isExistingOrder: true,
-        );
-        valid.addAll(r.discounts);
-        dropped.addAll(r.dropped);
+        final r = campById[d.campaignId];
+        if (r != null) valid.add(r);
       } else if (d.promoId != null) {
         final p = _allPromotions.where((pr) => pr.id == d.promoId).firstOrNull;
         if (p != null) {
@@ -1486,13 +1573,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           }
 
           final splitQrUrl = (splitAction == 'PAY_NOW' && splitPayMethod == 'TRANSFER_QR' && totalSplitAmount > 0)
-              ? VietQrGenerator.generateImageUrl(
-                  bankId: _storeInfo?.bankId ?? 'MB',
-                  bankAccount: _storeInfo?.bankAccount ?? '0987654321',
-                  accountName: _storeInfo?.accountName ?? 'CHU QUAN FNB',
-                  amount: totalSplitAmount,
-                  orderInfo: VietQrGenerator.buildOrderInfo(
-                    storeCode: _storeInfo?.storeCode ?? 'TRAM01',
+              ? _vietQrUrl(
+                  totalSplitAmount,
+                  VietQrGenerator.buildOrderInfo(
+                    storeCode: _storeInfo?.storeCode ?? _fb.currentStoreCode,
                     tableName: widget.table.name,
                     suffix: 'TACH',
                   ),
@@ -1795,6 +1879,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                 Center(
                                   child: VietQrImage(
                                     url: splitQrUrl,
+                                    onRetry: () async {
+                                      await _reloadStoreInfo();
+                                      setDlgState(() {});
+                                    },
                                     height: 190,
                                     amount: totalSplitAmount,
                                     bankInfo:
@@ -2715,7 +2803,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             if (sel) {
                               setDlgState(() {
                                 discountMode = 'AMOUNT';
-                                if (valCtrl.text.isEmpty) valCtrl.text = '5000';
+                                if (valCtrl.text.isEmpty) valCtrl.text = '5,000';
                               });
                             }
                           },
@@ -2725,7 +2813,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                   ),
                   const SizedBox(height: 12),
                   TextField(
-                    controller: valCtrl,
+                    controller: valCtrl, inputFormatters: [ThousandsSeparatorInputFormatter()],
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       labelText: discountMode == 'PERCENT' ? 'Tỷ lệ giảm mỗi phần (%)' : 'Số tiền giảm mỗi phần (VND)',
@@ -2748,7 +2836,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                         : [5000, 10000, 20000, 50000].map((a) => ActionChip(
                             label: Text(FormatUtils.vnd(a)),
                             onPressed: () {
-                              valCtrl.text = '$a';
+                              valCtrl.text = moneyInputText(a);
                               setDlgState(() {});
                             },
                           )).toList(),
@@ -2925,11 +3013,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     }
 
     final hasSizes = (originalProduct != null && originalProduct.sizes.isNotEmpty);
-    final sortedSizes = originalProduct?.sortedSizes ?? const [];
     String selectedSize = item.selectedSize.isNotEmpty
         ? item.selectedSize
-        : (hasSizes ? originalProduct!.defaultSmallestSize : '');
-    int sizeExtra = hasSizes ? (originalProduct!.sizes[selectedSize] ?? item.sizeExtraPrice) : item.sizeExtraPrice;
+        : (hasSizes ? (originalProduct.sizes.containsKey('M') ? 'M' : originalProduct.sizes.keys.first) : '');
+    int sizeExtra = hasSizes ? (originalProduct.sizes[selectedSize] ?? item.sizeExtraPrice) : item.sizeExtraPrice;
 
     String selectedSugar = item.selectedSugar.isNotEmpty ? item.selectedSugar : '100% đường';
     String selectedIce = item.selectedIce.isNotEmpty ? item.selectedIce : '100% đá';
@@ -2947,7 +3034,16 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       }
     }
 
-
+    final defaultFnbToppings = [
+      ProductModel(id: 9001, name: 'Trân châu đen', price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
+      ProductModel(id: 9002, name: 'Trân châu trắng', price: 6000, unit: 'phần', category: 'Topping', isTopping: true),
+      ProductModel(id: 9003, name: 'Thạch phô mai', price: 8000, unit: 'phần', category: 'Topping', isTopping: true),
+      ProductModel(id: 9004, name: 'Thạch củ năng', price: 7000, unit: 'phần', category: 'Topping', isTopping: true),
+      ProductModel(id: 9005, name: 'Kem Cheese', price: 10000, unit: 'phần', category: 'Topping', isTopping: true),
+      ProductModel(id: 9006, name: 'Pudding trứng', price: 7000, unit: 'phần', category: 'Topping', isTopping: true),
+      ProductModel(id: 9007, name: 'Đào miếng', price: 8000, unit: 'phần', category: 'Topping', isTopping: true),
+      ProductModel(id: 9008, name: 'Thạch chanh', price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
+    ];
 
     final resolved = resolveItemOptions(
       productNoteGroupIds: originalProduct?.noteGroupIds,
@@ -2975,21 +3071,18 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       }
     } else if (matchedCategory != null && matchedCategory.allowedToppingIds.isNotEmpty) {
       for (final tId in matchedCategory.allowedToppingIds) {
-        final match = _products.firstWhere(
-          (p) => p.id.toString() == tId ||
-              (p.code.isNotEmpty && p.code.toLowerCase() == tId.toLowerCase()) ||
-              p.name.toLowerCase() == tId.toLowerCase(),
-          orElse: () => ProductModel(name: tId, price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
-        );
+        // Web lưu khóa RTDB của món topping (products/{key}) → tra theo mọi định danh; không thấy thì bỏ qua,
+        // KHÔNG hiện mã thô với giá 5.000đ
+        final match = ToppingRef.find(tId, _products, defaults: defaultFnbToppings);
+        if (match == null) continue;
         toppingItemMap[match.name] = match;
         if (!availableToppingNames.contains(match.name)) availableToppingNames.add(match.name);
       }
     } else if (originalProduct != null && originalProduct.allowedToppings.isNotEmpty) {
       for (final topName in originalProduct.allowedToppings) {
-        final match = _products.firstWhere(
-          (p) => p.name.toLowerCase() == topName.toLowerCase(),
-          orElse: () => ProductModel(name: topName, price: 5000, unit: 'phần', category: 'Topping', isTopping: true),
-        );
+        // Tên / mã / khóa món topping; tên cũ không còn trong thực đơn vẫn hiện (giá mặc định)
+        final match = ToppingRef.find(topName, _products, defaults: defaultFnbToppings) ??
+            ProductModel(name: topName, price: 5000, unit: 'phần', category: 'Topping', isTopping: true);
         toppingItemMap[match.name] = match;
         if (!availableToppingNames.contains(match.name)) availableToppingNames.add(match.name);
       }
@@ -3000,7 +3093,12 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           if (!availableToppingNames.contains(p.name)) availableToppingNames.add(p.name);
         }
       }
-
+      for (final top in defaultFnbToppings) {
+        if (!availableToppingNames.contains(top.name)) {
+          toppingItemMap[top.name] = top;
+          availableToppingNames.add(top.name);
+        }
+      }
     }
 
     // Ensure previously selected toppings in item are preserved in mapping
@@ -3125,14 +3223,11 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children: sortedSizes.map((entry) {
+                      children: originalProduct!.sizes.entries.map((entry) {
                         final isSel = selectedSize == entry.key;
                         final extraText = entry.value > 0 ? ' (+${FormatUtils.vnd(entry.value)})' : '';
-                        final labelText = entry.key.toLowerCase().startsWith('size')
-                            ? '${entry.key}$extraText'
-                            : 'Size ${entry.key}$extraText';
                         return ChoiceChip(
-                          label: Text(labelText),
+                          label: Text('Size ${entry.key}$extraText'),
                           selected: isSel,
                           selectedColor: context.tc.primaryLight,
                           labelStyle: TextStyle(
@@ -3776,6 +3871,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                 allowStackPromotions: allowStack,
                               );
                               _appliedDiscounts = added.discounts;
+                              _restackAppliedAmounts();
                             });
                             voucherCtrl.clear();
                           },
@@ -3944,6 +4040,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                         newAmt,
                                         comboCount: comboCnt > 0 ? comboCnt : null,
                                       ));
+                                      _restackAppliedAmounts();
                                     });
                                   }
                                 },
@@ -4081,11 +4178,26 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                 allowStackPromotions: allowStack,
                               );
                               _appliedDiscounts = added.discounts;
+                              _restackAppliedAmounts();
                             });
                           } else {
+                            // Bỏ chương trình: gỡ luôn dòng món tặng CHƯA gửi bếp của nó (đã gửi bếp thì giữ, báo nhân viên)
+                            final rewardUnsent = _cart.where((i) => i.rewardCampaignId == c.campaignId && !i.isSentKitchen).length;
+                            final rewardSent = _cart.where((i) => i.rewardCampaignId == c.campaignId && i.isSentKitchen).length;
                             setDlgState(() {
                               _appliedDiscounts.removeWhere((d) => d.campaignId == c.campaignId);
+                              _restackAppliedAmounts();
                             });
+                            if (rewardUnsent > 0) {
+                              setState(() => _cart.removeWhere((i) => i.rewardCampaignId == c.campaignId && !i.isSentKitchen));
+                              widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
+                              await _fb.saveTable(widget.table).catchError((_) {});
+                            }
+                            if (rewardSent > 0 && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('Món tặng của "${c.name}" đã gửi bếp vẫn còn trong đơn và sẽ tính tiền — xóa món nếu không tặng nữa.'),
+                              ));
+                            }
                           }
                         },
                       );
@@ -4100,7 +4212,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                         children: [
                           Expanded(
                             child: TextField(
-                              controller: manualValueCtrl,
+                              controller: manualValueCtrl, inputFormatters: [ThousandsSeparatorInputFormatter()],
                               keyboardType: TextInputType.number,
                               decoration: InputDecoration(
                                 labelText: manualType == 'PERCENT' ? 'Giảm %' : 'Giảm số tiền VND',
@@ -4178,8 +4290,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     if (!await _ensureShiftOpen() || !mounted) return;
 
     String paymentMethod = 'CASH'; // 'CASH', 'TRANSFER_QR', 'SPLIT'
-    final cashGivenCtrl = TextEditingController(text: '$_finalTotal');
-    final cashSplitCtrl = TextEditingController(text: '${(_finalTotal ~/ 2)}');
+    final cashGivenCtrl = TextEditingController(text: moneyInputText(_finalTotal));
+    final cashSplitCtrl = TextEditingController(text: moneyInputText(_finalTotal ~/ 2));
     int changeAmount = 0;
     bool isProcessingPayment = false;
     String? paymentError; // Lỗi hiển thị ngay trong sheet
@@ -4288,16 +4400,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
 
           final effectiveQrAmount = paymentMethod == 'SPLIT' ? splitQrAmount : _finalTotal;
           final orderInfoText = VietQrGenerator.buildOrderInfo(
-            storeCode: _storeInfo?.storeCode ?? 'TRAM01',
+            storeCode: _storeInfo?.storeCode ?? _fb.currentStoreCode,
             tableName: widget.table.name,
           );
-          final qrUrl = VietQrGenerator.generateImageUrl(
-            bankId: _storeInfo?.bankId ?? 'MB',
-            bankAccount: _storeInfo?.bankAccount ?? '0987654321',
-            accountName: _storeInfo?.accountName ?? 'CHU QUAN FNB',
-            amount: effectiveQrAmount,
-            orderInfo: orderInfoText,
-          );
+          final qrUrl = _vietQrUrl(effectiveQrAmount, orderInfoText);
 
           // Auto QR Check Listener Management
           void updatePaymentListener() {
@@ -4412,7 +4518,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       onChanged: (m) => setSheetState(() {
                         paymentMethod = m;
                         if (m == 'SPLIT' && (cashSplitCtrl.text.isEmpty || cashSplitCtrl.text == '0')) {
-                          cashSplitCtrl.text = '${(_finalTotal ~/ 2)}';
+                          cashSplitCtrl.text = moneyInputText(_finalTotal ~/ 2);
                         }
                       }),
                     ),
@@ -4421,7 +4527,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                     // CASH CALCULATOR
                     if (paymentMethod == 'CASH') ...[
                       TextField(
-                        controller: cashGivenCtrl,
+                        controller: cashGivenCtrl, inputFormatters: [ThousandsSeparatorInputFormatter()],
                         keyboardType: TextInputType.number,
                         style: moneyInputStyle,
                         decoration: const InputDecoration(
@@ -4435,7 +4541,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       const SizedBox(height: 10),
                       QuickCashAmounts(
                         amountDue: _finalTotal,
-                        onPick: (v) => setSheetState(() => cashGivenCtrl.text = '$v'),
+                        onPick: (v) => setSheetState(() => cashGivenCtrl.text = moneyInputText(v)),
                       ),
                       const SizedBox(height: 12),
                       ChangeDueRow(change: changeAmount, shortBy: cashShortBy),
@@ -4448,6 +4554,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                           children: [
                             VietQrImage(
                               url: qrUrl,
+                              onRetry: () async {
+                                await _reloadStoreInfo();
+                                setSheetState(() {});
+                              },
                               height: 280,
                               amount: _finalTotal,
                               bankInfo: '${_storeInfo?.bankId} • ${_storeInfo?.bankAccount} • ${_storeInfo?.accountName}',
@@ -4480,7 +4590,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             Text('Phân bổ thanh toán hỗn hợp', style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.bold, color: context.tc.info)),
                             const SizedBox(height: 10),
                             TextField(
-                              controller: cashSplitCtrl,
+                              controller: cashSplitCtrl, inputFormatters: [ThousandsSeparatorInputFormatter()],
                               keyboardType: TextInputType.number,
                               style: moneyInputStyle.copyWith(fontSize: 18),
                               decoration: const InputDecoration(
@@ -4497,7 +4607,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                   child: OutlinedButton(
                                     style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
                                     onPressed: () {
-                                      cashSplitCtrl.text = '${(_finalTotal ~/ 2)}';
+                                      cashSplitCtrl.text = moneyInputText(_finalTotal ~/ 2);
                                       setSheetState(() {});
                                     },
                                     child: const Text('50% tiền mặt', style: TextStyle(fontSize: 13)),
@@ -4508,7 +4618,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                   child: OutlinedButton(
                                     style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
                                     onPressed: () {
-                                      cashSplitCtrl.text = '$_finalTotal';
+                                      cashSplitCtrl.text = moneyInputText(_finalTotal);
                                       setSheetState(() {});
                                     },
                                     child: const Text('100% tiền mặt', style: TextStyle(fontSize: 13)),
@@ -4544,6 +4654,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             children: [
                               VietQrImage(
                                 url: qrUrl,
+                                onRetry: () async {
+                                  await _reloadStoreInfo();
+                                  setSheetState(() {});
+                                },
                                 height: 230,
                                 amount: splitQrAmount,
                                 bankInfo: '${_storeInfo?.bankId} • ${_storeInfo?.bankAccount} • ${_storeInfo?.accountName}',
@@ -4562,7 +4676,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       ],
                       const SizedBox(height: 10),
                       TextField(
-                        controller: cashGivenCtrl,
+                        controller: cashGivenCtrl, inputFormatters: [ThousandsSeparatorInputFormatter()],
                         keyboardType: TextInputType.number,
                         style: moneyInputStyle.copyWith(fontSize: 18),
                         decoration: InputDecoration(
@@ -4624,7 +4738,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                               _buildCurrentBillAsync(status: 'OPEN', method: paymentMethod).then((bill) {
                                 _markTablePrePrinted();
                                 ReceiptPrinter.printBill(
-                                  store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm BLAO'),
+                                  store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm'),
                                   bill: bill,
                                   isPrePrint: true,
                                 ).catchError((_) => false);
@@ -4731,7 +4845,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
 
     // 3. In hóa đơn ra máy in nhiệt (LAN hoặc Bluetooth)
     if (shouldPrint) {
-      final store = _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm BLAO');
+      final store = _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm');
       ReceiptPrinter.printBill(
         store: store,
         bill: bill,
@@ -5290,7 +5404,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     _buildCurrentBillAsync(status: 'PRE_PRINT', method: 'PRE_PRINT').then((bill) {
       _markTablePrePrinted();
       ReceiptPrinter.printBill(
-        store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm BLAO'),
+        store: _storeInfo ?? StoreInfoModel(storeCode: 'TRAM01', storeName: 'POS Trạm'),
         bill: bill,
         isPrePrint: true,
       ).catchError((_) => false);

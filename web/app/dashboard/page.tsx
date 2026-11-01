@@ -33,6 +33,7 @@ import { useDashboardData } from "@/lib/data-context";
 import { buildToppingLookup, splitLineParts } from "@/lib/topping-split";
 import { parseOrderJson, summarizeOrderLines } from "@/lib/order-math";
 import { lineProductId } from "@/lib/product-code";
+import { isRevenueBill } from "@/lib/reports";
 
 // Tooltip biểu đồ — khai báo ngoài component để không bị tạo lại mỗi lần render
 interface ChartTooltipProps {
@@ -74,7 +75,10 @@ export default function DashboardPage() {
   const todayStart = startOfDay(today).getTime();
   const todayEnd = endOfDay(today).getTime();
 
-  const todayHistory = historyData.filter((h) => {
+  // Chỉ hóa đơn ĐÃ THANH TOÁN: đơn hủy (kể cả hủy khi chưa thanh toán) không tính số hóa đơn / doanh thu / món bán
+  const paidHistory = historyData.filter(isRevenueBill);
+
+  const todayHistory = paidHistory.filter((h) => {
     const ts = (typeof h.timestamp === "number" ? h.timestamp : new Date(h.timestamp || 0).getTime()) - cutoffMs;
     return ts >= todayStart && ts <= todayEnd;
   });
@@ -98,7 +102,7 @@ export default function DashboardPage() {
     const date = subDays(today, 6 - i);
     const dayStart = startOfDay(date).getTime();
     const dayEnd = endOfDay(date).getTime();
-    const dayRevenue = historyData
+    const dayRevenue = paidHistory
       .filter((h) => {
         const ts = (typeof h.timestamp === "number" ? h.timestamp : new Date(h.timestamp || 0).getTime()) - cutoffMs;
         return ts >= dayStart && ts <= dayEnd;
@@ -112,7 +116,7 @@ export default function DashboardPage() {
 
   // Top products
   const productCountMap: { [key: string]: { name: string; count: number; total: number } } = {};
-  historyData.forEach((order) => {
+  paidHistory.forEach((order) => {
     if (order.items && Array.isArray(order.items)) {
       order.items.forEach((item) => {
         // Topping đếm riêng, không cộng vào món gốc
@@ -200,7 +204,7 @@ export default function DashboardPage() {
           Tổng quan Hoạt động
         </h1>
         <p className="section-subtitle">
-          {format(today, "EEEE, dd MMMM yyyy", { locale: vi })} • Hệ thống POS Trạm BLAO
+          {format(today, "EEEE, dd MMMM yyyy", { locale: vi })} • Hệ thống POS Trạm
         </p>
       </div>
 
@@ -251,7 +255,7 @@ export default function DashboardPage() {
                 fontWeight: "700",
                 color: "var(--primary)",
                 background: "var(--primary-light)",
-                border: "1px solid rgba(27, 77, 62, 0.2)",
+                border: "1px solid rgba(126, 41, 48, 0.2)",
                 borderRadius: "6px",
                 padding: "4px 10px",
               }}
@@ -273,9 +277,9 @@ export default function DashboardPage() {
                 <Line
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#7FE3C7"
+                  stroke="#7E2930"
                   strokeWidth={3}
-                  dot={{ fill: "#7FE3C7", strokeWidth: 2, r: 4 }}
+                  dot={{ fill: "#7E2930", strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, fill: "#D97706" }}
                 />
               </LineChart>
@@ -398,7 +402,7 @@ export default function DashboardPage() {
                   border: table.inUse ? "2px solid var(--primary)" : "1px solid var(--border)",
                   background: table.inUse ? "var(--primary-light)" : "var(--surface)",
                   textAlign: "center",
-                  boxShadow: table.inUse ? "0 4px 12px rgba(27, 77, 62, 0.15)" : "none",
+                  boxShadow: table.inUse ? "0 4px 12px rgba(126, 41, 48, 0.15)" : "none",
                   display: "block",
                   transition: "transform 0.15s",
                 }}

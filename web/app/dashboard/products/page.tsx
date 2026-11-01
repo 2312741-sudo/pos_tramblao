@@ -20,7 +20,7 @@ import {
   FileText,
   Sparkles,
   Copy, ArrowUp, ArrowDown } from "lucide-react";
-import { ref, onValue, set, remove } from "firebase/database";
+import { ref, onValue, set, remove, update } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { exportProducts } from "@/lib/export";
 import { useDashboardData, ProductItem, CategoryItem, resolveWriteStoreCode } from "@/lib/data-context";
@@ -33,9 +33,10 @@ import CopyMenuDialog from "./copy-menu-dialog";
 import { errorMessage } from "@/lib/errors";
 import { useItemCatalog } from "@/lib/note-catalog";
 import { canManageNoteCatalog } from "@/lib/note-catalog-access";
-import { DEFAULT_BLAO_CATEGORIES, DEFAULT_BLAO_PRODUCTS } from "@/lib/default-menu";
 import { isLegacyCatalog } from "@/lib/item-options";
 import GroupAttachmentPicker from "@/components/GroupAttachmentPicker";
+import MenuDedupeDialog from "@/components/MenuDedupeDialog";
+import { planToppingGroupFixes, planToppingRefFixes, toppingGroupFixUpdates, toppingRefFixUpdates, toppingRefsToNames } from "@/lib/topping-refs";
 
 function formatVND(amount: number) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
@@ -390,6 +391,44 @@ export default function ProductsPage() {
     } catch {}
   };
 
+  // Nhóm món lưu topping bằng KHÓA món (web cũ) → app cũ hiện mã thay vì tên; đổi sang tên ngay trên Firebase
+  const toppingRefFixes = useMemo(
+    () => planToppingRefFixes(allCategories.filter((c) => currentStoreCode === "ALL" || c.storeCode === currentStoreCode), allProducts),
+    [allCategories, allProducts, currentStoreCode]
+  );
+  // Danh mục note & topping: dòng topping mang tên là mã (bản "nhập từ cấu hình cũ" trước đây tra khóa không ra)
+  const toppingGroupFixes = useMemo(
+    () => planToppingGroupFixes(bannerCatalog.toppingGroups, allProducts.filter((p) => p.storeCode === targetStoreCode), allProducts),
+    [bannerCatalog, allProducts, targetStoreCode]
+  );
+  const toppingFixCount = toppingRefFixes.length + toppingGroupFixes.length;
+  const toppingFixNames = [...toppingRefFixes.map((f) => `nhóm món ${f.categoryName}`), ...toppingGroupFixes.map((f) => f.groupName)];
+  // Món trùng mã trong thực đơn chi nhánh (báo cáo tách dòng / rơi nhóm "Khác") → công cụ dọn
+  const dupCount = useMemo(() => {
+    const seen = new Map<string, number>();
+    for (const p of allProducts) {
+      if (p.storeCode !== targetStoreCode) continue;
+      const c = String(p.code ?? p.productCode ?? "").trim().toLowerCase();
+      if (c) seen.set(c, (seen.get(c) ?? 0) + 1);
+    }
+    return [...seen.values()].filter((n) => n > 1).length;
+  }, [allProducts, targetStoreCode]);
+  const [showDedupe, setShowDedupe] = useState(false);
+  const [toppingFixBusy, setToppingFixBusy] = useState(false);
+  const [toppingFixMsg, setToppingFixMsg] = useState("");
+  const fixToppingRefs = async () => {
+    setToppingFixBusy(true);
+    setToppingFixMsg("");
+    try {
+      await update(ref(db), { ...toppingRefFixUpdates(toppingRefFixes), ...toppingGroupFixUpdates(targetStoreCode, toppingGroupFixes) });
+      setToppingFixMsg(`Đã sửa ${toppingFixCount} chỗ. Trên máy POS mở lại màn gọi món là thấy đúng tên và giá.`);
+    } catch (e) {
+      setToppingFixMsg(`Không sửa được: ${errorMessage(e)}`);
+    } finally {
+      setToppingFixBusy(false);
+    }
+  };
+
   // Open Category Modal
   const openAddCategory = () => {
     setEditCategoryOriginalName(null);
@@ -407,7 +446,12 @@ export default function ProductsPage() {
     setCategoryForm({
       name: c.name,
       storeCode: c.storeCode || (currentStoreCode !== "ALL" ? currentStoreCode : "ALL"),
-      allowedToppingIds: c.allowedToppingIds || [],
+      // Topping lưu bằng TÊN (app cũ chỉ đọc được tên); dữ liệu cũ lưu khóa được đổi sang tên khi mở
+      allowedToppingIds: toppingRefsToNames(
+        c.allowedToppingIds || [],
+        allProducts.filter((p) => p.storeCode === (c.storeCode || currentStoreCode)),
+        allProducts
+      ),
       noteGroupIds: c.noteGroupIds,
       toppingGroupIds: c.toppingGroupIds,
     });
@@ -524,55 +568,6 @@ export default function ProductsPage() {
     exportProducts(filteredProducts);
   };
 
-  const [seedingMenu, setSeedingMenu] = useState(false);
-
-  const handleSeedBLaOMenu = async () => {
-    const targetStore = currentStoreCode === "ALL" ? stores[0]?.storeCode : currentStoreCode;
-    if (!targetStore) {
-      alert("Vui lòng chọn chi nhánh cụ thể để nạp thực đơn chuẩn.");
-      return;
-    }
-    const confirmed = confirm(
-      `Bạn có muốn nạp toàn bộ thực đơn chuẩn Trạm BLAO (${DEFAULT_BLAO_PRODUCTS.length} món & ${DEFAULT_BLAO_CATEGORIES.length} danh mục) vào chi nhánh ${targetStore} không?`
-    );
-    if (!confirmed) return;
-
-    setSeedingMenu(true);
-    try {
-      // 1. Ghi categories
-      for (const cat of DEFAULT_BLAO_CATEGORIES) {
-        await saveCategory(cat.name, targetStore, undefined, cat.allowedToppingIds || []);
-      }
-      await saveCategoryOrder(DEFAULT_BLAO_CATEGORIES.map((c) => c.name), targetStore);
-
-      // 2. Ghi products
-      for (const prod of DEFAULT_BLAO_PRODUCTS) {
-        await saveProduct(
-          {
-            code: prod.code,
-            name: prod.name,
-            price: prod.price,
-            costPrice: 0,
-            unit: prod.unit,
-            category: prod.category,
-            sizes: prod.sizes,
-            hasIceSugarOptions: prod.hasIceSugarOptions,
-            allowedToppings: prod.allowedToppings,
-            isTopping: prod.isTopping,
-            imageBase64: "",
-          },
-          targetStore
-        );
-      }
-      alert(`Đã nạp thành công ${DEFAULT_BLAO_PRODUCTS.length} món & ${DEFAULT_BLAO_CATEGORIES.length} danh mục chuẩn Trạm BLAO cho chi nhánh ${targetStore}!`);
-    } catch (e) {
-      console.error(e);
-      alert("Lỗi khi nạp thực đơn chuẩn: " + errorMessage(e));
-    } finally {
-      setSeedingMenu(false);
-    }
-  };
-
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
@@ -599,16 +594,6 @@ export default function ProductsPage() {
               <button className="btn-secondary" onClick={handleExport}>
                 <Download size={16} />
                 Xuất Excel
-              </button>
-              <button
-                className="btn-secondary"
-                onClick={handleSeedBLaOMenu}
-                disabled={seedingMenu}
-                title="Nạp toàn bộ 19 món & 6 danh mục chuẩn Trạm BLAO"
-                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-              >
-                <Sparkles size={16} style={{ color: "var(--primary)" }} />
-                {seedingMenu ? "Đang nạp menu..." : "Nạp menu BLAO"}
               </button>
               {allowCopyMenu && (
                 <button className="btn-secondary" onClick={() => setShowCopyMenu(true)}>
@@ -671,7 +656,7 @@ export default function ProductsPage() {
               padding: "2px 8px",
               borderRadius: "12px",
               fontSize: "12px",
-              background: activeTab === "products" ? "rgba(27,77,62,0.12)" : "var(--surface-muted)",
+              background: activeTab === "products" ? "rgba(126,41,48,0.12)" : "var(--surface-muted)",
               color: activeTab === "products" ? "var(--primary)" : "var(--muted)",
               fontWeight: "700",
             }}
@@ -704,7 +689,7 @@ export default function ProductsPage() {
               padding: "2px 8px",
               borderRadius: "12px",
               fontSize: "12px",
-              background: activeTab === "categories" ? "rgba(27,77,62,0.12)" : "var(--surface-muted)",
+              background: activeTab === "categories" ? "rgba(126,41,48,0.12)" : "var(--surface-muted)",
               color: activeTab === "categories" ? "var(--primary)" : "var(--muted)",
               fontWeight: "700",
             }}
@@ -737,7 +722,7 @@ export default function ProductsPage() {
               padding: "2px 8px",
               borderRadius: "12px",
               fontSize: "12px",
-              background: activeTab === "notes" ? "rgba(27,77,62,0.12)" : "var(--surface-muted)",
+              background: activeTab === "notes" ? "rgba(126,41,48,0.12)" : "var(--surface-muted)",
               color: activeTab === "notes" ? "var(--primary)" : "var(--muted)",
               fontWeight: "700",
             }}
@@ -804,6 +789,37 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {dupCount > 0 && hasPermission(user, "MENU_MANAGEMENT") && (
+        <div role="alert" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap", border: "1px solid var(--warning)", background: "var(--warning-bg)", borderRadius: "12px", padding: "12px 14px" }}>
+          <div style={{ fontSize: "13px", minWidth: 0 }}>
+            <b>Thực đơn {targetStoreCode} có {dupCount} món bị trùng mã</b> — báo cáo dễ tách dòng / rơi nhóm &quot;Khác&quot;, gọi món dễ chọn nhầm bản. Xem trước rồi dọn, mỗi mã giữ một bản.
+          </div>
+          <button className="btn-primary" onClick={() => setShowDedupe(true)}>
+            Xem & dọn món trùng
+          </button>
+        </div>
+      )}
+      {showDedupe && (
+        <MenuDedupeDialog storeCode={targetStoreCode} actor={{ username: user?.username, fullName: user?.fullName }} onClose={() => setShowDedupe(false)} />
+      )}
+
+      {/* Topping lưu bằng mã → app cũ hiện mã thay vì tên: sửa thẳng dữ liệu */}
+      {toppingFixCount > 0 && (
+        <div role="alert" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap", border: "1px solid var(--warning)", background: "var(--warning-bg)", borderRadius: "12px", padding: "12px 14px" }}>
+          <div style={{ fontSize: "13px", minWidth: 0 }}>
+            <b>{toppingFixCount} chỗ đang lưu topping bằng mã</b> ({toppingFixNames.slice(0, 3).join(", ")}
+            {toppingFixNames.length > 3 ? "…" : ""}) — app trên máy POS hiện mã thay vì tên, giá 5.000đ. Bấm sửa để đổi sang tên món topping, không cần cập nhật app.
+            {toppingFixMsg && <div style={{ marginTop: "4px", fontWeight: 600 }}>{toppingFixMsg}</div>}
+          </div>
+          <button className="btn-primary" disabled={toppingFixBusy} onClick={fixToppingRefs}>
+            {toppingFixBusy ? "Đang sửa…" : "Sửa ngay"}
+          </button>
+        </div>
+      )}
+      {toppingFixCount === 0 && toppingFixMsg && (
+        <div style={{ fontSize: "13px", color: "var(--success)", fontWeight: 600, marginBottom: "16px" }}>{toppingFixMsg}</div>
+      )}
+
       {/* ==================== TAB 1: PRODUCTS TABLE ==================== */}
       {activeTab === "products" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -831,7 +847,7 @@ export default function ProductsPage() {
                   cursor: "pointer",
                   border: "1px solid",
                   borderColor: filterCategory === "" ? "var(--primary)" : "var(--border)",
-                  background: filterCategory === "" ? "rgba(27,77,62,0.1)" : "var(--surface)",
+                  background: filterCategory === "" ? "rgba(126,41,48,0.1)" : "var(--surface)",
                   color: filterCategory === "" ? "var(--primary)" : "var(--subtext)",
                   whiteSpace: "nowrap",
                 }}
@@ -853,7 +869,7 @@ export default function ProductsPage() {
                       cursor: "pointer",
                       border: "1px solid",
                       borderColor: isSelected ? "var(--primary)" : "var(--border)",
-                      background: isSelected ? "rgba(27,77,62,0.1)" : "var(--surface)",
+                      background: isSelected ? "rgba(126,41,48,0.1)" : "var(--surface)",
                       color: isSelected ? "var(--primary)" : "var(--subtext)",
                       whiteSpace: "nowrap",
                     }}
@@ -998,7 +1014,7 @@ export default function ProductsPage() {
                             fontSize: "12px",
                             fontWeight: "700",
                             color: "var(--primary)",
-                            background: "rgba(27,77,62,0.06)",
+                            background: "rgba(126,41,48,0.06)",
                             padding: "3px 8px",
                             borderRadius: "6px",
                           }}
@@ -1081,7 +1097,7 @@ export default function ProductsPage() {
                             style={{
                               padding: "4px 10px",
                               borderRadius: "8px",
-                              background: "rgba(27,77,62,0.08)",
+                              background: "rgba(126,41,48,0.08)",
                               color: "var(--primary)",
                               fontSize: "12px",
                               fontWeight: "600",
@@ -1198,7 +1214,7 @@ export default function ProductsPage() {
             <div className="card" style={{ padding: "18px 20px" }}>
               <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                 <span style={{ fontSize: "13px", color: "var(--muted)", fontWeight: "600" }}>Tổng danh mục</span>
-                <span style={{ padding: "6px", borderRadius: "8px", background: "rgba(27,77,62,0.1)", color: "var(--primary)" }}>
+                <span style={{ padding: "6px", borderRadius: "8px", background: "rgba(126,41,48,0.1)", color: "var(--primary)" }}>
                   <Layers size={18} />
                 </span>
               </div>
@@ -1312,7 +1328,7 @@ export default function ProductsPage() {
                                 width: "36px",
                                 height: "36px",
                                 borderRadius: "10px",
-                                background: "rgba(27,77,62,0.08)",
+                                background: "rgba(126,41,48,0.08)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -1423,8 +1439,8 @@ export default function ProductsPage() {
                                 gap: "4px",
                                 padding: "6px 10px",
                                 borderRadius: "8px",
-                                background: "rgba(27,77,62,0.08)",
-                                border: "1px solid rgba(27,77,62,0.2)",
+                                background: "rgba(126,41,48,0.08)",
+                                border: "1px solid rgba(126,41,48,0.2)",
                                 color: "var(--primary)",
                                 fontSize: "12px",
                                 fontWeight: "600",
@@ -1541,7 +1557,7 @@ export default function ProductsPage() {
                         cursor: alreadyExists ? "default" : "pointer",
                         border: "1px dashed",
                         borderColor: alreadyExists ? "var(--border)" : "var(--primary)",
-                        background: alreadyExists ? "var(--surface-muted)" : "rgba(27,77,62,0.06)",
+                        background: alreadyExists ? "var(--surface-muted)" : "rgba(126,41,48,0.06)",
                         color: alreadyExists ? "var(--muted)" : "var(--primary)",
                         transition: "all 0.15s ease",
                       }}
@@ -1603,7 +1619,7 @@ export default function ProductsPage() {
                         />
                         <button
                           onClick={() => handleUpdateNote(n.id, editingNoteText)}
-                          style={{ background: "var(--primary)", color: "#143A2F", border: "none", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}
+                          style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}
                         >
                           Lưu
                         </button>
@@ -1990,14 +2006,16 @@ export default function ProductsPage() {
                   {products
                     .filter((p) => p.isTopping || p.category?.toLowerCase() === "topping")
                     .map((top) => {
-                      const isChecked = (categoryForm.allowedToppingIds || []).includes(String(top.id));
+                      const isChecked = (categoryForm.allowedToppingIds || []).some((r) => r === top.name || r === String(top.id));
                       return (
                         <button
                           key={top.id}
                           type="button"
                           onClick={() => {
                             const cur = categoryForm.allowedToppingIds || [];
-                            const next = isChecked ? cur.filter((id) => id !== String(top.id)) : [...cur, String(top.id)];
+                            // Lưu TÊN món topping: app bản nào cũng đọc được, dùng chung được giữa các chi nhánh
+                            const rest = cur.filter((r) => r !== top.name && r !== String(top.id));
+                            const next = isChecked ? rest : [...rest, top.name];
                             setCategoryForm((f) => ({ ...f, allowedToppingIds: next }));
                           }}
                           style={{
@@ -2007,7 +2025,7 @@ export default function ProductsPage() {
                             fontWeight: "600",
                             cursor: "pointer",
                             border: isChecked ? "2px solid var(--primary)" : "1px solid var(--border)",
-                            background: isChecked ? "rgba(27,77,62,0.12)" : "var(--surface)",
+                            background: isChecked ? "rgba(126,41,48,0.12)" : "var(--surface)",
                             color: isChecked ? "var(--primary)" : "var(--subtext)",
                             display: "flex",
                             alignItems: "center",

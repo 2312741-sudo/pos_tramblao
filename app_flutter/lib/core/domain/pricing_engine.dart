@@ -16,6 +16,11 @@ class PricingInput {
   final int pricingPolicyVersion;
   /// Bỏ qua kiểm tra khung giờ (dùng khi tính lại đơn ĐÃ ÁP DỤNG khuyến mãi để treo đơn qua giờ không bị mất)
   final bool ignoreSchedule;
+  /// Tặng/giảm món theo giá trị đơn: CHỈ giảm trên dòng món tặng riêng (rewardCampaignId), không lấy món khách đã gọi
+  final bool dedicatedRewardOnly;
+  /// Tiền đã giảm trên từng dòng (lineId) bởi các chương trình áp dụng TRƯỚC (cộng dồn KM): chương trình này chỉ
+  /// giảm trên phần còn lại — vd ly chanh đã tặng 0đ thì giảm 20% hóa đơn không tính lại trên ly đó.
+  final Map<String, int> priorLineDiscounts;
 
   PricingInput({
     required this.branchId,
@@ -28,6 +33,8 @@ class PricingInput {
     this.manualDiscountMoney = 0,
     this.pricingPolicyVersion = 1,
     this.ignoreSchedule = false,
+    this.dedicatedRewardOnly = false,
+    this.priorLineDiscounts = const {},
   });
 }
 
@@ -52,6 +59,13 @@ class PricingLineItem {
   /// Lúc gọi món (ms). KM có khung giờ chỉ tính dòng gọi TRONG khung giờ; null = món mới (tính theo lúc bấm).
   final int? orderedAtMs;
 
+  /// Dòng MÓN TẶNG thêm riêng cho chương trình này (không tính vào mốc giá trị đơn; được ưu tiên nhận ưu đãi)
+  final String? rewardCampaignId;
+
+  /// Tiền topping của MỘT phần (đã gồm trong unitPrice) và số topping — để tặng kèm đúng số topping cho món tặng
+  final int toppingUnitPrice;
+  final int toppingCount;
+
   PricingLineItem({
     required this.lineId,
     required this.itemId,
@@ -67,6 +81,9 @@ class PricingLineItem {
     this.discountPercent = 0,
     this.discountUnitAmount = 0,
     this.orderedAtMs,
+    this.rewardCampaignId,
+    this.toppingUnitPrice = 0,
+    this.toppingCount = 0,
   });
 
   /// Dựng từ dòng món của giỏ hàng (giữ cấu hình giảm giá theo phần)
@@ -90,6 +107,9 @@ class PricingLineItem {
         discountPercent: item.discountPercent,
         discountUnitAmount: item.discountUnitAmount,
         orderedAtMs: item.orderedAt,
+        rewardCampaignId: item.rewardCampaignId.isEmpty ? null : item.rewardCampaignId,
+        toppingUnitPrice: item.toppingPrice,
+        toppingCount: item.selectedToppings.where((t) => t.trim().isNotEmpty).length,
       );
 
   /// Bản sao bỏ giờ gọi món (để so sánh: nếu không xét giờ gọi thì chương trình có được áp dụng không)
@@ -107,6 +127,9 @@ class PricingLineItem {
         discountedQuantity: discountedQuantity,
         discountPercent: discountPercent,
         discountUnitAmount: discountUnitAmount,
+        rewardCampaignId: rewardCampaignId,
+        toppingUnitPrice: toppingUnitPrice,
+        toppingCount: toppingCount,
       );
 
   /// Dòng này gọi trong thời gian áp dụng của [c]? (món chưa có giờ gọi = món mới → luôn được tính)
@@ -265,6 +288,10 @@ PriceQuoteModel calculatePrice({
   }
   // Giá trị dòng sau giảm thủ công (dùng làm cơ sở ngưỡng giá trị đơn)
   final afterManual = Map<String, int>.from(lineFinalPrices);
+  // Cộng dồn KM: trừ phần các chương trình trước đã giảm (mốc giá trị đơn vẫn xét trên giá sau giảm thủ công)
+  input.priorLineDiscounts.forEach((id, d) {
+    if (d > 0 && lineFinalPrices.containsKey(id)) lineFinalPrices[id] = max(0, lineFinalPrices[id]! - d);
+  });
   // Số phần của dòng đã được dùng làm món thưởng (tránh giảm 2 lần)
   final rewardedUnits = <String, int>{};
 
@@ -292,12 +319,23 @@ PriceQuoteModel calculatePrice({
 
   /// Giảm [units] phần của dòng [line] theo cách tính lợi ích; tôn trọng giảm giá đã có trên dòng
   /// (không vượt quá giá trị còn lại tương ứng với số phần). Trả về số tiền đã giảm.
-  int rewardUnitsOnLine(PricingLineItem line, int units, String mode, int value, String campaignId, String tierId) {
+  int rewardUnitsOnLine(PricingLineItem line, int units, String mode, int value, String campaignId, String tierId, {int? freeToppings}) {
     final avail = line.quantity - (rewardedUnits[line.lineId] ?? 0);
     if (units <= 0 || avail <= 0) return 0;
     final k = min(units, avail);
     final remaining = max(0, lineFinalPrices[line.lineId] ?? 0);
-    final perUnit = _unitBenefit(mode, value, line.unitPrice);
+    // Dòng món tặng có topping: ưu đãi tính trên phần món (giá + size), cộng thêm tối đa [freeToppings] topping
+    // được tặng kèm (theo giá trung bình một topping của dòng); topping vượt số tặng vẫn tính tiền.
+    final perUnit = freeToppings == null
+        ? _unitBenefit(mode, value, line.unitPrice)
+        : (() {
+            final topUnit = line.toppingCount > 0 ? max(0, min(line.toppingUnitPrice, line.unitPrice)) : 0;
+            // Đủ số topping được tặng → tặng hết (chính xác); vượt số tặng → chia theo giá trung bình một topping
+            final freeTop = line.toppingCount == 0
+                ? 0
+                : (freeToppings >= line.toppingCount ? topUnit : topUnit * freeToppings ~/ line.toppingCount);
+            return min(line.unitPrice, _unitBenefit(mode, value, line.unitPrice - topUnit) + freeTop);
+          })();
     final amount = min(perUnit * k, remaining * k ~/ avail);
     rewardedUnits[line.lineId] = (rewardedUnits[line.lineId] ?? 0) + k;
     if (amount <= 0) return 0;
@@ -328,6 +366,7 @@ PriceQuoteModel calculatePrice({
     required String tierId,
     bool Function(PricingLineItem)? isBoth,
     int? maxFromBoth,
+    int? Function(PricingLineItem)? freeToppingsOf,
   }) {
     final sorted = List<PricingLineItem>.from(candidates)
       ..sort((a, b) {
@@ -345,7 +384,7 @@ PriceQuoteModel calculatePrice({
       var take = min(avail, left);
       if (both) take = min(take, bothLeft);
       if (take <= 0) continue;
-      total += rewardUnitsOnLine(l, take, mode, value, campaignId, tierId);
+      total += rewardUnitsOnLine(l, take, mode, value, campaignId, tierId, freeToppings: freeToppingsOf?.call(l));
       left -= take;
       if (both) bothLeft -= take;
     }
@@ -459,9 +498,11 @@ PriceQuoteModel calculatePrice({
         addReason(campaign, 'NO_BENEFIT', 'Ưu đãi món Y bằng 0đ');
       }
     } else if (_isType(type, 'ORDERVALUEITEMBENEFIT')) {
+      // Dòng món tặng của chính chương trình không tính vào mốc giá trị đơn
+      bool isOwnReward(PricingLineItem l) => l.rewardCampaignId != null && l.rewardCampaignId == campaign.campaignId;
       int base = 0;
       for (final l in lines) {
-        if (inScope(campaign, l)) base += afterManual[l.lineId] ?? 0;
+        if (inScope(campaign, l) && !isOwnReward(l)) base += afterManual[l.lineId] ?? 0;
       }
       final tiers = List<CampaignTier>.from(campaign.tiers)..sort((a, b) => b.threshold.compareTo(a.threshold));
       final tier = tiers.where((t) => base >= t.threshold).firstOrNull;
@@ -478,12 +519,18 @@ PriceQuoteModel calculatePrice({
         continue;
       }
       final units = tier.maxRewardQty > 0 ? tier.maxRewardQty : 1;
-      final candidates = lines
+      final matching = lines
           .where((l) =>
               !l.isGift &&
               (l.matchesAnyTarget(rewardIds) || matchGroup(l.groupId, rewardGroups)) &&
               !l.matchesAnyTarget(campaign.excludedItemIds))
           .toList();
+      // Ưu tiên dòng món tặng riêng; không có thì (trừ khi dedicatedRewardOnly) giảm trên món đã có như trước
+      final dedicated = matching.where(isOwnReward).toList();
+      // Chỉ hình thức TẶNG (miễn phí) mới cần ly tặng riêng; giảm tiền / giảm % thì giảm thẳng trên món khách đã gọi
+      // (vd 'giảm 16K cho 1 ly xoài')
+      final giftOnly = input.dedicatedRewardOnly && normalizeBenefitMode(tier.benefitMode) == 'FREE';
+      final candidates = dedicated.isNotEmpty ? dedicated : (giftOnly ? <PricingLineItem>[] : matching);
       if (candidates.isEmpty) {
         addReason(campaign, 'REWARD_ITEM_NOT_IN_BILL', 'Đơn đủ điều kiện: thêm món được tặng/giảm vào đơn để áp dụng');
         continue;
@@ -495,6 +542,9 @@ PriceQuoteModel calculatePrice({
         value: tier.value,
         campaignId: campaign.campaignId,
         tierId: tier.tierId,
+        // Món tặng (dòng tặng riêng hoặc món có sẵn trong đơn) chỉ miễn phí giá món + size; topping / phụ thu
+        // (vd 'Tăng giá Grab') chỉ tặng đúng số topping cấu hình (0 = tính tiền)
+        freeToppingsOf: (_) => tier.freeToppingCount,
       );
       if (d > 0) {
         totalDiscount += d;
@@ -506,14 +556,22 @@ PriceQuoteModel calculatePrice({
       if (campaign.tiers.isNotEmpty) {
         var tier = campaign.tiers.first;
         // Đồng giá (FIXEDPRICE) hoặc đồng giảm: % / số tiền / tặng — tính theo từng phần của dòng
+        // maxRewardQty > 0: chỉ áp cho tối đa N phần trong đơn (0 = mọi phần)
+        // Safeguard cho mã KM Trà Xoài (KM/G-003): luôn chỉ giảm tối đa 1 phần kể cả khi DB bị cấu hình 0 hoặc rỗng
+        final isMangoTeaSpecial = campaign.campaignId == 'CAM_1792678747107_dn5u' || campaign.programCode == 'KM/G-003';
+        final defaultMax = isMangoTeaSpecial ? 1 : 1 << 30;
+        int unitsLeft = tier.maxRewardQty > 0 ? tier.maxRewardQty : defaultMax;
         bool applied = false;
         for (var line in lines) {
+          if (unitsLeft <= 0) break;
           if (!inScope(campaign, line)) continue;
           final perUnit = _unitBenefit(tier.benefitMode, tier.value, line.unitPrice);
           if (perUnit <= 0) continue;
           final remaining = max(0, lineFinalPrices[line.lineId] ?? 0);
-          int discount = min(perUnit * line.quantity, remaining);
+          final take = min(line.quantity, unitsLeft);
+          int discount = min(perUnit * take, remaining);
           if (discount <= 0) continue;
+          unitsLeft -= take;
           lineDiscounts[line.lineId] = (lineDiscounts[line.lineId] ?? 0) + discount;
           lineFinalPrices[line.lineId] = remaining - discount;
           totalDiscount += discount;

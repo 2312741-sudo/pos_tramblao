@@ -1,11 +1,12 @@
 // lib/features/tables/table_list_screen.dart
+import '../../core/utils/text_formatters.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../about/about_app_screen.dart';
 import '../../core/permissions/app_permissions.dart';
-import '../../core/services/app_update_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
@@ -264,7 +265,6 @@ class _TableListScreenState extends State<TableListScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkInitialCashShift();
-      AppUpdateService().checkAppVersion(context);
     });
   }
 
@@ -421,7 +421,7 @@ class _TableListScreenState extends State<TableListScreen> {
                     children: [
                       Flexible(
                         child: Text(
-                          _auth.currentStoreInfo?.storeName ?? 'POS Trạm BLAO',
+                          _auth.currentStoreInfo?.storeName ?? 'POS Trạm',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.beVietnamPro(fontSize: 16, fontWeight: FontWeight.bold),
@@ -1075,7 +1075,7 @@ class _TableListScreenState extends State<TableListScreen> {
               ),
               const SizedBox(height: 10),
               TextField(
-                controller: depositCtrl,
+                controller: depositCtrl, inputFormatters: [ThousandsSeparatorInputFormatter()],
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Tiền đặt cọc (VND)',
@@ -1594,7 +1594,7 @@ class _TableListScreenState extends State<TableListScreen> {
               '${_auth.currentUser?.employeeCode.isNotEmpty == true ? "[${_auth.currentUser!.employeeCode}] " : ""}${_auth.currentUser?.fullName ?? "Chủ Quán"}',
               style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.bold, color: Colors.white),
             ),
-            accountEmail: Text('Chi nhánh: ${_auth.currentStoreCode} • ${FormatUtils.roleLabel(_auth.currentUser?.roleId ?? '')}', style: GoogleFonts.beVietnamPro(fontSize: 12, color: const Color(0xFF143A2F).withValues(alpha: 0.8))),
+            accountEmail: Text('Chi nhánh: ${_auth.currentStoreCode} • ${FormatUtils.roleLabel(_auth.currentUser?.roleId ?? '')}', style: GoogleFonts.beVietnamPro(fontSize: 12, color: Colors.white70)),
             currentAccountPicture: Container(
               padding: const EdgeInsets.all(2),
               decoration: const BoxDecoration(
@@ -1630,13 +1630,13 @@ class _TableListScreenState extends State<TableListScreen> {
                 leading: const Icon(LucideIcons.chartLine, color: Colors.white),
                 title: Text(
                   'CỔNG QUẢN LÝ & BÁO CÁO',
-                  style: GoogleFonts.beVietnamPro(color: const Color(0xFF143A2F), fontWeight: FontWeight.bold, fontSize: 13),
+                  style: GoogleFonts.beVietnamPro(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 subtitle: Text(
                   'Toàn bộ báo cáo doanh thu & giám sát như Web',
-                  style: GoogleFonts.beVietnamPro(color: const Color(0xFF143A2F).withValues(alpha: 0.8), fontSize: 11),
+                  style: GoogleFonts.beVietnamPro(color: Colors.white70, fontSize: 11),
                 ),
-                trailing: const Icon(LucideIcons.chevronRight, color: Color(0xFF143A2F), size: 14),
+                trailing: const Icon(LucideIcons.chevronRight, color: Colors.white70, size: 14),
                 onTap: () {
                   Navigator.pop(context);
                   context.go('/manager-hub');
@@ -1850,7 +1850,7 @@ class _TableListScreenState extends State<TableListScreen> {
           ListTile(
             leading: Icon(LucideIcons.info, color: context.tc.primary),
             title: const Text('Thông Tin Ứng Dụng'),
-            subtitle: const Text('Phiên bản 1.0.3 (Build 5), hỗ trợ kỹ thuật & pháp lý'),
+            subtitle: Text('Phiên bản ${AboutAppScreen.appVersion} (Build ${AboutAppScreen.appBuild}), hỗ trợ kỹ thuật & pháp lý'),
             onTap: () {
               Navigator.pop(context);
               context.push('/about-app');

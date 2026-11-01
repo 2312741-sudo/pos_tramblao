@@ -24,6 +24,10 @@ export interface CampaignTier {
   /** Nhóm món thưởng (mọi món thuộc nhóm đều là món thưởng) */
   rewardGroupIds?: string[];
   sortOrder: number;
+  /** Số topping TẶNG KÈM trên mỗi phần món tặng (dòng tặng riêng). 0 = topping thêm vẫn tính tiền */
+  rewardToppingQty?: number;
+  /** Topping LUÔN đi kèm món tặng (vd 'Tăng giá Grab 2K') — khóa / mã / tên món topping; tự gắn và được tặng luôn */
+  rewardToppingIds?: string[];
 }
 
 export interface CampaignBuyCondition {
@@ -123,6 +127,8 @@ export function parseTier(raw: Record<string, unknown>): CampaignTier {
     rewardItemIds: strList(raw.rewardItemIds),
     rewardGroupIds: strList(raw.rewardGroupIds),
     sortOrder: toInt(raw.sortOrder ?? raw.tierIndex ?? 0),
+    rewardToppingQty: Math.max(0, toInt(raw.rewardToppingQty ?? 0)),
+    rewardToppingIds: strList(raw.rewardToppingIds),
   };
 }
 
@@ -266,6 +272,11 @@ export interface PricingLine {
   manualDiscount?: number;
   /** Lúc gọi món (ms). KM có khung giờ chỉ tính dòng gọi TRONG khung giờ; trống = món mới (tính theo lúc bấm) */
   orderedAtMs?: number | null;
+  /** Dòng MÓN TẶNG được thêm riêng cho chương trình này (không tính vào mốc giá trị đơn; được ưu tiên nhận ưu đãi) */
+  rewardCampaignId?: string | null;
+  /** Tiền topping của MỘT phần (đã gồm trong unitPrice) và số topping — để tặng kèm đúng số topping cho món tặng */
+  toppingUnitPrice?: number;
+  toppingCount?: number;
 }
 
 /** Dòng gọi trong thời gian áp dụng của [c]? (món chưa có giờ gọi = món mới → luôn được tính). Khớp orderedWithin (Dart). */
@@ -322,6 +333,10 @@ export interface PricingInput {
   manualDiscountMoney?: number;
   /** Bỏ qua khung giờ — dùng khi tính lại chương trình ĐÃ áp dụng (đơn treo qua hết giờ vẫn giữ giảm), giống Flutter */
   ignoreSchedule?: boolean;
+  /** Tặng/giảm món theo giá trị đơn: CHỈ giảm trên dòng món tặng riêng (rewardCampaignId), không lấy món khách đã gọi */
+  dedicatedRewardOnly?: boolean;
+  /** Tiền đã giảm trên từng dòng bởi các chương trình áp dụng TRƯỚC (cộng dồn KM) — chỉ giảm trên phần còn lại */
+  priorLineDiscounts?: Record<string, number>;
 }
 
 export interface QuoteReason {
@@ -437,6 +452,10 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
     lineDisc[l.lineId] = manual;
   }
   const afterManual: Record<string, number> = { ...lineFinal };
+  // Cộng dồn KM: trừ phần các chương trình trước đã giảm (mốc giá trị đơn vẫn xét trên giá sau giảm thủ công)
+  for (const [id, d] of Object.entries(input.priorLineDiscounts ?? {})) {
+    if (d > 0 && id in lineFinal) lineFinal[id] = Math.max(0, lineFinal[id] - d);
+  }
   const rewardedUnits: Record<string, number> = {};
 
   const addReason = (c: Campaign, code: string, msg: string) =>
@@ -452,12 +471,23 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
     return lineMatchesAnyTarget(l, c.includedItemIds) || groupIn(l.groupId, c.includedGroupIds);
   };
 
-  const rewardUnitsOnLine = (line: PricingLine, units: number, mode: string, value: number, campaignId: string, tierId: string): number => {
+  const rewardUnitsOnLine = (line: PricingLine, units: number, mode: string, value: number, campaignId: string, tierId: string, freeToppings?: number | null): number => {
     const avail = line.quantity - (rewardedUnits[line.lineId] ?? 0);
     if (units <= 0 || avail <= 0) return 0;
     const k = Math.min(units, avail);
     const remaining = Math.max(0, lineFinal[line.lineId] ?? 0);
-    const perUnit = unitBenefit(mode, value, line.unitPrice);
+    // Dòng món tặng có topping: ưu đãi trên phần món (giá + size) + tối đa [freeToppings] topping tặng kèm
+    // (theo giá trung bình một topping của dòng); topping vượt số tặng vẫn tính tiền. Khớp Dart.
+    let perUnit: number;
+    if (freeToppings == null) {
+      perUnit = unitBenefit(mode, value, line.unitPrice);
+    } else {
+      const count = line.toppingCount ?? 0;
+      const topUnit = count > 0 ? Math.max(0, Math.min(line.toppingUnitPrice ?? 0, line.unitPrice)) : 0;
+      // Đủ số topping được tặng → tặng hết (chính xác); vượt số tặng → chia theo giá trung bình một topping
+      const freeTop = count === 0 ? 0 : freeToppings >= count ? topUnit : Math.floor((topUnit * freeToppings) / count);
+      perUnit = Math.min(line.unitPrice, unitBenefit(mode, value, line.unitPrice - topUnit) + freeTop);
+    }
     const amount = Math.min(perUnit * k, Math.floor((remaining * k) / avail));
     rewardedUnits[line.lineId] = (rewardedUnits[line.lineId] ?? 0) + k;
     if (amount <= 0) return 0;
@@ -485,6 +515,7 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
     tierId: string;
     isBoth?: (l: PricingLine) => boolean;
     maxFromBoth?: number;
+    freeToppingsOf?: (l: PricingLine) => number | null;
   }): number => {
     const sorted = [...a.candidates].sort((x, y) => {
       const c = x.unitPrice - y.unitPrice;
@@ -502,7 +533,7 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
       let take = Math.min(avail, left);
       if (both) take = Math.min(take, bothLeft);
       if (take <= 0) continue;
-      total += rewardUnitsOnLine(l, take, a.mode, a.value, a.campaignId, a.tierId);
+      total += rewardUnitsOnLine(l, take, a.mode, a.value, a.campaignId, a.tierId, a.freeToppingsOf?.(l));
       left -= take;
       if (both) bothLeft -= take;
     }
@@ -608,8 +639,10 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
         addReason(campaign, "NO_BENEFIT", "Ưu đãi món Y bằng 0đ");
       }
     } else if (isType(type, "ORDERVALUEITEMBENEFIT")) {
+      // Dòng món tặng của chính chương trình không tính vào mốc giá trị đơn
+      const isOwnReward = (l: PricingLine) => !!l.rewardCampaignId && l.rewardCampaignId === campaign.campaignId;
       let base = 0;
-      for (const l of lines) if (inScope(campaign, l)) base += afterManual[l.lineId] ?? 0;
+      for (const l of lines) if (inScope(campaign, l) && !isOwnReward(l)) base += afterManual[l.lineId] ?? 0;
       const tiers = [...campaign.tiers].sort((a, b) => b.threshold - a.threshold);
       const tier = tiers.find((t) => base >= t.threshold);
       if (!tier) {
@@ -628,14 +661,25 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
         continue;
       }
       const units = tier.maxRewardQty > 0 ? tier.maxRewardQty : 1;
-      const candidates = lines.filter(
+      const matching = lines.filter(
         (l) => !l.isGift && (lineMatchesAnyTarget(l, rewardIds) || groupIn(l.groupId, rewardGroups)) && !lineMatchesAnyTarget(l, campaign.excludedItemIds),
       );
+      // Ưu tiên dòng món tặng riêng; không có thì (trừ khi dedicatedRewardOnly) giảm trên món đã có như trước
+      const dedicated = matching.filter(isOwnReward);
+      // Chỉ hình thức TẶNG (miễn phí) mới cần ly tặng riêng; giảm tiền / giảm % thì giảm thẳng trên món khách đã gọi
+      // (vd 'giảm 16K cho 1 ly xoài'). Khớp Dart.
+      const giftOnly = !!input.dedicatedRewardOnly && normalizeBenefitMode(tier.benefitMode) === "FREE";
+      const candidates = dedicated.length > 0 ? dedicated : giftOnly ? [] : matching;
       if (candidates.length === 0) {
         addReason(campaign, "REWARD_ITEM_NOT_IN_BILL", "Đơn đủ điều kiện: thêm món được tặng/giảm vào đơn để áp dụng");
         continue;
       }
-      const d = distributeReward({ candidates, units, mode: tier.benefitMode, value: tier.value, campaignId: campaign.campaignId, tierId: tier.tierId });
+      const d = distributeReward({
+        candidates, units, mode: tier.benefitMode, value: tier.value, campaignId: campaign.campaignId, tierId: tier.tierId,
+        // Món tặng (dòng tặng riêng hoặc món có sẵn trong đơn) chỉ miễn phí giá món + size; topping / phụ thu
+        // (vd 'Tăng giá Grab') chỉ tặng đúng số topping cấu hình (0 = tính tiền). Khớp Dart.
+        freeToppingsOf: () => (tier.rewardToppingQty ?? 0) + (tier.rewardToppingIds?.length ?? 0),
+      });
       if (d > 0) {
         totalDiscount += d;
         markApplied(campaign.campaignId);
@@ -646,14 +690,22 @@ export function calculatePrice(input: PricingInput, activeCampaigns: Campaign[])
       if (campaign.tiers.length > 0) {
         const tier = campaign.tiers[0];
         // Đồng giá (FIXEDPRICE) hoặc đồng giảm: % / số tiền / tặng — tính theo từng phần của dòng
+        // maxRewardQty > 0: chỉ áp cho tối đa N phần trong đơn (0 = mọi phần)
+        // Safeguard cho mã KM Trà Xoài (KM/G-003): luôn chỉ giảm tối đa 1 phần kể cả khi DB bị cấu hình 0 hoặc rỗng
+        const isMangoTeaSpecial = campaign.campaignId === "CAM_1792678747107_dn5u" || campaign.programCode === "KM/G-003";
+        const defaultMax = isMangoTeaSpecial ? 1 : Infinity;
+        let unitsLeft = tier.maxRewardQty > 0 ? tier.maxRewardQty : defaultMax;
         let applied = false;
         for (const line of lines) {
+          if (unitsLeft <= 0) break;
           if (!inScope(campaign, line)) continue;
           const perUnit = unitBenefit(tier.benefitMode, tier.value, line.unitPrice);
           if (perUnit <= 0) continue;
           const remaining = Math.max(0, lineFinal[line.lineId] ?? 0);
-          const discount = Math.min(perUnit * line.quantity, remaining);
+          const take = Math.min(line.quantity, unitsLeft);
+          const discount = Math.min(perUnit * take, remaining);
           if (discount <= 0) continue;
+          unitsLeft -= take;
           lineDisc[line.lineId] = (lineDisc[line.lineId] ?? 0) + discount;
           lineFinal[line.lineId] = remaining - discount;
           totalDiscount += discount;
@@ -784,6 +836,9 @@ export function linesFromOrder(
     unitPrice: lineUnitPrice(it),
     manualDiscount: lineDiscountTotal(it),
     orderedAtMs: toMs(it.orderedAt),
+    rewardCampaignId: it.rewardCampaignId != null && String(it.rewardCampaignId) ? String(it.rewardCampaignId) : null,
+    toppingUnitPrice: Math.max(0, Number(it.toppingPrice) || 0),
+    toppingCount: Array.isArray(it.selectedToppings) ? it.selectedToppings.filter((t) => String(t ?? "").trim()).length : 0,
   }));
 }
 
@@ -899,22 +954,95 @@ export function buildAppliedDiscount(campaign: Campaign, amount: number, opts?: 
  * Tính lại các giảm giá khi giỏ hàng đổi. Trả về danh sách mới + tên chương trình bị gỡ
  * (không còn đủ điều kiện). Giảm giá không còn trong [campaignsById] được giữ nguyên (khớp Flutter).
  */
+/**
+ * Chương trình tặng/giảm món theo giá trị đơn: các món có thể làm món tặng + số phần (để thêm DÒNG TẶNG riêng).
+ * null nếu không phải loại này / chưa cấu hình. Khớp CartCampaignPricing.rewardPlan (Dart).
+ */
+export function rewardPlanFor<P extends { id: string; name: string; code?: string; category?: string; isTopping?: boolean }>(
+  campaign: Campaign,
+  products: P[]
+): { units: number; candidates: P[]; toppings: P[] } | null {
+  if (campaign.campaignType.toUpperCase().replace(/_/g, "") !== "ORDERVALUEITEMBENEFIT") return null;
+  const tier = [...campaign.tiers].sort((a, b) => a.threshold - b.threshold)[0];
+  if (!tier) return null;
+  const lc = (v: unknown) => String(v ?? "").trim().toLowerCase();
+  const ids = new Set(tier.rewardItemIds.map(lc));
+  const groups = new Set((tier.rewardGroupIds ?? []).map(normGroup));
+  const excluded = new Set(campaign.excludedItemIds.map(lc));
+  const candidates = products.filter(
+    (p) =>
+      !p.isTopping &&
+      !excluded.has(lc(p.id)) && !excluded.has(lc(p.name)) &&
+      (ids.has(lc(p.id)) || ids.has(lc(p.name)) || (!!p.code && ids.has(lc(p.code))) || (!!p.category && groups.has(normGroup(p.category))))
+  );
+  if (candidates.length === 0) return null;
+  // Topping luôn kèm món tặng: tra trong thực đơn theo khóa / mã / tên (ưu tiên món topping)
+  const toppings = (tier.rewardToppingIds ?? [])
+    .map((ref) => {
+      const hits = products.filter((p) => String(p.id) === ref || lc(p.name) === lc(ref) || (!!p.code && lc(p.code) === lc(ref)));
+      return hits.find((p) => p.isTopping) ?? hits[0];
+    })
+    .filter((p): p is P => !!p);
+  return { units: tier.maxRewardQty > 0 ? tier.maxRewardQty : 1, candidates, toppings };
+}
+
+const isBillLevel = (c: Campaign) => c.campaignType.toUpperCase().replace(/_/g, "") === "BILLDISCOUNT";
+
+/**
+ * Tính CỘNG DỒN nhiều chương trình trên cùng giỏ: KM theo món (tặng món, mua X tặng Y, đồng giá) trước, giảm giá hóa
+ * đơn sau; mỗi chương trình chỉ giảm trên PHẦN CÒN LẠI của từng dòng (trước đây tính riêng trên giá gốc rồi cộng →
+ * ly chanh tặng 0đ vẫn bị giảm thêm 20%). Khớp CartCampaignPricing.quoteStacked (Dart).
+ */
+export function quoteStacked(
+  campaigns: Campaign[],
+  lines: PricingLine[],
+  ctx: { branchId: string; guestCount?: number | null; nowMs: number; customerBirthday?: string | null },
+  opts: { ignoreScheduleFor?: Set<string>; dedicatedOnlyFor?: Set<string> } = {}
+): Record<string, PriceQuote> {
+  const ordered = [...campaigns.filter((c) => !isBillLevel(c)), ...campaigns.filter(isBillLevel)];
+  const manual: Record<string, number> = Object.fromEntries(lines.map((l) => [l.lineId, manualLineDiscount(l)]));
+  const prior: Record<string, number> = {};
+  const out: Record<string, PriceQuote> = {};
+  for (const c of ordered) {
+    const q = calculatePrice(
+      {
+        branchId: ctx.branchId, guestCount: ctx.guestCount, nowMs: ctx.nowMs, customerBirthday: ctx.customerBirthday, lines,
+        ignoreSchedule: opts.ignoreScheduleFor?.has(c.campaignId) ?? false,
+        dedicatedRewardOnly: opts.dedicatedOnlyFor?.has(c.campaignId) ?? false,
+        priorLineDiscounts: { ...prior },
+      },
+      [c]
+    );
+    out[c.campaignId] = q;
+    for (const lb of q.lineBenefits) {
+      if (lb.campaignId) continue;
+      const promo = lb.discountMoney - (manual[lb.lineId] ?? 0);
+      if (promo > 0) prior[lb.lineId] = (prior[lb.lineId] ?? 0) + promo;
+    }
+  }
+  return out;
+}
+
 export function recalculateDiscounts(
   applied: AppliedDiscount[],
   campaignsById: Record<string, Campaign>,
   lines: PricingLine[],
-  ctx: { branchId: string; guestCount?: number | null; nowMs: number; customerBirthday?: string | null }
+  ctx: { branchId: string; guestCount?: number | null; nowMs: number; customerBirthday?: string | null },
+  opts: { dedicatedOnlyFor?: Set<string> } = {}
 ): { discounts: AppliedDiscount[]; dropped: string[] } {
   const out: AppliedDiscount[] = [];
   const dropped: string[] = [];
+  // Đã áp dụng trong khung giờ → giữ khi qua giờ; chỉ tính lại theo món hiện có (món gọi ngoài khung giờ không tính).
+  // Tính CỘNG DỒN cả nhóm (KM theo món trước, giảm hóa đơn sau, trên phần còn lại).
+  const camps = applied.map((d) => campaignsById[d.campaignId]).filter((c): c is Campaign => !!c);
+  const stacked = quoteStacked(camps, lines, ctx, { ignoreScheduleFor: new Set(camps.map((c) => c.campaignId)), dedicatedOnlyFor: opts.dedicatedOnlyFor });
   for (const d of applied) {
     const c = campaignsById[d.campaignId];
     if (!c) {
       out.push(d);
       continue;
     }
-    // Đã áp dụng trong khung giờ → giữ khi qua giờ; chỉ tính lại theo món hiện có (món gọi ngoài khung giờ không tính)
-    const amt = quoteCampaign(c, lines, { ...ctx, ignoreSchedule: true }).totalPromotionDiscount;
+    const amt = stacked[c.campaignId].totalPromotionDiscount;
     if (amt > 0) out.push({ ...d, amount: amt });
     else dropped.push(d.description);
   }
@@ -1008,7 +1136,7 @@ export function describeBenefit(c: Campaign): string {
     const qty = t.maxRewardQty > 0 ? t.maxRewardQty : 1;
     return `${benefitText(t.benefitMode, t.value)} ${qty} món${from}`;
   }
-  if (type === "ITEMPRICERULE") return `đồng giá ${vnd(t.value)}`;
+  if (type === "ITEMPRICERULE") return `đồng giá ${vnd(t.value)}${t.maxRewardQty > 0 ? ` (tối đa ${t.maxRewardQty} phần/đơn)` : ""}`;
   const cap = t.maxDiscountMoney > 0 ? `, tối đa ${vnd(t.maxDiscountMoney)}` : "";
   return `${benefitText(t.benefitMode, t.value)} hóa đơn${cap}${from}`;
 }

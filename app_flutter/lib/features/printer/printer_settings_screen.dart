@@ -14,7 +14,7 @@ import '../../data/services/firebase_service.dart';
 import '../../data/models/store_info_model.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// Màn hình Cài Đặt Máy In Mạng LAN & Bluetooth (POS Trạm BLAO)
+/// Màn hình Cài Đặt Máy In Mạng LAN & Bluetooth (POS Trạm)
 class PrinterSettingsScreen extends StatefulWidget {
   const PrinterSettingsScreen({super.key});
 
@@ -205,7 +205,13 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
           autoPrintBill: _autoPrintBill,
         );
         try {
-          await _fb.saveStoreInfo(updated);
+          // Chỉ ghi các trường máy in (không ghi lại cả storeInfo)
+          await _fb.updateStorePaths({
+            'storeInfo/printerType': updated.printerType,
+            'storeInfo/billPrinterIp': updated.billPrinterIp,
+            'storeInfo/kitchenPrinterIp': updated.kitchenPrinterIp,
+            'storeInfo/autoPrintBill': updated.autoPrintBill,
+          });
           await _auth.refreshRolesAndStoreInfo();
           _storeInfo = updated;
         } catch (_) {
@@ -296,7 +302,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
 
     try {
       final bytes = ReceiptPrinter.buildTestReceiptBytes(
-        storeName: _storeInfo?.storeName ?? 'POS Trạm BLAO - Coffee & Tea',
+        storeName: _storeInfo?.storeName ?? 'POS Trạm - Coffee & Tea',
         paperSize: _btService.paperSize,
         isKitchen: isKitchen,
       );

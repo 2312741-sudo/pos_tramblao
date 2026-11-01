@@ -41,11 +41,10 @@ import {
   calculateCancellationReport,
   calculateGrossProfitReport,
   deduplicateBills,
-  type ProductLookup,
-} from "./reports";
+  type ProductLookup, findProductForLine } from "./reports";
 import { soldItemRows, staffItemSummary } from "./staff-sales-report";
 import { splitLineParts, type ToppingLookup } from "./topping-split";
-import { billDeletedItems, type DeletionReport } from "./item-deletion";
+import { billRemovedItems, type DeletionReport } from "./item-deletion";
 import type { CampaignReport } from "./promotion-report";
 
 export interface ReportStoreInfo {
@@ -193,12 +192,12 @@ export function buildStandardReportHtml(opts: ExportReportOptions): string {
     .join("");
 
   const totalRowHtml = opts.totalRow
-    ? `<tr style="background: #F8F4EE; font-weight: 800; border-top: 2px solid #7FE3C7; border-bottom: 2px solid #7FE3C7;">
+    ? `<tr style="background: #F8F4EE; font-weight: 800; border-top: 2px solid #7E2930; border-bottom: 2px solid #7E2930;">
         ${opts.totalRow
           .map((cell, cIdx) => {
             const align = cIdx === 0 ? "center" : (typeof cell === "number" ? "right" : "left");
             const valDisplay = typeof cell === "number" ? formatNumber(cell) : String(cell);
-            return `<td style="padding: 10px 12px; border: 1px solid #D8CFBD; text-align: ${align}; font-size: 13px; color: #143A2F;">${e(valDisplay)}</td>`;
+            return `<td style="padding: 10px 12px; border: 1px solid #D8CFBD; text-align: ${align}; font-size: 13px; color: #7E2930;">${e(valDisplay)}</td>`;
           })
           .join("")}
       </tr>`
@@ -229,7 +228,7 @@ export function buildStandardReportHtml(opts: ExportReportOptions): string {
       text-align: center;
       font-size: 20px;
       font-weight: 800;
-      color: #143A2F;
+      color: #7E2930;
       text-transform: uppercase;
       margin: 12px 0 4px;
       letter-spacing: 0.04em;
@@ -269,7 +268,7 @@ export function buildStandardReportHtml(opts: ExportReportOptions): string {
         <div class="store-sub">Hotline: ${e(phone)}</div>
       </td>
       <td style="text-align: right; vertical-align: top;">
-        <div style="font-size: 11px; color: #8B8FA8; font-weight: 600;">HỆ THỐNG POS TRẠM BLAO F&B</div>
+        <div style="font-size: 11px; color: #8B8FA8; font-weight: 600;">HỆ THỐNG POS TRẠM F&B</div>
         <div style="font-size: 11px; color: #8B8FA8;">Mã BC: <strong>${e(opts.reportCode)}</strong></div>
       </td>
     </tr>
@@ -312,7 +311,7 @@ export function buildStandardReportHtml(opts: ExportReportOptions): string {
   </table>
 
   <div class="no-print" style="text-align: center; margin-top: 30px;">
-    <button onclick="window.print()" style="padding: 10px 24px; font-size: 14px; font-weight: 700; background: #7FE3C7; color: #143A2F; border: none; border-radius: 8px; cursor: pointer;">
+    <button onclick="window.print()" style="padding: 10px 24px; font-size: 14px; font-weight: 700; background: #7E2930; color: white; border: none; border-radius: 8px; cursor: pointer;">
       In / Lưu PDF ngay
     </button>
   </div>
@@ -1204,8 +1203,8 @@ export function exportEndOfDayZReport(data: EndOfDayReportData, storeInfo?: Repo
     ["1. TỔNG HỢP", "Giá trị trung bình / đơn", data.tab1_tongHop.avgRevenuePerBill],
     ["1. TỔNG HỢP", "Số hóa đơn đã hủy (không tính doanh thu)", data.tab1_tongHop.cancelledBillsCount],
     ["1. TỔNG HỢP", "Giá trị hóa đơn đã hủy", data.tab1_tongHop.cancelledBillsAmount],
-    ["1. TỔNG HỢP", "Số món xóa", data.tab1_tongHop.deletedItemsCount],
-    ["1. TỔNG HỢP", "Tổng tiền xóa món", data.tab1_tongHop.deletedItemsAmount],
+    ["1. TỔNG HỢP", "Số món xóa / hủy", data.tab1_tongHop.deletedItemsCount],
+    ["1. TỔNG HỢP", "Tổng tiền xóa / hủy món", data.tab1_tongHop.deletedItemsAmount],
 
     ["2. THU CHI", "Doanh số Tiền mặt", data.tab2_thuChi.cashSales],
     ["2. THU CHI", "Doanh số Chuyển khoản QR", data.tab2_thuChi.transferSales],
@@ -1373,7 +1372,7 @@ export function exportHistory(data: HistoryOrder[], productsMap?: ProductCodeMap
   const deletedRows: Array<Record<string, unknown>> = [];
   data.forEach((item) => {
     const billCode = item.billCode || item.orderCode || item.id?.slice(0, 8) || "";
-    billDeletedItems(item).forEach((d) => {
+    billRemovedItems(item).forEach((d) => {
       deletedRows.push({
         "Mã HĐ": billCode,
         "Bàn": item.tableName || "",
@@ -1695,7 +1694,7 @@ export function buildReportsWorkbook(input: ReportsWorkbookInput): XLSX.WorkBook
     [22, 10, 16, 12, 16, 12, 14, 12]));
 
   // 6–8. Nhân viên
-  const sold = soldItemRows(bills, codeMap, undefined, lookupTopping);
+  const sold = soldItemRows(bills, codeMap, (it) => findProductForLine(it, productsMap)?.category || "", lookupTopping);
   const { items: staffItems, staff } = staffItemSummary(sold);
   const cashiers = calculateStaffPerformance(bills).cashierStaff;
   add("Nhân viên", reportSheet("NĂNG SUẤT NHÂN VIÊN", info,

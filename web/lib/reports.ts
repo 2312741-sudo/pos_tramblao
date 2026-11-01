@@ -1,4 +1,4 @@
-import { buildToppingLookup, splitLineParts } from "./topping-split";
+import { buildToppingLookup, splitLineParts, productMergeKey } from "./topping-split";
 import { lineProductId, resolveProductCode } from "./product-code";
 import { businessDateOf, businessDayStartFor } from "./business-day";
 /**
@@ -7,7 +7,7 @@ import { businessDateOf, businessDayStartFor } from "./business-day";
  * Pure TypeScript functions, độc lập hoàn toàn với React, có thể kiểm thử 100%.
  */
 import { lineGross as rawLineGross, type RawOrderLine } from "./order-math";
-import { billDeletedItems, deletionReportFromBills } from "./item-deletion";
+import { billDeletedItems, deletionReportFromBills, isUnpaidCancelledBill } from "./item-deletion";
 
 export interface OrderItem {
   id?: number | string;
@@ -176,6 +176,32 @@ export interface ProductLookup {
   unit?: string;
   category?: string;
   costPrice?: number;
+}
+
+/**
+ * Món trong thực đơn của một dòng hóa đơn: id → mã món → tên (không phân biệt hoa thường / khoảng trắng thừa).
+ * Món bấm trên app lưu id SỐ còn web nạp thực đơn theo khóa RTDB, nên tra id thường trượt → phải tra tiếp mã / tên,
+ * nếu không nhóm hàng rơi về "Khác".
+ */
+export function findProductForLine(
+  it: { productId?: unknown; name?: unknown; code?: unknown; productCode?: unknown },
+  productsMap?: Record<string | number, ProductLookup>
+): ProductLookup | undefined {
+  if (!productsMap) return undefined;
+  const pid = it.productId;
+  if (pid != null && pid !== "" && productsMap[pid as string]) return productsMap[pid as string];
+  const norm = (v: unknown) => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  const code = norm(it.productCode ?? it.code);
+  const name = norm(it.name);
+  const all = Object.values(productsMap);
+  // Thực đơn có bản trùng: ưu tiên bản có nhóm hàng thật (khác "Khác")
+  const best = (list: ProductLookup[]) => list.find((p) => p.category && norm(p.category) !== "khác") ?? list[0];
+  if (code) {
+    const byCode = best(all.filter((p) => norm(p.code ?? p.productCode) === code));
+    if (byCode) return byCode;
+  }
+  if (!name) return undefined;
+  return best(all.filter((p) => norm(p.name) === name));
 }
 
 export type PeriodType = "DAY" | "WEEK" | "MONTH" | "YEAR";
@@ -788,6 +814,8 @@ export function calculateOverviewReport(bills: HistoryOrder[], refundAmountParam
       }
       totalCostPrice += bCogs;
     } else if (status === "CANCELLED") {
+      // Xóa / hủy đơn trên bàn khi CHƯA thanh toán: chỉ tính vào số món hủy, không phải đơn hủy
+      if (isUnpaidCancelledBill(b as never)) continue;
       cancelledBillsCount++;
       cancelledTotalValue += cancelledBillValue(b);
     } else if (status === "REFUNDED") {
@@ -967,7 +995,7 @@ export function calculateCategoryReport(
       for (const part of splitLineParts(it, lookupTopping)) {
         let category = part.category.trim();
         if (!part.isTopping && !category && productsMap) {
-          const prod = productsMap[lineProductId(it.productId) ?? it.name ?? ""];
+          const prod = findProductForLine(it, productsMap);
           if (prod) category = (prod.category || "").trim();
         }
         if (!category) category = "Khác";
@@ -1044,36 +1072,34 @@ export function calculateProductReport(
     const items = extractBillItems(b);
     for (const it of items) {
       for (const part of splitLineParts(it, lookupTopping)) {
-        let key: string;
         let pId: number | string;
         let pCode: string;
         let basePrice: number;
         let unit: string;
         let category: string;
         if (part.isTopping) {
-          key = part.key;
           pId = part.productId ?? 0;
           pCode = part.code;
           basePrice = part.quantity > 0 ? Math.round(part.grossRevenue / part.quantity) : 0;
           unit = part.unit;
           category = part.category;
         } else {
-          // productId 0/rỗng (món tạo trên app không có id số) → gộp theo tên, không dồn chung một dòng
           const validId = lineProductId(it.productId);
           pId = validId != null ? validId : (it.name || "0");
-          key = validId != null ? String(validId) : `name:${(it.name || "").trim().toLowerCase()}`;
           pCode = resolveProductCode({ productId: it.productId, name: it.name, productCode: it.productCode, code: it.code }, productsMap);
           basePrice = Number(it.price || 0);
-          unit = it.unit || "Ly";
           category = it.category || "Khác";
-          if (productsMap && productsMap[pId]) {
-            const pDef = productsMap[pId];
+          const pDef = findProductForLine(it, productsMap);
+          // ĐVT lấy theo món trong thực đơn (bánh là "Cái", không mặc định "Ly")
+          unit = it.unit || pDef?.unit || "Ly";
+          if (pDef) {
             if (!basePrice) basePrice = Number(pDef.price || 0);
-            if (!unit && pDef.unit) unit = pDef.unit;
             if ((!category || category === "Khác") && pDef.category) category = pDef.category;
           }
         }
 
+        // Gom theo mã món: món trùng trong thực đơn và món gọi làm topping cùng về một dòng
+        const key = productMergeKey(pCode, part.name);
         if (!prodMap.has(key)) {
           prodMap.set(key, {
             productId: pId,
@@ -1404,7 +1430,8 @@ export function calculatePromotionsReport(
  */
 export function calculateCancellationReport(bills: HistoryOrder[]): CancellationReportResult {
   const deduped = deduplicateBills(bills);
-  const cancelledBills = deduped.filter((b) => (b.status || "").toUpperCase() === "CANCELLED");
+  // Chỉ hóa đơn ĐÃ thanh toán rồi bị hủy; hủy đơn trên bàn khi chưa thanh toán tính vào số món hủy
+  const cancelledBills = deduped.filter((b) => (b.status || "").toUpperCase() === "CANCELLED" && !isUnpaidCancelledBill(b as never));
 
   let totalLossValue = 0;
   const list: CancelledBillItem[] = [];

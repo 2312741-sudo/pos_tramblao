@@ -9,6 +9,7 @@ import {
   getBillTimestamp,
   getUTC7Date,
   getBusinessBillTimestamp,
+  findProductForLine,
 } from "@/lib/reports";
 import { buildProductCodeMap, lineProductId } from "@/lib/product-code";
 import { buildToppingLookup } from "@/lib/topping-split";
@@ -218,7 +219,7 @@ export default function EndOfDayReportPage() {
   // Từng dòng món đã bán kèm nhân viên order (dùng để liệt kê nhân viên và lọc theo nhân viên)
   const codeMap = useMemo(() => buildProductCodeMap(products), [products]);
   const toppingLookup = useMemo(() => buildToppingLookup(products), [products]);
-  const soldRows = useMemo(() => soldItemRows(filteredBills, codeMap, undefined, toppingLookup), [filteredBills, codeMap, toppingLookup]);
+  const soldRows = useMemo(() => soldItemRows(filteredBills, codeMap, (it) => findProductForLine(it, productsMap)?.category || "", toppingLookup), [filteredBills, codeMap, toppingLookup, productsMap]);
 
   /** Tên nhân viên của một dòng: có thể là danh sách "A, B" (hóa đơn nhiều người order) → tách riêng từng người */
   const splitStaff = (raw: string): string[] => raw.split(",").map((x) => x.trim()).filter(Boolean);
@@ -806,9 +807,9 @@ export default function EndOfDayReportPage() {
                     valueColor="#C93B2B"
                     isBold
                   />
-                  <ReportRow label="Số món xóa" value={`${zReport.tab1_tongHop.deletedItemsCount} món`} />
+                  <ReportRow label="Số món xóa / hủy" value={`${zReport.tab1_tongHop.deletedItemsCount} món`} />
                   <ReportRow
-                    label="Tổng tiền xóa món"
+                    label="Tổng tiền xóa / hủy món"
                     value={formatVND(zReport.tab1_tongHop.deletedItemsAmount)}
                     valueColor="#C93B2B"
                     isBold

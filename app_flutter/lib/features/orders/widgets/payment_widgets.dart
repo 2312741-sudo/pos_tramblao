@@ -46,7 +46,7 @@ class PaymentTotalHeader extends StatelessWidget {
                       'Thanh toán • $tableName',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600, fontSize: 14, color: const Color(0xFF143A2F).withValues(alpha: 0.8)),
+                      style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.white70),
                     ),
                     const SizedBox(height: 2),
                     FittedBox(
@@ -54,7 +54,7 @@ class PaymentTotalHeader extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         FormatUtils.vnd(total),
-                        style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w800, fontSize: 34, color: const Color(0xFF143A2F)),
+                        style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w800, fontSize: 34, color: Colors.white),
                       ),
                     ),
                   ],
@@ -68,10 +68,10 @@ class PaymentTotalHeader extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF143A2F).withValues(alpha: 0.15),
+                      color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(LucideIcons.x, color: Color(0xFF143A2F), size: 20),
+                    child: const Icon(LucideIcons.x, color: Colors.white, size: 20),
                   ),
                 ),
               ],
@@ -81,14 +81,14 @@ class PaymentTotalHeader extends StatelessWidget {
             const SizedBox(height: 4),
             Row(
               children: [
-                const Icon(LucideIcons.user, size: 16, color: Color(0xFF143A2F)),
+                const Icon(LucideIcons.user, size: 16, color: Colors.white70),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     customerLine!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.beVietnamPro(fontSize: 12, color: const Color(0xFF143A2F), fontWeight: FontWeight.w600),
+                    style: GoogleFonts.beVietnamPro(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -242,10 +242,13 @@ class VietQrImage extends StatelessWidget {
   final String? bankInfo;
   final String? orderInfo;
   final bool enableZoom;
+  /// url rỗng (chưa có tài khoản ngân hàng của cửa hàng) → hiện cảnh báo + nút thử lại
+  final Future<void> Function()? onRetry;
 
   const VietQrImage({
     super.key,
     required this.url,
+    this.onRetry,
     this.height = 280,
     this.width,
     this.amount,
@@ -257,6 +260,35 @@ class VietQrImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveWidth = width ?? height;
+    if (url.trim().isEmpty) {
+      return Container(
+        height: height,
+        width: effectiveWidth,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: context.tc.dangerLight, borderRadius: AppRadius.brMd),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.landmark, color: context.tc.danger, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              'Chưa tải được tài khoản ngân hàng của cửa hàng.\nKiểm tra mạng rồi thử lại — chưa tạo QR để tránh nhầm tài khoản.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.beVietnamPro(fontSize: 12, color: context.tc.danger, fontWeight: FontWeight.w600),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(LucideIcons.refreshCw, size: 16),
+                label: const Text('Thử lại'),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
     final imageWidget = ClipRRect(
       borderRadius: AppRadius.brMd,
       child: Container(

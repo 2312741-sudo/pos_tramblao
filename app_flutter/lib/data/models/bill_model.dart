@@ -75,6 +75,8 @@ class BillModel {
   List<OrderActionLogModel> actionLogs;
   /// Món đã lưu bị xóa trước khi chốt đơn (ghi cả với HĐ PAID và CANCELLED).
   List<DeletedItemEntry> deletedItems;
+  /// Lý do hủy đơn (cancelReason / cancellationReason) — dùng cho báo cáo xóa/hủy món
+  String cancelNote;
 
   BillModel({
     required this.id,
@@ -110,6 +112,7 @@ class BillModel {
     this.shiftId,
     this.actionLogs = const [],
     this.deletedItems = const [],
+    this.cancelNote = '',
   });
 
   static int? _asInt(Object? v) {
@@ -240,7 +243,8 @@ class BillModel {
       if (splits.isEmpty) splits = null;
     }
 
-    final tableName = map['tableName']?.toString() ?? '';
+    // Bàn tự tách (2 máy cùng thao tác: 'Bàn 01 (2)') → báo cáo / lịch sử ghi nhận vào bàn gốc 'Bàn 01'
+    final tableName = baseTableName(map['tableName']?.toString() ?? '');
     final parentBillId = map['parentBillId']?.toString();
     int? closedAt = _asEpochMs(map['closedAt']);
     final cancelledAt = _asEpochMs(map['cancelledAt']);
@@ -255,7 +259,7 @@ class BillModel {
       closedAt = timestampFallback;
     }
     final isLegacySplitBill =
-        tableName.contains('(Tách)') || (parentBillId != null && parentBillId.trim().isNotEmpty);
+        (map['tableName']?.toString() ?? '').contains('(Tách)') || (parentBillId != null && parentBillId.trim().isNotEmpty);
     if (status == 'OPEN' && isLegacySplitBill) {
       status = 'PAID';
       closedAt ??= createdAt > 0 ? createdAt : null;
@@ -314,7 +318,20 @@ class BillModel {
       shiftId: map['shiftId']?.toString(),
       actionLogs: actionLogs,
       deletedItems: DeletedItemsLogic.decode(map['deletedItems'] ?? map['deletedItemsJson']),
+      cancelNote: (map['cancelReason'] ?? map['cancellationReason'])?.toString() ?? '',
     );
+  }
+
+  /// Tên bàn GỐC của bàn tách — tự tách ('Bàn 01 (2)') lẫn tách tay ('Mang về 01 (Tách)') đều về 'Bàn 01' / 'Mang về 01'.
+  /// Khớp baseTableName (web).
+  static String baseTableName(String name) {
+    final n = name.trim();
+    final suffix = RegExp(r'\s\((\d+|Tách)\)\s*$');
+    var base = n;
+    while (suffix.hasMatch(base)) {
+      base = base.replaceFirst(suffix, '').trim();
+    }
+    return base.isEmpty ? n : base;
   }
 
   /// Mốc xếp NGÀY KINH DOANH (lùi theo giờ bắt đầu ngày của cửa hàng) — dùng cho lọc/gom theo ngày,
@@ -338,6 +355,31 @@ class BillModel {
     if (createdAt > 0) return createdAt;
     return ok(closedAt) ? closedAt! : 0;
   }
+
+  /// Món bị xóa + (đơn HỦY) mọi món còn trong đơn — dùng cho báo cáo "xóa/hủy món".
+  /// deletedItemsCount/Amount bên dưới giữ nguyên nghĩa "món đã lưu bị xóa" (ghi lên hóa đơn).
+  /// Đơn hủy KHI CHƯA THANH TOÁN (xóa / hủy đơn trên bàn): mã BILL_CANCELLED_… hoặc thành tiền 0đ.
+  /// Chỉ tính vào SỐ MÓN HỦY, không tính là "đơn hủy" (hủy hóa đơn ĐÃ thanh toán mới là đơn hủy).
+  /// Khớp isUnpaidCancelledBill (web).
+  bool get isUnpaidCancel => status == 'CANCELLED' && (id.startsWith('BILL_CANCELLED_') || finalAmount <= 0);
+
+  /// Hủy hóa đơn ĐÃ thanh toán — dòng "đơn hủy" của báo cáo
+  bool get isPaidCancel => status == 'CANCELLED' && !isUnpaidCancel;
+
+  List<DeletedItemEntry> get removedItems => isUnpaidCancel
+      ? [
+          ...deletedItems,
+          ...DeletedItemsLogic.fromCancelledBill(
+            items,
+            cancelReason: cancelNote,
+            staffUsername: staffUsername,
+            staffFullName: staffFullName,
+            timestamp: reportTimeMs,
+          ),
+        ]
+      : deletedItems;
+  int get removedItemsCount => DeletedItemsLogic.summarize(removedItems).count;
+  int get removedItemsAmount => DeletedItemsLogic.summarize(removedItems).amount;
 
   int get deletedItemsCount => DeletedItemsLogic.summarize(deletedItems).count;
   int get deletedItemsAmount => DeletedItemsLogic.summarize(deletedItems).amount;

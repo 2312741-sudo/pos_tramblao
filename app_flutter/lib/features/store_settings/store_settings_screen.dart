@@ -73,7 +73,7 @@ class _StoreSettingsScreenState extends State<StoreSettingsScreen> {
       _applyStoreInfo(info);
     } catch (_) {
       if (!mounted) return;
-      final fallback = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm BLAO');
+      final fallback = _auth.currentStoreInfo ?? StoreInfoModel(storeCode: _auth.currentStoreCode, storeName: 'POS Trạm');
       _applyStoreInfo(fallback);
     }
   }
@@ -129,6 +129,11 @@ class _StoreSettingsScreenState extends State<StoreSettingsScreen> {
   Future<void> _save() async {
     final info = _info;
     if (info == null || !_canEdit) return;
+    if (info.isFallback) {
+      _snack('Chưa tải được cài đặt cửa hàng (mạng chậm). Đang tải lại — lưu sau khi hiện đúng thông tin.', error: true);
+      await _load();
+      return;
+    }
     if (_nameCtrl.text.trim().isEmpty) {
       _snack('Vui lòng nhập tên cửa hàng', error: true);
       return;
@@ -235,7 +240,7 @@ class _StoreSettingsScreenState extends State<StoreSettingsScreen> {
                   if (_example != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text(_example!, style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w700, color: context.tc.primaryDark, fontSize: 13)),
+                      child: Text(_example!, style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w700, color: context.tc.primary, fontSize: 13)),
                     ),
                 ]),
                 _section('Thông tin cửa hàng', LucideIcons.store, [

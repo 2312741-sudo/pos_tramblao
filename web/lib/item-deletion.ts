@@ -303,7 +303,65 @@ export function billDeletedItems(bill: BillLike): DeletedItemEntry[] {
   return parseDeletedItems(bill.deletedItems ?? bill.deletedItemsJson);
 }
 
-/** Báo cáo xóa món từ hóa đơn PAID + CANCELLED */
+/** Lý do ghi cho món trong đơn bị hủy */
+export const CANCEL_BILL_REASON = "Hủy đơn";
+
+function billLines(bill: BillLike): RawOrderLine[] {
+  const raw = bill.items ?? bill.itemsJson;
+  let v: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      v = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  const arr = Array.isArray(v) ? v : v && typeof v === "object" ? Object.values(v as Record<string, unknown>) : [];
+  return arr.filter((x): x is RawOrderLine => !!x && typeof x === "object");
+}
+
+/**
+ * Đơn hủy KHI CHƯA THANH TOÁN (xóa / hủy đơn trên bàn): mã BILL_CANCELLED_… hoặc thành tiền 0đ.
+ * Loại này chỉ tính vào SỐ MÓN HỦY, không tính là "đơn hủy". Hủy hóa đơn ĐÃ thanh toán (giữ finalAmount) mới là đơn hủy.
+ * Khớp BillModel.isUnpaidCancel (Dart).
+ */
+export function isUnpaidCancelledBill(bill: BillLike): boolean {
+  if (String(bill.status || "").toUpperCase() !== "CANCELLED") return false;
+  return String(bill.id ?? "").startsWith("BILL_CANCELLED_") || num(bill.finalAmount) <= 0;
+}
+
+/**
+ * Đơn HỦY (chưa thanh toán): mỗi món còn trong đơn tính như món bị xóa — đơn 5 món bị hủy = xóa/hủy 5 món.
+ * Lý do "Hủy đơn: {lý do hủy}", nhân viên = người hủy, thời điểm = lúc hủy. Đơn khác trạng thái → rỗng.
+ */
+export function billCancelledItems(bill: BillLike): DeletedItemEntry[] {
+  if (!isUnpaidCancelledBill(bill)) return [];
+  const why = String(bill.cancelReason ?? bill.cancellationReason ?? "").trim();
+  const ts = num(bill.cancelledAt) || num(bill.closedAt) || num(bill.timestamp);
+  return billLines(bill).map((line) => {
+    const qty = lineQuantity(line);
+    const pid = line.productId ?? line.id ?? null;
+    return {
+      name: String(line.name ?? ""),
+      productId: pid == null ? null : (pid as number | string),
+      quantity: qty,
+      unitPrice: lineUnitPrice(line),
+      amount: deletedAmountOf(line, qty),
+      reason: why ? `${CANCEL_BILL_REASON}: ${why}` : CANCEL_BILL_REASON,
+      staffUsername: String(bill.staffUsername ?? ""),
+      staffFullName: String(bill.staffFullName ?? bill.staffUsername ?? ""),
+      timestamp: ts,
+      sentToKitchen: line.isSentKitchen === true,
+    };
+  });
+}
+
+/** Món bị xóa + món của đơn bị hủy — dùng cho mọi báo cáo "xóa/hủy món" */
+export function billRemovedItems(bill: BillLike): DeletedItemEntry[] {
+  return [...billDeletedItems(bill), ...billCancelledItems(bill)];
+}
+
+/** Báo cáo xóa/hủy món từ hóa đơn PAID + CANCELLED (món của đơn hủy tính là món bị hủy) */
 export function deletionReportFromBills(bills: BillLike[]): DeletionReport {
   const rows: DeletionRow[] = [];
   const seen = new Set<string>();
@@ -314,7 +372,7 @@ export function deletionReportFromBills(bills: BillLike[]): DeletionReport {
     }
     const status = String(b.status || "PAID").toUpperCase();
     if (status !== "PAID" && status !== "CANCELLED") continue;
-    for (const e of billDeletedItems(b)) {
+    for (const e of billRemovedItems(b)) {
       rows.push({
         ...e,
         tableName: b.tableName || "",

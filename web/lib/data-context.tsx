@@ -1,7 +1,7 @@
 "use client";
 import { resolveStaffUid } from "./staff-key";
 import { normalizeBusinessDayStart, setBusinessDayConfig } from "./business-day";
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { db, auth, functions } from "./firebase";
 import { ref, onValue, set, update, remove, get, push, query, limitToLast } from "firebase/database";
 import { onAuthStateChanged } from "firebase/auth";
@@ -11,7 +11,7 @@ import { deduplicateBills, mergeHistoryAndBills } from "./reports";
 import { generateBillCode } from "./bill-code";
 import { recordShiftSale } from "./cash-shift-run";
 import { parseOrderJson, summarizeOrderLines, type RawOrderLine } from "./order-math";
-import { CLEAR_PRE_PRINT, CLEAR_TABLE_CUSTOMER, buildOrderItemsPayload, prePrintPayload, tableCustomerOf } from "./table-status";
+import { CLEAR_PRE_PRINT, CLEAR_TABLE_CUSTOMER, baseTableName, buildOrderItemsPayload, prePrintPayload, tableCustomerOf } from "./table-status";
 import { errorMessage } from "./errors";
 import { hasPermission, useAuth } from "./auth";
 import { scopeShifts } from "./shift-scope";
@@ -365,7 +365,7 @@ interface DashboardContextType {
     }
   ) => Promise<{ success: boolean; billId?: string; billCode?: string; customerId?: string; error?: string }>;
   saveTable: (
-    tableData: { id?: string; name: string; zone: string; inUse?: boolean },
+    tableData: { id?: string; oldId?: string; name: string; zone: string; inUse?: boolean },
     storeCode?: string
   ) => Promise<{ success: boolean; error?: string }>;
   deleteTable: (tableId: string, storeCode?: string) => Promise<{ success: boolean; error?: string }>;
@@ -391,22 +391,7 @@ interface DashboardContextType {
   /** Đánh dấu bàn đã in phiếu tạm tính (prePrintedAt/prePrintedBy) */
   markTablePrePrinted: (table: TableItem, username?: string) => Promise<{ success: boolean; error?: string }>;
   saveProduct: (
-    productData: {
-      id?: string;
-      name: string;
-      code?: string;
-      price: number;
-      costPrice?: number;
-      unit?: string;
-      category?: string;
-      imageBase64?: string;
-      isTopping?: boolean;
-      sizes?: Record<string, number>;
-      hasIceSugarOptions?: boolean;
-      allowedToppings?: string[];
-      noteGroupIds?: string[] | null;
-      toppingGroupIds?: string[] | null;
-    },
+    productData: { id?: string; name: string; code?: string; price: number; costPrice?: number; unit?: string; category?: string; imageBase64?: string; isTopping?: boolean; noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null },
     storeCode?: string
   ) => Promise<{ success: boolean; error?: string }>;
   deleteProduct: (productId: string, storeCode?: string) => Promise<{ success: boolean; error?: string }>;
@@ -633,8 +618,14 @@ export function sanitizeHistoryOrder(raw: RtdbNode, id: string): HistoryOrder {
   const guestCount = Number(raw.guestCount || 0);
   const cogs = raw.cogs != null ? Number(raw.cogs) : undefined;
 
+  // Bàn tự tách (2 máy cùng thao tác: "Bàn 01 (2)") → báo cáo ghi nhận vào bàn gốc; giữ tên thật ở splitTableName
+  const rawTableName = String(raw.tableName ?? "");
+  const tableName = baseTableName(rawTableName);
+
   return {
     ...raw,
+    tableName,
+    ...(tableName !== rawTableName.trim() ? { splitTableName: rawTableName } : {}),
     id,
     storeCode,
     items,
@@ -660,6 +651,20 @@ export function sanitizeHistoryOrder(raw: RtdbNode, id: string): HistoryOrder {
 export function DashboardDataProvider({ children }: { children: React.ReactNode }) {
   // Người đang đăng nhập — dùng chốt chặn quyền hủy/xóa hóa đơn (CANCEL_BILL) ở tầng xử lý, ngoài UI và rules
   const { user: actingUser } = useAuth();
+  // Người thao tác ghi vào hóa đơn / nhật ký (trước đây luôn là "Quản trị viên Web"). Đọc qua ref để các callback
+  // không phải khai báo thêm phụ thuộc.
+  const actorRef = useRef(actingUser);
+  useEffect(() => {
+    actorRef.current = actingUser;
+  }, [actingUser]);
+  const webActor = useCallback(() => {
+    const u = actorRef.current;
+    return {
+      username: (u?.username || "").trim() || "admin_web",
+      fullName: (u?.fullName || "").trim() || (u?.username || "").trim() || "Quản trị viên Web",
+      role: (u?.roleId || u?.role || "").trim() || "ADMIN",
+    };
+  }, []);
   // Store management state
   // Store management state: hydrat hóa từ sessionStorage để render tức thì 0ms không nháy trắng
   const [stores, setStores] = useState<StoreItem[]>(() => {
@@ -721,12 +726,13 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
               {
                 id: "TRAM01",
                 storeCode: "TRAM01",
-                storeName: "POS Trạm BLAO - Trụ sở 01 (Đà Lạt)",
+                storeName: "POS Trạm - Trụ sở 01 (Đà Lạt)",
                 address: "Số 123 Đường Ba Tháng Tư, Phường 3, TP. Đà Lạt",
                 phone: "0987654321",
                 bankId: "MB",
-                bankAccount: "0987654321",
-                accountName: "CHU CUA HANG TRAM FNB",
+                // Không có tài khoản mặc định: chưa tải được chi nhánh thì không tạo QR bằng tài khoản giả
+                bankAccount: "",
+                accountName: "",
                 defaultVatRate: 0,
                 allowStackPromotions: true,
                 allowStaffViewShiftDifference: true,
@@ -763,13 +769,13 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
       list.push({
         id: code,
         storeCode: code,
-        storeName: info.storeName || `POS Trạm BLAO (${code})`,
+        storeName: info.storeName || `POS Trạm (${code})`,
         address: info.address || "",
         phone: info.phone || "",
         wifiName: info.wifiName || "",
         bankId: info.bankId || "MB",
         bankAccount: info.bankAccount || "",
-        accountName: info.accountName || "CHU QUAN FNB",
+        accountName: info.accountName || "",
         defaultVatRate: (info.defaultVatRate === 8 || info.defaultVatRate === "8") ? 0 : (typeof info.defaultVatRate === "number" ? info.defaultVatRate : 0),
         allowStackPromotions: info.allowStackPromotions ?? true,
         allowStaffViewShiftDifference: info.allowStaffViewShiftDifference ?? true,
@@ -1082,7 +1088,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
             const extra: StoreItem[] = missing.map((c) => ({
               id: c,
               storeCode: c,
-              storeName: `POS Trạm BLAO (${c})`,
+              storeName: `POS Trạm (${c})`,
               address: "",
               phone: "",
               bankId: "MB",
@@ -1286,10 +1292,27 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
   // Store Management Actions
   const createStore = useCallback(async (storeData: Partial<StoreItem>, copyMenuFrom?: string) => {
-    return {
-      success: false,
-      error: "Tính năng tạo chi nhánh mới đang tạm khóa. Vui lòng liên hệ quản trị viên: Nguyễn Thanh Tâm (Hotline/Zalo: 0865.062.205, Email: nthanhtam.402@gmail.com) để được hỗ trợ khởi tạo chi nhánh.",
-    };
+    try {
+      // Tạo chi nhánh qua Cloud Function (máy chủ ghi storeInfo/khu/bàn/userIndex/hồ sơ chủ quán + nhật ký
+      // trong MỘT lần ghi; client không ghi trực tiếp vì rules chặn chi nhánh chưa có quyền).
+      const payload = buildCreateStorePayload(storeData);
+      if (!payload.storeCode) return { success: false, error: "Mã chi nhánh không được để trống và chỉ gồm chữ cái, số." };
+      await httpsCallable<CreateStorePayload, { success: boolean; storeCode: string }>(functions, "createStore")(payload);
+      const cleanCode = payload.storeCode;
+
+      // Sao chép thực đơn từ chi nhánh khác (cùng thư viện với màn Thực đơn → Sao chép thực đơn).
+      // Chạy sau khi máy chủ trả về: chủ quán đã có quyền ghi trên chi nhánh mới.
+      if (copyMenuFrom) {
+        const copied = await copyWholeMenu(db, copyMenuFrom.trim().toUpperCase(), cleanCode, { username: "admin", role: "MANAGER" });
+        if (!copied.ok) {
+          return { success: false, error: `Đã tạo chi nhánh nhưng sao chép thực đơn lỗi: ${copied.error}` };
+        }
+      }
+
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: errorMessage(e) || "Lỗi khi tạo chi nhánh mới." };
+    }
   }, []);
 
   const updateStore = useCallback(async (storeCode: string, data: Partial<StoreItem>) => {
@@ -1460,7 +1483,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const targetStore = stores.find((s) => s.storeCode === targetStoreCode) || currentStore;
         const storeName =
           targetStore?.storeName ||
-          `POS Trạm BLAO - Chi nhánh ${targetStoreCode}`;
+          `POS Trạm - Chi nhánh ${targetStoreCode}`;
 
         const items = parseOrderJson(table.currentOrderJson);
         if (items.length === 0) {
@@ -1487,7 +1510,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
           redeemRate,
         });
         const paymentMethod = options?.paymentMethod || "CASH";
-        const cashierName = options?.staffName || "Quản trị viên Web";
+        const cashierName = options?.staffName || webActor().fullName;
         const now = Date.now();
         // Mã hóa đơn tuần tự HD-yyMMdd-NNNN dùng chung bộ đếm với Flutter POS
         const billCode =
@@ -1499,7 +1522,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const actionLogs = parseActionLogs(table);
         actionLogs.push({
           timestamp: now,
-          staffUsername: "admin_web",
+          staffUsername: webActor().username,
           staffFullName: cashierName,
           action: "PAY_BILL",
           details: `Thanh toán hóa đơn ${billCode} bàn ${table.name}: ${new Intl.NumberFormat("vi-VN").format(finalAmount)}đ (${paymentMethod === "CASH" ? "Tiền mặt" : "Chuyển khoản VietQR"}) qua Web Admin`,
@@ -1539,7 +1562,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
             : now,
           closedAt: now,
           cashierName: cashierName,
-          staffUsername: "admin_web",
+          staffUsername: webActor().username,
           staffFullName: cashierName,
           orderStaff: table.orderStaff || "POS Staff",
           items: items as unknown as OrderItem[],
@@ -1556,9 +1579,9 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
         const auditPayload = {
           timestamp: now,
-          username: "admin_web",
+          username: webActor().username,
           userFullName: cashierName,
-          userRole: "ADMIN",
+          userRole: webActor().role,
           action: "PAY_BILL",
           targetType: "BILL",
           targetId: billCode,
@@ -1583,7 +1606,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         if (promotions.length > 0) {
           reservedStore = targetStoreCode;
           reservations = await reserveAllPromotions(db, targetStoreCode, promotions, billId, {
-            username: "admin_web",
+            username: webActor().username,
             staffName: cashierName,
             billCode,
             tableName: table.name,
@@ -1637,7 +1660,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         return { success: false, error: errorMessage(e, "Lỗi khi thanh toán trả bàn") };
       }
     },
-    [currentStoreCode, stores, currentStore, buildCloseTableUpdates, applyClosedTableLocally, readTableDeletedItems, actingUser]
+    [currentStoreCode, stores, currentStore, buildCloseTableUpdates, applyClosedTableLocally, readTableDeletedItems, actingUser, webActor]
   );
 
   const cancelActiveTable = useCallback(
@@ -1650,12 +1673,12 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const targetStoreCode =
           table.storeCode || resolveWriteStoreCode(currentStoreCode);
         const storeObj = stores.find((s) => s.storeCode === targetStoreCode) || currentStore;
-        const storeName = storeObj ? storeObj.storeName : "POS Trạm BLAO - Chi nhánh " + targetStoreCode;
+        const storeName = storeObj ? storeObj.storeName : "POS Trạm - Chi nhánh " + targetStoreCode;
 
         const items = parseOrderJson(table.currentOrderJson);
         const { subTotal: totalAmount } = summarizeOrderLines(items);
 
-        const cancellerName = staffName || "Quản trị viên Web";
+        const cancellerName = staffName || webActor().fullName;
         const now = Date.now();
         const billCode =
           table.currentBillId && table.currentBillId.startsWith("HD-")
@@ -1667,7 +1690,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const actionLogs = parseActionLogs(table);
         actionLogs.push({
           timestamp: now,
-          staffUsername: "admin_web",
+          staffUsername: webActor().username,
           staffFullName: cancellerName,
           action: "CANCEL_BILL",
           details: `${cancellerName} hủy đơn bàn ${table.name}. Lý do: ${reason}`,
@@ -1701,7 +1724,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
             : now,
           closedAt: now,
           cashierName: cancellerName,
-          staffUsername: "admin_web",
+          staffUsername: webActor().username,
           staffFullName: cancellerName,
           orderStaff: table.orderStaff || "POS Staff",
           items: items as unknown as OrderItem[],
@@ -1718,9 +1741,9 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
         const auditPayload = {
           timestamp: now,
-          username: "admin_web",
+          username: webActor().username,
           userFullName: cancellerName,
-          userRole: "ADMIN",
+          userRole: webActor().role,
           action: "CANCEL_BILL",
           targetType: "BILL",
           targetId: billCode,
@@ -1753,7 +1776,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         return { success: false, error: errorMessage(e, "Lỗi khi hủy đơn bàn") };
       }
     },
-    [currentStoreCode, stores, currentStore, buildCloseTableUpdates, applyClosedTableLocally, readTableDeletedItems]
+    [currentStoreCode, stores, currentStore, buildCloseTableUpdates, applyClosedTableLocally, readTableDeletedItems, webActor]
   );
 
   const updateTableOrderItems = useCallback(
@@ -1777,8 +1800,8 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         if (!payload) return { success: true };
 
         const now = Date.now();
-        const staffUsername = log.staffUsername || "admin_web";
-        const staffFullName = log.staffFullName || "Quản trị viên Web";
+        const staffUsername = log.staffUsername || webActor().username;
+        const staffFullName = log.staffFullName || webActor().fullName;
         const actionLogs = parseActionLogs(table);
         const suffix = approvalSuffix(log.approval);
         actionLogs.push({ timestamp: now, staffUsername, staffFullName, action: log.action, details: `${log.details}${suffix}` });
@@ -1822,7 +1845,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         return { success: false, error: errorMessage(e, "Lỗi cập nhật món của bàn") };
       }
     },
-    [currentStoreCode, buildTableFieldUpdates]
+    [currentStoreCode, buildTableFieldUpdates, webActor]
   );
 
   const submitWebOrder = useCallback(
@@ -1945,20 +1968,62 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
   const saveTable = useCallback(
     async (
-      tableData: { id?: string; name: string; zone: string; inUse?: boolean },
+      tableData: { id?: string; oldId?: string; name: string; zone: string; inUse?: boolean },
       storeCode?: string
     ) => {
       try {
         const targetCode = storeCode || resolveWriteStoreCode(currentStoreCode);
-        const key = tableData.id || `${tableData.zone}_${tableData.name}`;
-        const payload = {
-          name: tableData.name,
-          zone: tableData.zone,
-          inUse: tableData.inUse ?? false,
-          currentOrderJson: "",
-        };
-        await set(ref(db, `stores/${targetCode}/tables/${key}`), payload);
-        return { success: true };
+        const name = tableData.name.trim();
+        const zone = tableData.zone.trim() || "Khu A";
+        const newKey = `${zone}_${name}`;
+        const oldKey = tableData.oldId || (tableData.id && tableData.id !== newKey ? tableData.id : null);
+
+        if (oldKey && oldKey !== newKey) {
+          // Đang đổi tên hoặc đổi khu vực của bàn
+          const newSnap = await get(ref(db, `stores/${targetCode}/tables/${newKey}`));
+          if (newSnap.exists()) {
+            return { success: false, error: `Bàn "${name}" trong khu "${zone}" đã tồn tại!` };
+          }
+          const oldSnap = await get(ref(db, `stores/${targetCode}/tables/${oldKey}`));
+          const oldVal = oldSnap.exists() ? (oldSnap.val() as Record<string, unknown>) : {};
+          const payload = {
+            ...oldVal,
+            name,
+            zone,
+            inUse: oldVal.inUse ?? tableData.inUse ?? false,
+            currentOrderJson: oldVal.currentOrderJson ?? "",
+          };
+
+          const updates: Record<string, unknown> = {};
+          updates[`stores/${targetCode}/tables/${newKey}`] = payload;
+          updates[`stores/${targetCode}/tables/${oldKey}`] = null;
+          await update(ref(db), updates);
+          return { success: true };
+        } else if (oldKey) {
+          // Cập nhật bàn đã có (không đổi khóa bàn)
+          await update(ref(db, `stores/${targetCode}/tables/${newKey}`), {
+            name,
+            zone,
+          });
+          return { success: true };
+        } else {
+          // Tạo mới bàn
+          const newSnap = await get(ref(db, `stores/${targetCode}/tables/${newKey}`));
+          if (newSnap.exists()) {
+            return { success: false, error: `Bàn "${name}" trong khu "${zone}" đã tồn tại!` };
+          }
+          const payload = {
+            name,
+            zone,
+            inUse: false,
+            currentOrderJson: "",
+            capacity: 4,
+            isReserved: false,
+            reservationDeposit: 0,
+          };
+          await set(ref(db, `stores/${targetCode}/tables/${newKey}`), payload);
+          return { success: true };
+        }
       } catch (e) {
         return { success: false, error: errorMessage(e) || "Lỗi lưu bàn" };
       }
@@ -1981,22 +2046,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
   const saveProduct = useCallback(
     async (
-      productData: {
-        id?: string;
-        name: string;
-        code?: string;
-        price: number;
-        costPrice?: number;
-        unit?: string;
-        category?: string;
-        imageBase64?: string;
-        isTopping?: boolean;
-        sizes?: Record<string, number>;
-        hasIceSugarOptions?: boolean;
-        allowedToppings?: string[];
-        noteGroupIds?: string[] | null;
-        toppingGroupIds?: string[] | null;
-      },
+      productData: { id?: string; name: string; code?: string; price: number; costPrice?: number; unit?: string; category?: string; imageBase64?: string; isTopping?: boolean; noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null },
       storeCode?: string
     ) => {
       try {
@@ -2010,9 +2060,6 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
           category: (productData.category || "").trim(),
           isTopping: Boolean(productData.isTopping),
         };
-        if (productData.sizes !== undefined) payload.sizes = productData.sizes;
-        if (productData.hasIceSugarOptions !== undefined) payload.hasIceSugarOptions = Boolean(productData.hasIceSugarOptions);
-        if (productData.allowedToppings !== undefined) payload.allowedToppings = productData.allowedToppings;
         // Gắn danh mục note/topping: undefined = không đụng; null = xóa trường (kế thừa nhóm món); mảng rỗng = "không có"
         if (productData.noteGroupIds !== undefined) payload.noteGroupIds = encodeGroupIds(productData.noteGroupIds);
         if (productData.toppingGroupIds !== undefined) payload.toppingGroupIds = encodeGroupIds(productData.toppingGroupIds);
@@ -2190,9 +2237,9 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
         const auditPayload = {
           timestamp: now,
-          username: "admin_web",
-          userFullName: "Quản trị viên Web",
-          userRole: "ADMIN",
+          username: webActor().username,
+          userFullName: webActor().fullName,
+          userRole: webActor().role,
           action: "SAVE_USER",
           targetType: "USER",
           targetId: cleanUsername,
@@ -2224,7 +2271,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         return { success: false, error: errorMessage(e) || "Lỗi lưu thông tin nhân viên" };
       }
     },
-    [currentStoreCode, stores]
+    [currentStoreCode, stores, webActor]
   );
 
   const deleteUser = useCallback(
@@ -2247,9 +2294,9 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
         const auditPayload = {
           timestamp: now,
-          username: "admin_web",
-          userFullName: "Quản trị viên Web",
-          userRole: "ADMIN",
+          username: webActor().username,
+          userFullName: webActor().fullName,
+          userRole: webActor().role,
           action: "DELETE_USER",
           targetType: "USER",
           targetId: cleanUsername,
@@ -2274,7 +2321,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         return { success: false, error: errorMessage(e) || "Lỗi xóa nhân viên" };
       }
     },
-    [stores, currentStoreCode]
+    [stores, currentStoreCode, webActor]
   );
 
   const cancelOrder = useCallback(
@@ -2295,9 +2342,9 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
         const cancelLog = {
           timestamp: now,
-          staffFullName: "Quản trị viên Web",
+          staffFullName: webActor().fullName,
           action: "CANCEL_BILL",
-          details: `Quản trị viên Web hủy hóa đơn ${order.billCode || order.orderCode || orderId}. Lý do: ${reason}`,
+          details: `${webActor().fullName} hủy hóa đơn ${order.billCode || order.orderCode || orderId}. Lý do: ${reason}`,
         };
 
         const updatedLogs = [...(order.actionLogs || []), cancelLog];
@@ -2307,7 +2354,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
           cancelReason: reason,
           cancelledAt: now,
           closedAt: now,
-          cancelledBy: "Quản trị viên Web",
+          cancelledBy: webActor().fullName,
           actionLogs: updatedLogs,
           actionLogsJson: JSON.stringify(updatedLogs),
         };
@@ -2316,9 +2363,9 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
         const auditPayload = {
           timestamp: now,
-          username: "admin_web",
-          userFullName: "Quản trị viên Web",
-          userRole: "ADMIN",
+          username: webActor().username,
+          userFullName: webActor().fullName,
+          userRole: webActor().role,
           action: "CANCEL_BILL",
           targetType: "BILL",
           targetId: order.billCode || order.orderCode || orderId,
@@ -2357,7 +2404,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         return { success: false, error: errorMessage(e) || "Lỗi khi hủy hóa đơn" };
       }
     },
-    [allHistory, currentStoreCode, actingUser]
+    [allHistory, currentStoreCode, actingUser, webActor]
   );
 
   const deleteOrder = useCallback(
@@ -2377,9 +2424,9 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const logId = `log_${now}_${Math.floor(Math.random() * 1000)}`;
         const auditPayload = {
           timestamp: now,
-          username: "admin_web",
-          userFullName: "Quản trị viên Web",
-          userRole: "ADMIN",
+          username: webActor().username,
+          userFullName: webActor().fullName,
+          userRole: webActor().role,
           action: "DELETE_BILL",
           targetType: "BILL",
           targetId: order?.billCode || order?.orderCode || orderId,
@@ -2402,7 +2449,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         return { success: false, error: errorMessage(e) || "Lỗi khi xóa hóa đơn" };
       }
     },
-    [allHistory, currentStoreCode, actingUser]
+    [allHistory, currentStoreCode, actingUser, webActor]
   );
 
   const refreshAll = useCallback(() => {
