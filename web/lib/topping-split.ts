@@ -10,6 +10,7 @@
  *  - Giảm giá cả dòng chia theo tỉ lệ tiền giữa món gốc và các topping (tổng không đổi).
  */
 import { itemLineDiscount, type OrderItem } from "./reports";
+import { lineProductId } from "./product-code";
 
 export interface ToppingLookup {
   id?: string | number;
@@ -113,7 +114,7 @@ export function splitLineParts(
       : num(it.costPrice) * qty;
   const parts: LinePart[] = [{
     isTopping: false,
-    key: String(it.productId ?? it.name ?? "0"),
+    key: lineProductId(it.productId) != null ? String(lineProductId(it.productId)) : `name:${(it.name || "").trim().toLowerCase()}`,
     name: it.name || "",
     productId: it.productId,
     code: "",

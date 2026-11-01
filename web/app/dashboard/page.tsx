@@ -32,6 +32,7 @@ import { nowMs } from "@/lib/kitchen";
 import { useDashboardData } from "@/lib/data-context";
 import { buildToppingLookup, splitLineParts } from "@/lib/topping-split";
 import { parseOrderJson, summarizeOrderLines } from "@/lib/order-math";
+import { lineProductId } from "@/lib/product-code";
 
 // Tooltip biểu đồ — khai báo ngoài component để không bị tạo lại mỗi lần render
 interface ChartTooltipProps {
@@ -116,7 +117,7 @@ export default function DashboardPage() {
       order.items.forEach((item) => {
         // Topping đếm riêng, không cộng vào món gốc
         for (const part of splitLineParts(item, toppingLookup)) {
-          const key = part.isTopping ? part.key : String(item.productId || item.name);
+          const key = part.isTopping ? part.key : String(lineProductId(item.productId) ?? item.name);
           if (!productCountMap[key]) {
             productCountMap[key] = { name: part.name, count: 0, total: 0 };
           }

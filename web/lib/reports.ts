@@ -1,5 +1,5 @@
 import { buildToppingLookup, splitLineParts } from "./topping-split";
-import { resolveProductCode } from "./product-code";
+import { lineProductId, resolveProductCode } from "./product-code";
 import { businessDateOf, businessDayStartFor } from "./business-day";
 /**
  * POS Trạm - Core Financial & Analytical Reports Engine
@@ -967,7 +967,7 @@ export function calculateCategoryReport(
       for (const part of splitLineParts(it, lookupTopping)) {
         let category = part.category.trim();
         if (!part.isTopping && !category && productsMap) {
-          const prod = productsMap[it.productId || it.name];
+          const prod = productsMap[lineProductId(it.productId) ?? it.name ?? ""];
           if (prod) category = (prod.category || "").trim();
         }
         if (!category) category = "Khác";
@@ -1058,8 +1058,10 @@ export function calculateProductReport(
           unit = part.unit;
           category = part.category;
         } else {
-          pId = it.productId != null ? it.productId : (it.name || "0");
-          key = String(pId);
+          // productId 0/rỗng (món tạo trên app không có id số) → gộp theo tên, không dồn chung một dòng
+          const validId = lineProductId(it.productId);
+          pId = validId != null ? validId : (it.name || "0");
+          key = validId != null ? String(validId) : `name:${(it.name || "").trim().toLowerCase()}`;
           pCode = resolveProductCode({ productId: it.productId, name: it.name, productCode: it.productCode, code: it.code }, productsMap);
           basePrice = Number(it.price || 0);
           unit = it.unit || "Ly";
@@ -1365,7 +1367,7 @@ export function calculatePromotionsReport(
         itemDiscountAmount += totalItDisc;
         totalDiscountAmount += totalItDisc;
 
-        const key = String(it.productId || it.name);
+        const key = String(lineProductId(it.productId) ?? it.name);
         if (!itemDiscountDetails.has(key)) {
           itemDiscountDetails.set(key, {
             productId: it.productId,

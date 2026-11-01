@@ -513,3 +513,21 @@ describe("Đơn hủy thuộc NGÀY HỦY (đặc tả 3.4) - 3 hóa đơn thậ
     expect(deduplicateBills([open, canc])[0].status).toBe("CANCELLED");
   });
 });
+
+import { calculateProductReport as __cpr } from "../lib/reports";
+describe("hàng hoá bán ra: dòng món productId = 0 (món tạo trên app)", () => {
+  it("không dồn mọi món vào một dòng — gộp theo tên khi thiếu id", () => {
+    const bills = [
+      { id: "b1", status: "PAID", closedAt: 1, items: [
+        { productId: 0, name: "Bánh Flan Vỏ Chanh", price: 29000, quantity: 2 },
+        { productId: 0, name: "Trà ô long chanh", price: 35000, quantity: 3 },
+        { productId: "", name: "Nước suối", price: 10000, quantity: 1 },
+      ] },
+      { id: "b2", status: "PAID", closedAt: 2, items: [{ productId: 0, name: "Trà ô long chanh", price: 35000, quantity: 1 }] },
+    ] as never;
+    const rows = __cpr(bills);
+    const by = Object.fromEntries(rows.map((r) => [r.productName, r.quantity]));
+    expect(rows).toHaveLength(3);
+    expect(by).toEqual({ "Bánh Flan Vỏ Chanh": 2, "Trà ô long chanh": 4, "Nước suối": 1 });
+  });
+});

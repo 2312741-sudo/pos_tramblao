@@ -4,6 +4,19 @@
  * sau đó mới dùng mã chụp sẵn trên dòng hóa đơn (hóa đơn cũ có thể trống hoặc lỗi thời).
  * Bản Dart song song: ReportCalculator.resolveProductCode (app_flutter/lib/core/reports/report_calculator.dart).
  */
+/**
+ * Id món hợp lệ trên dòng hóa đơn, hoặc undefined khi thiếu / rỗng / 0.
+ * App POS ghi productId = 0 cho món không có id số → KHÔNG được gộp các món đó theo id (sẽ dồn mọi món
+ * vào một dòng mang tên món đầu tiên); phải lùi về gộp theo tên như ReportCalculator bên Dart (prodId > 0 ? id : name).
+ */
+export function lineProductId(v: unknown): string | number | undefined {
+  if (v == null) return undefined;
+  if (typeof v === "number") return Number.isFinite(v) && v !== 0 ? v : undefined;
+  const s = String(v).trim();
+  if (!s || s === "0" || s === "null" || s === "undefined") return undefined;
+  return v as string;
+}
+
 export interface CodeSource {
   code?: string;
   productCode?: string;
@@ -23,8 +36,9 @@ const codeOf = (p?: CodeSource): string => String(p?.code || p?.productCode || "
 
 export function resolveProductCode(line: CodeLine, map?: ProductCodeMap): string {
   if (map) {
-    if (line.productId != null) {
-      const byId = codeOf(map[line.productId]);
+    const pid = lineProductId(line.productId);
+    if (pid != null) {
+      const byId = codeOf(map[pid]);
       if (byId) return byId;
     }
     if (line.name) {

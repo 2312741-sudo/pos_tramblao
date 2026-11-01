@@ -10,7 +10,7 @@ import {
   getUTC7Date,
   getBusinessBillTimestamp,
 } from "@/lib/reports";
-import { buildProductCodeMap } from "@/lib/product-code";
+import { buildProductCodeMap, lineProductId } from "@/lib/product-code";
 import { buildToppingLookup } from "@/lib/topping-split";
 import { soldItemRows } from "@/lib/staff-sales-report";
 import type { ProductReportItem } from "@/lib/reports";
@@ -326,7 +326,7 @@ export default function EndOfDayReportPage() {
       items.forEach((it) => {
         const name = (it.name || it.productName || "").trim();
         if (!name) return;
-        const pid = it.productId != null ? it.productId : it.id;
+        const pid = lineProductId(it.productId) ?? lineProductId(it.id);
         const code = (pid != null && (productsMap[pid]?.code || (productsMap[pid] as { productCode?: string })?.productCode)) ||
                      (productsMap[name]?.code || (productsMap[name] as { productCode?: string })?.productCode) || "";
         const price = Number(it.price || 0);
