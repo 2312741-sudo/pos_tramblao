@@ -533,7 +533,7 @@ function parseActionLogs(table: TableItem): OrderActionLog[] {
   return [];
 }
 
-function sanitizeHistoryOrder(raw: RtdbNode, id: string): HistoryOrder {
+export function sanitizeHistoryOrder(raw: RtdbNode, id: string): HistoryOrder {
   const mapItem = (it: RtdbNode): OrderItem => {
     // Bỏ ảnh base64 (nặng) khỏi dòng món lịch sử
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

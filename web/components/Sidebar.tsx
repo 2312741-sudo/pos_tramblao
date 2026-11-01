@@ -35,6 +35,7 @@ import {
   Info,
   Settings,
   Timer,
+  Scale,
 } from "lucide-react";
 
 const navItems = [
@@ -56,6 +57,7 @@ const navItems = [
   { href: "/dashboard/products", label: "Thực đơn & Sản phẩm", icon: Package },
   { href: "/dashboard/note-catalog", label: "Danh mục note & topping", icon: StickyNote },
   { href: "/dashboard/inventory", label: "Kho hàng & NVL", icon: Warehouse },
+  { href: "/dashboard/daily-stock", label: "Kiểm hàng đầu/cuối ngày", icon: Scale },
   { href: "/dashboard/promotions", label: "Khuyến mãi & Voucher", icon: Tag },
   { href: "/dashboard/reports/promotions", label: "Báo cáo khuyến mãi", icon: BadgePercent },
   { href: "/dashboard/reports/loyalty", label: "Lịch sử điểm khách", icon: History },

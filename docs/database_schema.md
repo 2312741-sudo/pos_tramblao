@@ -209,3 +209,28 @@ Cửa hàng hoạt động qua 0h đặt giá trị này (vd. `240` = 04:00): h�
 - Cách tính: lùi mốc thời gian hóa đơn đi N phút rồi dùng lại logic "ngày theo giờ Việt Nam". Web: `web/lib/business-day.ts` (`getBusinessBillTimestamp` trong `reports.ts`); Flutter: `core/domain/business_day.dart` (`BillModel.businessTimeMs`, `ReportDateUtils.billDateTime`).
 - Chỉnh ở: Web `Cài đặt cửa hàng` (`/dashboard/settings`), App `Cài đặt cửa hàng` (`/store-settings`) — quyền `MANAGE_STORE_SETTINGS`.
 - Ca làm việc (`cash_shifts`) KHÔNG đổi: ca vẫn theo giờ mở/chốt thực của từng tài khoản.
+
+## 2.13 Kiểm hàng đầu / cuối ngày (`/stores/{storeCode}/daily_stock_counts/{YYYY-MM-DD}`)
+
+Web: `Kiểm hàng đầu/cuối ngày` (`/dashboard/daily-stock`, logic `web/lib/daily-stock.ts`). Khóa ngày = **ngày kinh doanh** (xem 2.12).
+
+```json
+{
+  "date": "2026-11-01",
+  "lines": {
+    "{productId đã thay . # $ / [ ] bằng _}": {
+      "productId": "p1", "name": "Trà ô long chanh", "unit": "Ly", "category": "Trà",
+      "opening": 20, "received": 10, "closing": 24
+    }
+  },
+  "openingSavedAt": 1793000000000, "openingSavedBy": "uid", "openingSavedByName": "Nguyễn A",
+  "closingSavedAt": 1793040000000, "closingSavedBy": "uid", "closingSavedByName": "Trần B",
+  "updatedAt": 1793040000000, "updatedBy": "uid", "updatedByName": "Trần B",
+  "locked": true, "lockedAt": 1793041000000, "lockedBy": "uid", "lockedByName": "Quản lý C"
+}
+```
+
+- Xuất theo kiểm đếm = `opening + received − closing`; Bán theo hệ thống = số lượng trên hóa đơn **PAID** của ngày (topping tách dòng như báo cáo Hàng hoá bán ra).
+- Chênh lệch = Xuất kiểm đếm − Bán hệ thống: dương = thiếu hàng, âm = dư hàng (có dung sai tùy chọn trên giao diện).
+- Rules: thành viên đang hoạt động của cửa hàng đọc/ghi khi phiếu **chưa chốt**; chốt (`locked = true`), sửa phiếu đã chốt và xóa phiếu chỉ Chủ quán / Quản lý.
+- Truy cập trang: `VIEW_INVENTORY` hoặc `VIEW_REPORTS` hoặc `MANAGE_CASH_SHIFT` (nhân viên giữ ca nhập số đếm).

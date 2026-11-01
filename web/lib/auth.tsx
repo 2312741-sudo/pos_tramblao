@@ -228,6 +228,10 @@ export function canAccessRoute(user: User | null, pathname: string): boolean {
   if (pathname.startsWith("/dashboard/inventory") || pathname.startsWith("/dashboard/reports/inventory")) {
     return hasPermission(user, "VIEW_INVENTORY");
   }
+  if (pathname.startsWith("/dashboard/daily-stock")) {
+    // Kiểm hàng đầu/cuối ngày: nhân viên giữ ca nhập số đếm; Chủ/Quản lý xem đối chiếu & chốt phiếu
+    return hasPermission(user, "VIEW_INVENTORY") || hasPermission(user, "VIEW_REPORTS") || hasPermission(user, "MANAGE_CASH_SHIFT");
+  }
   if (pathname.startsWith("/dashboard/promotions")) {
     return hasPermission(user, "MANAGE_PROMOTIONS");
   }
