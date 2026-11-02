@@ -37,6 +37,47 @@ class ReportCalculator {
     return map.values.toList();
   }
 
+  /// Lọc hóa đơn theo Ca và Nhân viên cho Trung tâm báo cáo.
+  /// Với báo cáo khuyến mãi / combo (cashierOnly = true): chỉ lấy đơn nhân viên đó là thu ngân (người áp khuyến mãi),
+  /// tránh việc đơn do người khác thu tiền mà nhân viên này chỉ order giúp 1 món bị tính vào combo của nhân viên khi lọc Tất cả các ca.
+  static List<BillModel> filterHubBills(
+    List<BillModel> bills, {
+    String shiftId = 'ALL',
+    String staff = 'ALL',
+    bool cashierOnly = false,
+    Iterable<String>? staffAliases,
+  }) {
+    final targets = <String>{};
+    if (staff != 'ALL') {
+      targets.add(staff);
+      targets.add(staff.toLowerCase());
+    }
+    if (staffAliases != null) {
+      for (final a in staffAliases) {
+        if (a.trim().isNotEmpty) {
+          targets.add(a.trim());
+          targets.add(a.trim().toLowerCase());
+        }
+      }
+    }
+
+    return bills.where((b) {
+      if (shiftId != 'ALL' && b.shiftId != shiftId) return false;
+      if (staff != 'ALL') {
+        final matchesCashier = targets.contains(b.staffUsername) ||
+            targets.contains(b.staffUsername.toLowerCase()) ||
+            targets.contains(b.staffFullName);
+        if (cashierOnly) return matchesCashier;
+        final matchesOrder = b.items.any((it) =>
+            targets.contains(it.orderedBy) ||
+            targets.contains((it.orderedBy ?? '').toLowerCase()) ||
+            targets.contains(it.orderedByName));
+        if (!matchesCashier && !matchesOrder) return false;
+      }
+      return true;
+    }).toList();
+  }
+
   static Map<String, Map<dynamic, dynamic>> _extractRawBillMap(Object? raw) {
     final result = <String, Map<dynamic, dynamic>>{};
     if (raw is Map) {
