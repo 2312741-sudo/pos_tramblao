@@ -64,6 +64,9 @@ class BillModel {
   String paymentMethod; // 'CASH', 'TRANSFER_QR', 'CARD', 'SPLIT'
   List<PaymentSplitModel>? paymentSplits; // Thanh toán hỗn hợp (VD: Tiền mặt + Chuyển khoản QR)
   String notes;
+  /// Phần chuyển khoản được xác nhận thế nào: 'BANK' (Trạm Bot khớp giao dịch ngân hàng) /
+  /// 'MANUAL' (nhân viên tự xác nhận — cần đối soát sao kê). null: không có chuyển khoản / dữ liệu cũ.
+  String? qrConfirmedBy;
   final String? parentBillId; // If split
   final List<String>? mergedTableNames;
   int pointsUsed;
@@ -75,6 +78,8 @@ class BillModel {
   List<OrderActionLogModel> actionLogs;
   /// Món đã lưu bị xóa trước khi chốt đơn (ghi cả với HĐ PAID và CANCELLED).
   List<DeletedItemEntry> deletedItems;
+  /// Số khách ghi trên hóa đơn (lấy từ số khách của bàn lúc thanh toán). Hóa đơn cũ không có → 1.
+  int guests;
   /// Lý do hủy đơn (cancelReason / cancellationReason) — dùng cho báo cáo xóa/hủy món
   String cancelNote;
 
@@ -102,6 +107,7 @@ class BillModel {
     this.paymentMethod = 'CASH',
     this.paymentSplits,
     this.notes = '',
+    this.qrConfirmedBy,
     this.parentBillId,
     this.mergedTableNames,
     this.pointsUsed = 0,
@@ -113,6 +119,7 @@ class BillModel {
     this.actionLogs = const [],
     this.deletedItems = const [],
     this.cancelNote = '',
+    this.guests = 1,
   });
 
   static int? _asInt(Object? v) {
@@ -308,6 +315,7 @@ class BillModel {
       paymentMethod: map['paymentMethod']?.toString() ?? 'CASH',
       paymentSplits: splits,
       notes: map['notes']?.toString() ?? map['note']?.toString() ?? '',
+      qrConfirmedBy: (map['qrConfirmedBy']?.toString().isNotEmpty ?? false) ? map['qrConfirmedBy'].toString() : null,
       parentBillId: parentBillId,
       mergedTableNames: merged,
       pointsUsed: _asInt(map['pointsUsed']) ?? 0,
@@ -319,6 +327,7 @@ class BillModel {
       actionLogs: actionLogs,
       deletedItems: DeletedItemsLogic.decode(map['deletedItems'] ?? map['deletedItemsJson']),
       cancelNote: (map['cancelReason'] ?? map['cancellationReason'])?.toString() ?? '',
+      guests: (_asInt(map['guestCount']) ?? 0) > 0 ? _asInt(map['guestCount'])! : 1,
     );
   }
 
@@ -387,6 +396,54 @@ class BillModel {
   /// Tổng giảm giá theo món (lineDiscountTotal) của hóa đơn.
   int get itemDiscountTotal => items.fold(0, (s, i) => s + i.lineDiscountTotal);
 
+  static const _itemLevelCampaigns = {'BUYXGETY', 'ORDERVALUEITEMBENEFIT', 'ITEMPRICERULE'};
+
+  /// Khuyến mãi THEO MÓN trong discounts (combo / mua X tặng Y, tặng-giảm món theo giá trị đơn, đồng giá) —
+  /// báo cáo xếp vào giảm giá MÓN. Khớp billPromoItemDiscount (web).
+  int get promoItemDiscount => discounts.fold(0, (s, d) {
+        final t = (d.campaignType ?? '').toUpperCase().replaceAll('_', '');
+        return _itemLevelCampaigns.contains(t) && d.amount > 0 ? s + d.amount : s;
+      });
+
+  /// Quy phương thức thanh toán về 'CASH' / 'TRANSFER_QR' / 'CARD' (khớp paymentBucket bên web)
+  static String paymentBucket(String method) {
+    final m = method.toUpperCase();
+    if (m.contains('TRANSFER') || m.contains('QR') || m.contains('CHUYỂN')) return 'TRANSFER_QR';
+    if (m.contains('CARD') || m.contains('THẺ')) return 'CARD';
+    return 'CASH';
+  }
+
+  /// Tiền THỰC THU chia theo phương thức. Hóa đơn hỗn hợp (tiền mặt + QR) chia theo paymentSplits —
+  /// trước đây báo cáo bỏ hẳn loại hóa đơn này khỏi cả dòng tiền mặt lẫn QR. Khớp billPaymentPortions (web).
+  Map<String, int> get paymentPortions {
+    final out = {'CASH': 0, 'TRANSFER_QR': 0, 'CARD': 0};
+    final splits = (paymentSplits ?? const <PaymentSplitModel>[]).where((sp) => sp.amount > 0).toList();
+    if (splits.isNotEmpty) {
+      for (final sp in splits) {
+        final k = paymentBucket(sp.method);
+        out[k] = out[k]! + sp.amount;
+      }
+      final diff = finalAmount - (out['CASH']! + out['TRANSFER_QR']! + out['CARD']!);
+      if (diff != 0) out['CASH'] = (out['CASH']! + diff) < 0 ? 0 : out['CASH']! + diff;
+      return out;
+    }
+    final k = paymentBucket(paymentMethod);
+    out[k] = out[k]! + finalAmount;
+    return out;
+  }
+
+  /// Giảm giá MÓN trên báo cáo = giảm tay trên dòng món + khuyến mãi theo món (không vượt tổng giảm)
+  int get reportItemDiscount {
+    final v = itemDiscountTotal + promoItemDiscount;
+    return totalDiscount > 0 && v > totalDiscount ? totalDiscount : v;
+  }
+
+  /// Giảm giá ĐƠN trên báo cáo = tổng giảm − giảm giá món (giảm % / tiền cả hóa đơn, voucher đơn, đổi điểm)
+  int get reportOrderDiscount {
+    final v = totalDiscount - reportItemDiscount;
+    return v < 0 ? 0 : v;
+  }
+
   /// Giảm giá cấp đơn = tổng giảm − giảm theo món (gồm voucher/CTKM + đổi điểm).
   int get orderLevelDiscount {
     final v = totalDiscount - itemDiscountTotal;
@@ -435,6 +492,7 @@ class BillModel {
       'paymentSplits': paymentSplits!.map((e) => e.toMap()).toList(),
     'notes': notes,
     'note': notes,
+    if (qrConfirmedBy != null) 'qrConfirmedBy': qrConfirmedBy,
     if (parentBillId != null) 'parentBillId': parentBillId,
     if (mergedTableNames != null) 'mergedTableNames': mergedTableNames,
     if (pointsUsed > 0) 'pointsUsed': pointsUsed,

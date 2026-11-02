@@ -1,8 +1,11 @@
 "use client";
 import React, { useState, useMemo } from "react";
+import { format } from "date-fns";
 import { useDashboardData } from "@/lib/data-context";
 import { hasPermission, useAuth } from "@/lib/auth";
 import { listShiftOwners } from "@/lib/shift-scope";
+import { businessDayStartFor } from "@/lib/business-day";
+import { nowMs } from "@/lib/kitchen";
 import {
   calculateCashShiftReport,
   formatVND,
@@ -23,6 +26,7 @@ import {
   Wallet,
   ArrowUpDown,
   History,
+  Calendar,
 } from "lucide-react";
 
 export default function ShiftsPage() {
@@ -53,6 +57,8 @@ function ShiftsContent() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "OPEN" | "CLOSED">("ALL");
+  const [datePreset, setDatePreset] = useState<"TODAY" | "YESTERDAY" | "7DAYS" | "THIS_MONTH" | "LAST_MONTH" | "ALL" | "CUSTOM">("TODAY");
+  const [filterDate, setFilterDate] = useState("");
   const [selectedShift, setSelectedShift] = useState<CashShiftAuditItem | null>(null);
 
   const targetStore = useMemo(() => {
@@ -66,6 +72,10 @@ function ShiftsContent() {
   }, [cashShifts, historyData]);
 
   const filteredShifts = useMemo(() => {
+    const cutoffMs = businessDayStartFor(currentStoreCode) * 60_000;
+    const now = new Date(nowMs() - cutoffMs);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
     return auditedShifts.filter((s) => {
       if (statusFilter === "OPEN" && s.status !== "OPEN") return false;
       if (statusFilter === "CLOSED" && s.status === "OPEN") return false;
@@ -79,9 +89,64 @@ function ShiftsContent() {
           (s.staffFullName || "").toLowerCase().includes(q) || (s.staffUsername || "").toLowerCase().includes(q);
         if (!matchCode && !matchStaff) return false;
       }
-      return true;
+
+      // Lọc theo ngày / thời gian
+      const shiftCutoff = businessDayStartFor(s.storeCode || currentStoreCode) * 60_000;
+      const dtOpen = new Date(s.openedAt - shiftCutoff);
+      const dtClose = s.closedAt ? new Date(s.closedAt - shiftCutoff) : null;
+
+      let matchDate = true;
+      if (datePreset === "ALL") {
+        matchDate = true;
+      } else if (datePreset === "TODAY") {
+        const isOpen = s.status === "OPEN";
+        const isOpenedToday =
+          dtOpen.getFullYear() === now.getFullYear() &&
+          dtOpen.getMonth() === now.getMonth() &&
+          dtOpen.getDate() === now.getDate();
+        const isClosedToday = dtClose
+          ? dtClose.getFullYear() === now.getFullYear() &&
+            dtClose.getMonth() === now.getMonth() &&
+            dtClose.getDate() === now.getDate()
+          : false;
+        matchDate = isOpen || isOpenedToday || isClosedToday;
+      } else if (datePreset === "YESTERDAY") {
+        const yest = new Date(today);
+        yest.setDate(yest.getDate() - 1);
+        const matchOpen =
+          dtOpen.getFullYear() === yest.getFullYear() &&
+          dtOpen.getMonth() === yest.getMonth() &&
+          dtOpen.getDate() === yest.getDate();
+        const matchClose = dtClose
+          ? dtClose.getFullYear() === yest.getFullYear() &&
+            dtClose.getMonth() === yest.getMonth() &&
+            dtClose.getDate() === yest.getDate()
+          : false;
+        matchDate = matchOpen || matchClose;
+      } else if (datePreset === "7DAYS") {
+        const d7 = new Date(today);
+        d7.setDate(d7.getDate() - 7);
+        matchDate =
+          (dtOpen >= d7 && dtOpen <= now) ||
+          (dtClose ? dtClose >= d7 && dtClose <= now : false);
+      } else if (datePreset === "THIS_MONTH") {
+        matchDate =
+          (dtOpen.getFullYear() === now.getFullYear() && dtOpen.getMonth() === now.getMonth()) ||
+          (dtClose ? dtClose.getFullYear() === now.getFullYear() && dtClose.getMonth() === now.getMonth() : false);
+      } else if (datePreset === "LAST_MONTH") {
+        const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        matchDate =
+          (dtOpen.getFullYear() === lm.getFullYear() && dtOpen.getMonth() === lm.getMonth()) ||
+          (dtClose ? dtClose.getFullYear() === lm.getFullYear() && dtClose.getMonth() === lm.getMonth() : false);
+      } else if (datePreset === "CUSTOM") {
+        const dateStrOpen = format(dtOpen, "yyyy-MM-dd");
+        const dateStrClose = dtClose ? format(dtClose, "yyyy-MM-dd") : "";
+        matchDate = !filterDate || dateStrOpen === filterDate || dateStrClose === filterDate;
+      }
+
+      return matchDate;
     });
-  }, [auditedShifts, statusFilter, currentStoreCode, searchQuery, canViewAllShifts, ownerFilter]);
+  }, [auditedShifts, statusFilter, currentStoreCode, searchQuery, canViewAllShifts, ownerFilter, datePreset, filterDate]);
 
   const ownerOptions = useMemo(() => listShiftOwners(auditedShifts), [auditedShifts]);
 
@@ -105,15 +170,25 @@ function ShiftsContent() {
       .padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
   };
 
+  const dateText = useMemo(() => {
+    if (datePreset === "TODAY") return "Hôm nay";
+    if (datePreset === "YESTERDAY") return "Hôm qua";
+    if (datePreset === "7DAYS") return "7 ngày qua";
+    if (datePreset === "THIS_MONTH") return "Tháng này";
+    if (datePreset === "LAST_MONTH") return "Tháng trước";
+    if (datePreset === "CUSTOM") return filterDate ? `Ngày ${filterDate}` : "Tùy chọn ngày";
+    return "Tất cả thời gian";
+  }, [datePreset, filterDate]);
+
   const handleExportExcel = () => {
     const storeInfo =
       currentStoreCode === "ALL"
         ? { storeName: "Tất cả chi nhánh", storeCode: "ALL" }
         : stores.find((s) => s.storeCode === currentStoreCode) || {
-            storeName: "POS Trạm BLAO",
+            storeName: "POS Trạm",
             storeCode: currentStoreCode,
           };
-    exportCashShiftReport(filteredShifts, storeInfo).toExcel();
+    exportCashShiftReport(filteredShifts, storeInfo, dateText).toExcel();
   };
 
   const handleExportPDF = () => {
@@ -121,10 +196,10 @@ function ShiftsContent() {
       currentStoreCode === "ALL"
         ? { storeName: "Tất cả chi nhánh", storeCode: "ALL" }
         : stores.find((s) => s.storeCode === currentStoreCode) || {
-            storeName: "POS Trạm BLAO",
+            storeName: "POS Trạm",
             storeCode: currentStoreCode,
           };
-    exportCashShiftReport(filteredShifts, storeInfo).toPDF();
+    exportCashShiftReport(filteredShifts, storeInfo, dateText).toPDF();
   };
 
   // Shift bills & promotion stats for selected shift (Module 4)
@@ -188,7 +263,7 @@ function ShiftsContent() {
     if (!selectedShift) return;
     const storeInfo =
       targetStore || {
-        storeName: "POS Trạm BLAO",
+        storeName: "POS Trạm",
         storeCode: selectedShift.storeCode || currentStoreCode || "",
       };
     exportShiftPromotionsExcel(selectedShift, selectedShiftBills, storeInfo).toExcel();
@@ -243,7 +318,7 @@ function ShiftsContent() {
               padding: "6px 12px",
             }}
           >
-            <Store size={16} color="#1B4D3E" />
+            <Store size={16} color="#7E2930" />
             <select
               value={currentStoreCode}
               onChange={(e) => setCurrentStoreCode(e.target.value)}
@@ -298,7 +373,7 @@ function ShiftsContent() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px", padding: "16px 20px" }}>
           <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", justifyContent: "space-between", alignItems: "center", color: "var(--subtext)", fontSize: "13px" }}>
             <span>Tổng số ca giao két</span>
-            <History size={18} color="#1B4D3E" />
+            <History size={18} color="#7E2930" />
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--text)", marginTop: "8px" }}>
             {formatNumber(summaryKpi.totalShifts)}
@@ -401,6 +476,34 @@ function ShiftsContent() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            {/* Lọc thời gian theo ngày */}
+            <select
+              aria-label="Lọc thời gian"
+              className="input-field"
+              value={datePreset}
+              onChange={(e) => setDatePreset(e.target.value as typeof datePreset)}
+              style={{ width: "auto", minWidth: "140px", height: "34px", padding: "4px 8px", fontSize: "12px", fontWeight: "600" }}
+            >
+              <option value="TODAY">Hôm nay</option>
+              <option value="YESTERDAY">Hôm qua</option>
+              <option value="7DAYS">7 ngày qua</option>
+              <option value="THIS_MONTH">Tháng này</option>
+              <option value="LAST_MONTH">Tháng trước</option>
+              <option value="ALL">Tất cả thời gian</option>
+              <option value="CUSTOM">Tùy chọn ngày...</option>
+            </select>
+
+            {datePreset === "CUSTOM" && (
+              <input
+                type="date"
+                aria-label="Chọn ngày lọc"
+                className="input-field"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                style={{ width: "140px", height: "34px", padding: "4px 8px", fontSize: "12px", colorScheme: "dark" }}
+              />
+            )}
+
             <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
               {[
                 { id: "ALL", label: "Tất cả" },
@@ -486,7 +589,25 @@ function ShiftsContent() {
               {filteredShifts.length === 0 ? (
                 <tr>
                   <td colSpan={10} style={{ textAlign: "center", padding: "32px", color: "var(--muted)" }}>
-                    Không tìm thấy phiên giao két nào
+                    <div>Không tìm thấy phiên giao két nào {datePreset !== "ALL" ? `trong khoảng thời gian này` : ""}.</div>
+                    {datePreset !== "ALL" && (
+                      <div style={{ marginTop: "8px" }}>
+                        <button
+                          onClick={() => setDatePreset("ALL")}
+                          style={{
+                            background: "transparent",
+                            border: "1px solid var(--border)",
+                            borderRadius: "8px",
+                            padding: "4px 10px",
+                            fontSize: "12px",
+                            color: "var(--primary)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Xem tất cả thời gian
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -635,7 +756,7 @@ function ShiftsContent() {
               <div style={{ borderBottom: "1px dashed #CCC", margin: "6px 0" }} />
               <SlipLine label="TỔNG DOANH THU CA:" value={formatVND(selectedShift.totalSales || 0)} isBold />
               <div style={{ borderBottom: "1px dashed #CCC", margin: "6px 0" }} />
-              <SlipLine label="TIỀN KÉT KỲ VỌNG (Lý thuyết):" value={formatVND(selectedShift.expectedCash || 0)} isBold color="#1B4D3E" />
+              <SlipLine label="TIỀN KÉT KỲ VỌNG (Lý thuyết):" value={formatVND(selectedShift.expectedCash || 0)} isBold color="#7E2930" />
               <SlipLine label="TIỀN KIỂM ĐẾM THỰC TẾ:" value={formatVND(selectedShift.actualCash || 0)} isBold />
               <SlipLine
                 label="CHÊNH LỆCH KÉT:"
@@ -671,7 +792,7 @@ function ShiftsContent() {
                   label="TỔNG CHI PHÍ GIẢM GIÁ CA:"
                   value={`-${formatVND(shiftPromoStats.totalPromoDiscount)}`}
                   isBold
-                  color="#1B4D3E"
+                  color="#7E2930"
                 />
               </div>
             </div>

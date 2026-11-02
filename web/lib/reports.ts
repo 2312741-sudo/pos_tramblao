@@ -695,10 +695,33 @@ export function billSubTotal(bill: HistoryOrder): number {
   return Number(bill.totalAmount || 0);
 }
 
-/** Tổng giảm giá theo món của hóa đơn (ưu tiên itemDiscounts lưu trên bill) */
-export function billItemDiscount(bill: HistoryOrder): number {
+/** Chương trình KM tính trên TỪNG MÓN (combo / mua X tặng Y, tặng-giảm món theo giá trị đơn, đồng giá) */
+const ITEM_LEVEL_CAMPAIGNS = new Set(["BUYXGETY", "ORDERVALUEITEMBENEFIT", "ITEMPRICERULE"]);
+
+/**
+ * Tiền khuyến mãi THEO MÓN trong bill.discounts (vd tặng chanh Grab, giảm 16K ly xoài, combo bánh + nước) —
+ * báo cáo xếp vào "giảm giá món", không phải "giảm giá đơn". Giảm % / số tiền cả hóa đơn vẫn là giảm giá đơn.
+ */
+export function billPromoItemDiscount(bill: HistoryOrder): number {
+  if (!Array.isArray(bill.discounts)) return 0;
+  return bill.discounts.reduce((s, d) => {
+    const t = String((d as { campaignType?: unknown }).campaignType ?? "").toUpperCase().replace(/_/g, "");
+    return ITEM_LEVEL_CAMPAIGNS.has(t) ? s + Math.max(0, Number(d.amount || 0) || 0) : s;
+  }, 0);
+}
+
+/** Giảm giá thủ công trên từng dòng món (itemDiscounts lưu trên bill, không có thì cộng từ dòng món) */
+function billLineDiscount(bill: HistoryOrder): number {
   if (bill.itemDiscounts != null) return Math.max(0, Number(bill.itemDiscounts) || 0);
   return extractBillItems(bill).reduce((s, it) => s + itemLineDiscount(it), 0);
+}
+
+/** Tổng giảm giá theo MÓN = giảm tay trên dòng món + khuyến mãi theo món (không vượt tổng giảm của hóa đơn) */
+export function billItemDiscount(bill: HistoryOrder): number {
+  const line = billLineDiscount(bill);
+  const promo = billPromoItemDiscount(bill);
+  const total = billTotalDiscount(bill);
+  return total > 0 ? Math.min(total, line + promo) : line + promo;
 }
 
 /** Tổng giảm giá của hóa đơn (totalDiscount → discountAmount) */
@@ -761,7 +784,8 @@ export function calculateOverviewReport(bills: HistoryOrder[], refundAmountParam
       const bSubTotal = Number(b.subTotal != null ? b.subTotal : (b.totalAmount || 0));
       grossRevenue += bSubTotal;
 
-      // Giảm giá món
+      // Giảm giá món = giảm tay trên dòng món + khuyến mãi theo món (combo, tặng / giảm món, đồng giá)
+      const bPromoItem = billPromoItemDiscount(b);
       let bItemDisc = 0;
       if (b.itemDiscounts != null) {
         bItemDisc = Number(b.itemDiscounts);
@@ -769,15 +793,17 @@ export function calculateOverviewReport(bills: HistoryOrder[], refundAmountParam
         const items = extractBillItems(b);
         bItemDisc = items.reduce((sum, it) => sum + itemLineDiscount(it), 0);
       }
+      bItemDisc += bPromoItem;
       itemDiscounts += bItemDisc;
 
-      // Giảm giá đơn / Voucher
+      // Giảm giá đơn / Voucher (bỏ phần khuyến mãi theo món đã xếp vào giảm giá món)
       let bBillDisc = 0;
       if (b.billDiscounts != null) {
         bBillDisc = Number(b.billDiscounts);
       } else if (Array.isArray(b.discounts)) {
         bBillDisc = b.discounts.reduce((sum, d) => sum + Number(d.amount || 0), 0);
       }
+      bBillDisc = Math.max(0, bBillDisc - bPromoItem);
       billDiscounts += bBillDisc;
 
       // Giảm giá điểm
@@ -939,16 +965,10 @@ export function calculateRevenueByPeriod(
     const bFinal = Number(b.finalAmount != null ? b.finalAmount : (b.totalAmount || 0));
     entry.netRevenue += bFinal;
 
-    const pm = (b.paymentMethod || "").toUpperCase();
-    if (pm === "CASH" || pm.includes("TIỀN MẶT")) {
-      entry.cashRevenue += bFinal;
-    } else if (pm === "TRANSFER_QR" || pm === "TRANSFER" || pm.includes("CHUYỂN")) {
-      entry.qrRevenue += bFinal;
-    } else if (pm === "CARD" || pm.includes("THẺ")) {
-      entry.cardRevenue += bFinal;
-    } else {
-      entry.cashRevenue += bFinal; // fallback
-    }
+    const portions = billPaymentPortions(b);
+    entry.cashRevenue += portions.CASH;
+    entry.qrRevenue += portions.TRANSFER_QR;
+    entry.cardRevenue += portions.CARD;
   }
 
   const list = Array.from(groups.values()).sort((a, b) => a.sortKey - b.sortKey);
@@ -1265,6 +1285,49 @@ export function calculateHourlyReport(bills: HistoryOrder[]): HourlyReportItem[]
   return hours;
 }
 
+type PayBucket = "CASH" | "TRANSFER_QR" | "CARD";
+
+/** Quy một phương thức thanh toán về TM / QR / Thẻ */
+export function paymentBucket(method: unknown): PayBucket {
+  const pm = String(method || "CASH").toUpperCase();
+  if (pm.includes("TRANSFER") || pm.includes("QR") || pm.includes("CHUYỂN")) return "TRANSFER_QR";
+  if (pm.includes("CARD") || pm.includes("THẺ")) return "CARD";
+  return "CASH";
+}
+
+/**
+ * Số tiền THỰC THU của hóa đơn chia theo phương thức. Hóa đơn hỗn hợp (SPLIT: tiền mặt + QR) chia đúng theo
+ * paymentSplits — trước đây cả hóa đơn bị dồn vào tiền mặt (web) / bị bỏ khỏi cả TM lẫn QR (app).
+ */
+export function billPaymentPortions(b: HistoryOrder): Record<PayBucket, number> {
+  const out: Record<PayBucket, number> = { CASH: 0, TRANSFER_QR: 0, CARD: 0 };
+  const finalA = Number(b.finalAmount != null ? b.finalAmount : (b.totalAmount || 0)) || 0;
+  const rawSplits: unknown = b.paymentSplits;
+  const list = Array.isArray(rawSplits) ? rawSplits : rawSplits && typeof rawSplits === "object" ? Object.values(rawSplits) : [];
+  const splits = (list as Array<{ method: string; amount: number }>).filter((sp) => sp && Number(sp.amount) > 0);
+  if (splits.length > 0) {
+    for (const sp of splits) out[paymentBucket(sp.method)] += Number(sp.amount) || 0;
+    // Phần chênh (làm tròn / dữ liệu cũ) dồn vào tiền mặt để tổng các phương thức = thực thu
+    const diff = finalA - (out.CASH + out.TRANSFER_QR + out.CARD);
+    if (diff !== 0) out.CASH = Math.max(0, out.CASH + diff);
+    return out;
+  }
+  out[paymentBucket(b.paymentMethod)] += finalA;
+  return out;
+}
+
+/** Phần chuyển khoản do nhân viên TỰ xác nhận (Trạm Bot chưa khớp giao dịch ngân hàng) → cần đối soát sao kê */
+export function isQrManuallyConfirmed(b: HistoryOrder): boolean {
+  return String((b as { qrConfirmedBy?: unknown }).qrConfirmedBy ?? "").toUpperCase() === "MANUAL";
+}
+
+/** Hóa đơn thanh toán HỖN HỢP (vd tiền mặt + chuyển khoản): phương thức SPLIT hoặc tiền chia cho ≥ 2 phương thức */
+export function isMixedPayment(b: HistoryOrder): boolean {
+  if (String(b.paymentMethod || "").toUpperCase().includes("SPLIT")) return true;
+  const p = billPaymentPortions(b);
+  return [p.CASH, p.TRANSFER_QR, p.CARD].filter((v) => v > 0).length >= 2;
+}
+
 /**
  * Báo cáo 7: Hình thức Thanh toán (Payment Methods)
  */
@@ -1281,29 +1344,26 @@ export function calculatePaymentMethodsReport(bills: HistoryOrder[]): Record<str
   let totalAll = 0;
 
   for (const b of paidBills) {
-    let pm = (b.paymentMethod || "CASH").toUpperCase();
-    if (pm.includes("TRANSFER") || pm.includes("QR") || pm.includes("CHUYỂN")) {
-      pm = "TRANSFER_QR";
-    } else if (pm.includes("CARD") || pm.includes("THẺ")) {
-      pm = "CARD";
-    } else {
-      pm = "CASH";
-    }
-
-    if (!result[pm]) {
-      result[pm] = { billCount: 0, grossRevenue: 0, totalDiscount: 0, vatAmount: 0, finalAmount: 0 };
-    }
-
     const gross = Number(b.subTotal != null ? b.subTotal : (b.totalAmount || 0));
     const disc = Number(b.totalDiscount != null ? b.totalDiscount : (b.discountAmount || 0));
     const vat = Number(b.vatAmount || 0);
     const finalA = Number(b.finalAmount != null ? b.finalAmount : (b.totalAmount || 0));
+    const portions = billPaymentPortions(b);
+    const parts = (Object.keys(portions) as PayBucket[]).filter((k) => portions[k] > 0);
+    if (parts.length === 0) parts.push(paymentBucket(b.paymentMethod));
 
-    result[pm].billCount += 1;
-    result[pm].grossRevenue += gross;
-    result[pm].totalDiscount += disc;
-    result[pm].vatAmount += vat;
-    result[pm].finalAmount += finalA;
+    for (const pm of parts) {
+      if (!result[pm]) {
+        result[pm] = { billCount: 0, grossRevenue: 0, totalDiscount: 0, vatAmount: 0, finalAmount: 0 };
+      }
+      // Hóa đơn hỗn hợp: tiền hàng / giảm giá / VAT chia theo tỷ lệ tiền thu của từng phương thức
+      const share = parts.length === 1 ? 1 : finalA > 0 ? portions[pm] / finalA : 0;
+      result[pm].billCount += 1;
+      result[pm].grossRevenue += Math.round(gross * share);
+      result[pm].totalDiscount += Math.round(disc * share);
+      result[pm].vatAmount += Math.round(vat * share);
+      result[pm].finalAmount += parts.length === 1 ? finalA : portions[pm];
+    }
     totalAll += finalA;
   }
 
@@ -1393,7 +1453,7 @@ export function calculatePromotionsReport(
         itemDiscountAmount += totalItDisc;
         totalDiscountAmount += totalItDisc;
 
-        const key = String(lineProductId(it.productId) ?? it.name);
+        const key = String(it.productId || it.name);
         if (!itemDiscountDetails.has(key)) {
           itemDiscountDetails.set(key, {
             productId: it.productId,

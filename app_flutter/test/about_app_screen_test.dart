@@ -16,7 +16,7 @@ void main() {
   }
 
   group('AboutAppScreen Widget Tests', () {
-    testWidgets('hiển thị đầy đủ thông tin tên ứng dụng và phiên bản 1.0.4+6', (tester) async {
+    testWidgets('hiển thị đầy đủ thông tin tên ứng dụng và phiên bản 1.0.6+7', (tester) async {
       await tester.pumpWidget(buildTestWidget());
       await tester.pump();
 
@@ -27,7 +27,10 @@ void main() {
       expect(find.text('POS TRẠM'), findsOneWidget);
 
       // Phiên bản và bản dựng
-      expect(find.text('Phiên bản 1.0.4 (Bản dựng 6)'), findsOneWidget);
+      expect(find.text('Phiên bản 1.0.6 (Bản dựng 7)'), findsOneWidget);
+
+      // Nút kiểm tra cập nhật APK
+      expect(find.text('Kiểm tra bản cập nhật mới (APK)'), findsOneWidget);
 
       // Bundle ID & Apple Team
       expect(find.text('com.tramblao.pos'), findsOneWidget);

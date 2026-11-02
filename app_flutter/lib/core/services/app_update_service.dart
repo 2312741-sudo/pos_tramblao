@@ -1,338 +1,171 @@
-// lib/core/services/app_update_service.dart
+import 'dart:async';
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../theme/app_theme.dart';
-import '../utils/version_utils.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
+import '../models/app_update_info.dart';
 
-class AppVersionControlModel {
-  final String latestVersion;
-  final String minimumRequiredVersion;
-  final String updateMessage;
-  final String? updateUrlIos;
-  final String? updateUrlAndroid;
-  final String? updateUrl;
+/// Kết quả kiểm tra phiên bản mới
+class AppUpdateCheckResult {
+  final bool hasUpdate;
+  final bool isMandatory;
+  final AppUpdateInfo? info;
+  final String currentVersion;
+  final int currentBuild;
 
-  const AppVersionControlModel({
-    required this.latestVersion,
-    required this.minimumRequiredVersion,
-    required this.updateMessage,
-    this.updateUrlIos,
-    this.updateUrlAndroid,
-    this.updateUrl,
+  const AppUpdateCheckResult({
+    required this.hasUpdate,
+    required this.isMandatory,
+    this.info,
+    required this.currentVersion,
+    required this.currentBuild,
   });
-
-  factory AppVersionControlModel.fromMap(Map<dynamic, dynamic> data) {
-    return AppVersionControlModel(
-      latestVersion: data['latestVersion']?.toString() ?? '1.0.0',
-      minimumRequiredVersion: data['minimumRequiredVersion']?.toString() ?? '1.0.0',
-      updateMessage: data['updateMessage']?.toString() ??
-          'Đã có phiên bản POS Trạm BLAO mới với nhiều cải tiến và tối ưu hóa hệ thống. Vui lòng cập nhật ứng dụng.',
-      updateUrlIos: data['updateUrlIos']?.toString() ??
-          'https://apps.apple.com/app/id6742385802',
-      updateUrlAndroid: data['updateUrlAndroid']?.toString() ??
-          'https://play.google.com/store/apps/details?id=com.tramblao.pos',
-      updateUrl: data['updateUrl']?.toString() ?? 'https://pos-tramblao.vercel.app',
-    );
-  }
-
-  String get targetStoreUrl {
-    if (kIsWeb) {
-      return updateUrl ?? 'https://pos-tramblao.vercel.app';
-    }
-    if (Platform.isIOS) {
-      return updateUrlIos ?? updateUrl ?? 'https://apps.apple.com/app/id6742385802';
-    }
-    if (Platform.isAndroid) {
-      return updateUrlAndroid ?? updateUrl ?? 'https://play.google.com/store/apps/details?id=com.tramblao.pos';
-    }
-    return updateUrl ?? 'https://pos-tramblao.vercel.app';
-  }
 }
 
+/// Dịch vụ kiểm tra và cập nhật APK tự động cho POS Trạm
 class AppUpdateService {
   static final AppUpdateService _instance = AppUpdateService._internal();
   factory AppUpdateService() => _instance;
   AppUpdateService._internal();
 
-  bool _isDialogShowing = false;
+  final _db = FirebaseDatabase.instance;
+  http.Client? _httpClient;
 
-  /// Fetches version control configuration.
-  /// Tries Realtime Database `/app_config/version_control` first,
-  /// then falls back to Firestore `app_config/version_control`.
-  Future<AppVersionControlModel?> fetchVersionConfig() async {
-    // 1. Try Realtime Database
+  /// Đường dẫn cấu hình update trên Realtime Database
+  static const String rtdbPath = 'system_config/app_update/android';
+
+  /// Lấy thông tin PackageInfo hiện tại
+  Future<PackageInfo> getPackageInfo() async {
     try {
-      final snapshot = await FirebaseDatabase.instance
-          .ref('app_config/version_control')
-          .get()
-          .timeout(const Duration(seconds: 4));
-      if (snapshot.exists && snapshot.value != null && snapshot.value is Map) {
-        return AppVersionControlModel.fromMap(snapshot.value as Map);
-      }
-    } catch (e) {
-      debugPrint('[AppUpdateService] RTDB fetch version_control error: $e');
+      return await PackageInfo.fromPlatform();
+    } catch (_) {
+      return PackageInfo(
+        appName: 'POS Trạm',
+        packageName: 'com.example.tramapp',
+        version: '1.0.6',
+        buildNumber: '7',
+      );
     }
-
-    // 2. Fallback to Cloud Firestore
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('app_config')
-          .doc('version_control')
-          .get()
-          .timeout(const Duration(seconds: 4));
-      if (doc.exists && doc.data() != null) {
-        return AppVersionControlModel.fromMap(doc.data()!);
-      }
-    } catch (e) {
-      debugPrint('[AppUpdateService] Firestore fetch version_control error: $e');
-    }
-
-    return null;
   }
 
-  /// Checks the current app version against config.
-  /// If force update is required, displays a non-dismissible dialog.
-  /// If optional update is available, displays a dismissible dialog.
-  Future<void> checkAppVersion(
-    BuildContext context, {
-    bool isManualCheck = false,
+  /// Đọc thông tin cập nhật từ Firebase Realtime Database
+  Future<AppUpdateInfo?> fetchRemoteUpdateInfo() async {
+    try {
+      final snap = await _db.ref(rtdbPath).get().timeout(const Duration(seconds: 8));
+      if (!snap.exists || snap.value == null || snap.value is! Map) {
+        return null;
+      }
+      final data = Map<dynamic, dynamic>.from(snap.value as Map);
+      return AppUpdateInfo.fromMap(data);
+    } catch (e) {
+      debugPrint('[AppUpdateService] Error fetching remote update: $e');
+      return null;
+    }
+  }
+
+  /// Kiểm tra xem có phiên bản cập nhật mới không
+  Future<AppUpdateCheckResult> checkForUpdate() async {
+    final pkg = await getPackageInfo();
+    final currentBuild = int.tryParse(pkg.buildNumber) ?? 0;
+    final currentVersion = pkg.version;
+
+    final remote = await fetchRemoteUpdateInfo();
+    if (remote == null) {
+      return AppUpdateCheckResult(
+        hasUpdate: false,
+        isMandatory: false,
+        currentVersion: currentVersion,
+        currentBuild: currentBuild,
+      );
+    }
+
+    final hasNew = remote.hasNewerVersion(currentBuild);
+    final isMandatory = hasNew && remote.isMandatory(currentBuild);
+
+    return AppUpdateCheckResult(
+      hasUpdate: hasNew,
+      isMandatory: isMandatory,
+      info: remote,
+      currentVersion: currentVersion,
+      currentBuild: currentBuild,
+    );
+  }
+
+  /// Tải file APK từ URL với báo cáo tiến trình %
+  Future<File> downloadApkFile(
+    String url, {
+    required void Function(double progress, int receivedBytes, int totalBytes) onProgress,
+    void Function(String status)? onStatusChange,
   }) async {
-    if (_isDialogShowing) return;
+    if (!kIsWeb && !Platform.isAndroid) {
+      throw UnsupportedError('Tự động cập nhật APK chỉ hỗ trợ trên thiết bị Android');
+    }
+
+    final uri = Uri.parse(url);
+    final client = _httpClient ?? http.Client();
+    final request = http.Request('GET', uri);
+    final response = await client.send(request);
+
+    if (response.statusCode != 200) {
+      throw Exception('Không thể tải file APK (Mã lỗi HTTP ${response.statusCode})');
+    }
+
+    final totalBytes = response.contentLength ?? 0;
+    int receivedBytes = 0;
+
+    // Lấy thư mục lưu file tạm trên Android
+    final dir = await getTemporaryDirectory();
+    final filePath = '${dir.path}/tram_pos_update.apk';
+    final file = File(filePath);
+
+    if (await file.exists()) {
+      try {
+        await file.delete();
+      } catch (_) {}
+    }
+
+    onStatusChange?.call('Đang tải xuống...');
+    final sink = file.openWrite();
 
     try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = packageInfo.version;
-
-      final config = await fetchVersionConfig();
-      if (config == null) {
-        if (isManualCheck && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Không thể kết nối máy chủ để kiểm tra phiên bản',
-                style: GoogleFonts.beVietnamPro(),
-              ),
-              backgroundColor: TramColors.danger,
-            ),
-          );
-        }
-        return;
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        receivedBytes += chunk.length;
+        final progress = totalBytes > 0 ? (receivedBytes / totalBytes).clamp(0.0, 1.0) : 0.0;
+        onProgress(progress, receivedBytes, totalBytes);
       }
-
-      if (!context.mounted) return;
-
-      // 1. Force update check: currentVersion < minimumRequiredVersion
-      if (VersionUtils.isBelow(currentVersion, config.minimumRequiredVersion)) {
-        _showUpdateDialog(
-          context: context,
-          isForce: true,
-          config: config,
-          currentVersion: currentVersion,
-        );
-        return;
-      }
-
-      // 2. Optional update check: currentVersion < latestVersion
-      if (VersionUtils.isBelow(currentVersion, config.latestVersion)) {
-        _showUpdateDialog(
-          context: context,
-          isForce: false,
-          config: config,
-          currentVersion: currentVersion,
-        );
-        return;
-      }
-
-      // 3. App is up to date
-      if (isManualCheck && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Bạn đang sử dụng phiên bản POS Trạm BLAO mới nhất ($currentVersion)',
-              style: GoogleFonts.beVietnamPro(),
-            ),
-            backgroundColor: TramColors.success,
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('[AppUpdateService] checkAppVersion error: $e');
+      await sink.flush();
+    } finally {
+      await sink.close();
     }
+
+    onStatusChange?.call('Tải xong, chuẩn bị cài đặt...');
+    return file;
   }
 
-  void _showUpdateDialog({
-    required BuildContext context,
-    required bool isForce,
-    required AppVersionControlModel config,
-    required String currentVersion,
-  }) {
-    _isDialogShowing = true;
+  /// Kích hoạt trình cài đặt APK của Android PackageInstaller
+  Future<OpenResult> installApk(String filePath) async {
+    if (!kIsWeb && !Platform.isAndroid) {
+      throw UnsupportedError('Chức năng cài đặt APK chỉ hỗ trợ trên Android');
+    }
 
-    showDialog(
-      context: context,
-      barrierDismissible: !isForce,
-      builder: (ctx) {
-        return PopScope(
-          canPop: !isForce,
-          child: Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: TramColors.cardSurface,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Icon
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: isForce
-                          ? TramColors.dangerSurface
-                          : TramColors.brandPrimary.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Icon(
-                        isForce ? Icons.warning_amber_rounded : Icons.system_update_rounded,
-                        size: 32,
-                        color: isForce ? TramColors.danger : TramColors.brandDark,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw Exception('File APK không tồn tại hoặc đã bị xóa');
+    }
 
-                  // Title
-                  Text(
-                    isForce ? 'Yêu Cầu Cập Nhật Bắt Buộc' : 'Đã Có Bản Cập Nhật Mới',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.beVietnamPro(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: isForce ? TramColors.danger : TramColors.brandDark,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+    final result = await OpenFilex.open(
+      filePath,
+      type: 'application/vnd.android.package-archive',
+    );
+    return result;
+  }
 
-                  // Version tag
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: TramColors.brandPrimary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'v$currentVersion  ➔  v${config.latestVersion}',
-                      style: GoogleFonts.beVietnamPro(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: TramColors.brandDark,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Message
-                  Text(
-                    config.updateMessage,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.beVietnamPro(
-                      fontSize: 14,
-                      height: 1.5,
-                      color: TramColors.brandDark.withValues(alpha: 0.8),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Buttons
-                  Row(
-                    children: [
-                      if (!isForce) ...[
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () {
-                              Navigator.of(ctx).pop();
-                            },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.grey.shade700,
-                              side: BorderSide(color: Colors.grey.shade300),
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(
-                              'Để sau',
-                              style: GoogleFonts.beVietnamPro(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                      ],
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final url = config.targetStoreUrl;
-                            final uri = Uri.parse(url);
-                            try {
-                              if (await canLaunchUrl(uri)) {
-                                await launchUrl(
-                                  uri,
-                                  mode: LaunchMode.externalApplication,
-                                );
-                              }
-                            } catch (e) {
-                              debugPrint('Failed to launch store url: $e');
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isForce ? TramColors.danger : TramColors.brandPrimary,
-                            foregroundColor: isForce ? Colors.white : TramColors.brandDark,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            isForce ? 'Cập nhật ngay' : 'Cập nhật',
-                            style: GoogleFonts.beVietnamPro(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    ).then((_) {
-      _isDialogShowing = false;
-    });
+  @visibleForTesting
+  void setHttpClientForTest(http.Client client) {
+    _httpClient = client;
   }
 }

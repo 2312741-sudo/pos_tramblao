@@ -239,7 +239,7 @@ class ReportCalculator {
 
   static int getGuestCount(BillModel b) {
     if (b is ReportBillModel) return b.guestCount;
-    return 1;
+    return b.guests;
   }
 
   static int getRefundAmount(BillModel b) {
@@ -284,18 +284,22 @@ class ReportCalculator {
     final totalGuests = paidBills.fold<int>(0, (sum, b) => sum + getGuestCount(b));
     final grossRevenue = paidBills.fold<int>(0, (sum, b) => sum + b.subTotal);
 
+    // Giảm giá món = giảm tay trên dòng + khuyến mãi theo món (combo, tặng / giảm món, đồng giá)
     final itemDiscounts = paidBills.fold<int>(
       0,
       (sum, b) =>
           sum +
-          b.items.fold<int>(0, (iSum, it) => iSum + it.lineDiscountTotal),
+          b.items.fold<int>(0, (iSum, it) => iSum + it.lineDiscountTotal) +
+          b.promoItemDiscount,
     );
 
+    // Giảm giá đơn = các khuyến mãi / voucher còn lại (giảm % / tiền cả hóa đơn, giảm thủ công cả đơn)
     final billDiscounts = paidBills.fold<int>(
       0,
       (sum, b) =>
           sum +
-          b.discounts.fold<int>(0, (dSum, d) => dSum + d.amount),
+          b.discounts.fold<int>(0, (dSum, d) => dSum + d.amount) -
+          b.promoItemDiscount,
     );
 
     final pointsDiscounts = paidBills.fold<int>(
@@ -474,14 +478,11 @@ class ReportCalculator {
       int transfer = 0;
       int card = 0;
       for (final b in list) {
-        final m = b.paymentMethod.toUpperCase();
-        if (m.contains('CASH') || m.contains('TIỀN MẶT')) {
-          cash += b.finalAmount;
-        } else if (m.contains('TRANSFER') || m.contains('QR') || m.contains('CHUYỂN KHOẢN')) {
-          transfer += b.finalAmount;
-        } else {
-          card += b.finalAmount;
-        }
+        // Hóa đơn hỗn hợp chia theo paymentSplits
+        final p = b.paymentPortions;
+        cash += p['CASH']!;
+        transfer += p['TRANSFER_QR']!;
+        card += p['CARD']!;
       }
       final pct = totalAllNet == 0
           ? 0.0

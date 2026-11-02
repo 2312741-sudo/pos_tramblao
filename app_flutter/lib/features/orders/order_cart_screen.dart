@@ -300,6 +300,13 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
 
   int get _subTotal => _rawSubTotal;
 
+  /// Số tiền của giảm giá thủ công [pct]% hóa đơn: tính trên tiền món sau giảm giá từng món
+  int _manualPercentAmount(int pct) {
+    final diff = _subTotal - _itemDiscountTotal;
+    final base = diff > 0 ? diff : 0;
+    return pct >= 100 ? base : (base * pct / 100).round();
+  }
+
   int get _totalDiscount => _itemDiscountTotal + _voucherDiscountTotal + _pointsDiscount;
 
   int get _afterDiscount {
@@ -1297,35 +1304,6 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     if (newlyApplied.isNotEmpty && mounted) {
       setState(_restackAppliedAmounts);
     }
-    _notifyLateOrderPromotions(now);
-  }
-
-  /// Đã báo (chương trình + món gọi ngoài giờ) nào rồi — không báo lặp khi giỏ đổi tiếp
-  final Set<String> _lateNotified = {};
-
-  /// Tự báo khi đơn LẼ RA được khuyến mãi (đang trong khung giờ) nhưng có món gọi ngoài khung giờ,
-  /// ví dụ nước gọi 15:50, 16:30 thêm bánh cho combo 16:00–18:00 → bánh không được giảm.
-  void _notifyLateOrderPromotions(int now) {
-    if (!mounted || _cart.isEmpty) return;
-    for (final c in _campaigns) {
-      if (c.hasCodes || !c.isEligibleAt(now)) continue;
-      final msg = CartCampaignPricing.lateOrderBlock(
-        c,
-        cart: _cart,
-        products: _products,
-        branchId: _fb.currentStoreCode,
-        guestCount: _guestCount,
-        customerBirthday: _selectedCustomer?.birthday,
-        nowMs: now,
-      );
-      if (msg == null) continue;
-      final key = '${c.campaignId}|$msg';
-      if (!_lateNotified.add(key)) continue;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showOutsideScheduleDialog(c, msg);
-      });
-      break; // mỗi lần chỉ hiện 1 hộp thoại
-    }
   }
 
   void _syncTableDiscounts() {
@@ -1381,6 +1359,15 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         } else {
           valid.add(d);
         }
+      } else if (d.effectiveManualPercent != null) {
+        // Giảm % hóa đơn thủ công: tính lại theo đơn hiện tại (giảm 100% luôn về 0đ dù thêm / đổi món)
+        final pct = d.effectiveManualPercent!;
+        valid.add(BillDiscountModel(
+          description: d.description,
+          amount: _manualPercentAmount(pct),
+          staffNote: d.staffNote,
+          manualPercent: pct,
+        ));
       } else {
         valid.add(d);
       }
@@ -2931,6 +2918,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                   onPressed: () {
                     setState(() {
                       _cart[index] = _cart[index].withoutLineDiscount();
+                      // Lưu món lên bàn — không thì lần tải lại bàn sau sẽ trả giá cũ
+                      widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
                       _recalculateDiscounts();
                     });
                     Navigator.pop(ctx);
@@ -2963,6 +2952,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       approvalId: approval?.approvalId ?? '',
                       approvedAt: approval?.approvedAt,
                     );
+                    // Lưu món đã giảm lên bàn (trước đây chỉ đổi trên màn hình → mở lại / thêm món / máy khác thấy giá cũ)
+                    widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
                     _recalculateDiscounts();
                   });
                   Navigator.pop(ctx);
@@ -3769,6 +3760,20 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                                     quote: newQuote,
                                   );
                                 }
+                              } else {
+                                final lateMsg = CartCampaignPricing.lateOrderBlock(
+                                      campaign,
+                                      cart: _cart,
+                                      products: _products,
+                                      branchId: _fb.currentStoreCode,
+                                      guestCount: _guestCount,
+                                      customerBirthday: _selectedCustomer?.birthday,
+                                      nowMs: DateTime.now().millisecondsSinceEpoch,
+                                    ) ??
+                                    CartCampaignPricing.outsideScheduleMessage(campaign, cart: _cart, products: _products);
+                                if (lateMsg != null) {
+                                  await _showOutsideScheduleDialog(campaign, lateMsg);
+                                }
                               }
                             }
                             setDlgState(() => voucherResult = currentResult);
@@ -3980,7 +3985,16 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       final needsCakes = isCombo && hasWater && combo.remainingRewardUnits > 0;
                       final canAutoAdd = !isCombo && amt <= 0 && CartCampaignPricing.needsRewardItems(q, c);
                       // Món liên quan gọi NGOÀI khung giờ → không được tính; bấm sẽ báo không áp dụng được
-                      final outsideMsg = CartCampaignPricing.outsideScheduleMessage(c, cart: _cart, products: _products);
+                      final outsideMsg = CartCampaignPricing.lateOrderBlock(
+                            c,
+                            cart: _cart,
+                            products: _products,
+                            branchId: _fb.currentStoreCode,
+                            guestCount: _guestCount,
+                            customerBirthday: _selectedCustomer?.birthday,
+                            nowMs: nowMs,
+                          ) ??
+                          CartCampaignPricing.outsideScheduleMessage(c, cart: _cart, products: _products);
                       final blockedByOrderTime = outsideMsg != null && (isCombo ? !hasWater : amt <= 0 && !canAutoAdd);
 
                       String sub = '${c.typeDisplay} • ${describeCampaignBenefit(c)}';
@@ -4254,12 +4268,13 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       );
                       return;
                     }
-                    final raw = manualType == 'PERCENT' ? (_subTotal * val / 100).round() : val;
+                    final raw = manualType == 'PERCENT' ? _manualPercentAmount(val) : val;
                     final amt = raw > _subTotal ? _subTotal : raw;
                     if (!allowStack) _appliedDiscounts.clear();
                     _appliedDiscounts.add(BillDiscountModel(
                       description: 'Giảm giá thủ công (${manualType == "PERCENT" ? "$val%" : FormatUtils.vnd(val)})',
                       amount: amt,
+                      manualPercent: manualType == 'PERCENT' ? val : null,
                     ));
                   }
                   confirmed = true;
@@ -4310,6 +4325,31 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       String? matchedNote,
     }) async {
       if (isProcessingPayment) return;
+      // Phần chuyển khoản của đơn: hỗn hợp = phần QR nhân viên để lại; chuyển khoản = cả đơn
+      final qrPart = paymentMethod == 'SPLIT'
+          ? (overrideQrAmount ?? 0)
+          : (paymentMethod == 'TRANSFER_QR' ? _finalTotal : 0);
+      final qrManual = qrPart > 0 && matchedNote == null;
+      // Hỗn hợp mà phần chuyển khoản CHƯA được ngân hàng xác nhận → nhân viên phải xác nhận đã kiểm tra tiền về
+      // (trước đây bấm hoàn tất là ghi luôn "khách đã chuyển" dù tiền chưa vào tài khoản)
+      if (paymentMethod == 'SPLIT' && qrManual) {
+        final ok = await showDialog<bool>(
+          context: ctx,
+          builder: (dCtx) => AlertDialog(
+            title: const Text('Xác nhận tiền chuyển khoản'),
+            content: Text(
+              'Chưa nhận được xác nhận từ ngân hàng cho phần chuyển khoản ${FormatUtils.vnd(qrPart)}.\n\n'
+              'Chỉ bấm "Đã kiểm tra, tiền đã về" khi bạn đã thấy tiền vào tài khoản cửa hàng. '
+              'Thao tác được ghi lại kèm tên bạn để đối soát cuối ngày.',
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Chưa, chờ tiếp')),
+              ElevatedButton(onPressed: () => Navigator.pop(dCtx, true), child: const Text('Đã kiểm tra, tiền đã về')),
+            ],
+          ),
+        );
+        if (ok != true) return;
+      }
       setSheetState(() {
         isProcessingPayment = true;
         paymentError = null;
@@ -4333,6 +4373,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           method: paymentMethod,
           splits: splits,
         );
+        if (qrPart > 0) bill.qrConfirmedBy = qrManual ? 'MANUAL' : 'BANK';
 
         // Đổi điểm (chặn nếu thiếu điểm) + tích điểm được xử lý trong closeAndPayBill (transaction, idempotent)
         await _fb.closeAndPayBill(
@@ -4341,6 +4382,20 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           pointEarnRate: _storeInfo?.pointEarnRate,
           pointRedeemRate: _storeInfo?.pointRedeemRate,
         );
+
+        if (paymentMethod == 'SPLIT' && qrManual) {
+          _fb.logAction(AuditLogModel(
+            timestamp: DateTime.now().millisecondsSinceEpoch,
+            username: _auth.currentUser?.username ?? '',
+            userFullName: _auth.currentUser?.fullName ?? 'Nhân viên',
+            userRole: _auth.currentUser?.roleId ?? 'UNKNOWN',
+            action: 'QR_MANUAL_CONFIRM',
+            targetType: 'BILL',
+            targetId: bill.billCode,
+            details: 'Tự xác nhận đã nhận chuyển khoản ${FormatUtils.vnd(qrPart)} (đơn hỗn hợp, tiền mặt '
+                '${FormatUtils.vnd(overrideCashAmount ?? 0)}) bàn ${widget.table.name} — chưa có xác nhận từ ngân hàng',
+          ));
+        }
 
         if (ctx.mounted) Navigator.pop(ctx);
         if (mounted) {

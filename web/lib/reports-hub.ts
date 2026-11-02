@@ -324,7 +324,8 @@ export function buildHubTable(kind: ReportKind, ctx: HubContext): HubTable {
       return {
         columns: [T("Chỉ tiêu cuối ngày"), T("Giá trị"), T("Ghi chú đối soát")],
         rows: [
-          ["Doanh thu gộp (Subtotal)", t1.grossRevenue, "Tổng tiền trước giảm giá"],
+          ["Doanh thu tổng (thực nhận)", t1.netRevenue, "Đã trừ mọi giảm giá / khuyến mãi"],
+          ["Tổng tiền hàng (trước giảm giá)", t1.grossRevenue, "Giá bán trước giảm giá"],
           ["Tổng chiết khấu / Giảm giá", t1.totalDiscount, "Giảm bill + Món + Điểm"],
           ["Doanh thu sau giảm giá", t1.afterDiscount, "Trước thuế VAT"],
           ["Thuế GTGT (VAT)", t1.vatTotal, "Đã chốt trên hóa đơn"],
@@ -358,16 +359,23 @@ export function previousRange(range: { from: string; to: string }): { from: stri
 }
 
 /** Lọc ca + nhân viên như app: nhân viên khớp thu ngân (username / họ tên) HOẶC người order một món trong đơn */
-export function filterHubBills(bills: HistoryOrder[], shiftId = "ALL", staff = "ALL"): HistoryOrder[] {
+export function filterHubBills(bills: HistoryOrder[], shiftId = "ALL", staff = "ALL", opts: { cashierOnly?: boolean } = {}): HistoryOrder[] {
   return bills.filter((b) => {
     if (shiftId !== "ALL" && b.shiftId !== shiftId) return false;
     if (staff !== "ALL") {
-      const cashier = b.staffUsername === staff || b.staffFullName === staff;
+      const cashier = b.staffUsername === staff || b.staffFullName === staff || b.cashierName === staff;
+      if (opts.cashierOnly) return cashier;
       if (!cashier && !extractBillItems(b).some((it) => it.orderedBy === staff || it.orderedByName === staff)) return false;
     }
     return true;
   });
 }
+
+/**
+ * Báo cáo khuyến mãi: khuyến mãi / combo do THU NGÂN áp lúc thanh toán → lọc nhân viên chỉ lấy đơn người đó thu tiền
+ * (không lấy đơn người khác thu mà nhân viên này chỉ order giúp một món — trước đây 'Tất cả ca' bị cộng dư combo).
+ */
+export const CASHIER_ONLY_KINDS: ReadonlySet<ReportKind> = new Set<ReportKind>(["promotions", "campaigns"]);
 
 /** Danh sách nhân viên cho bộ lọc (thu ngân + người order món) */
 export function hubStaffOptions(bills: HistoryOrder[]): string[] {

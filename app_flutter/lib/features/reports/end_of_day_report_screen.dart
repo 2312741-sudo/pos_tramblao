@@ -256,7 +256,7 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
     }).toList();
   }
 
-  List<BillModel> get _paidBills => _rangeBills.where((b) => b.status == 'PAID').toList();
+  List<BillModel> get _paidBills => ReportCalculator.deduplicateBills(_rangeBills).where((b) => b.status == 'PAID').toList();
   /// Hóa đơn ĐÃ thanh toán rồi bị hủy (hủy đơn trên bàn khi chưa thanh toán tính vào số món hủy)
   List<BillModel> get _cancelledBills => ReportCalculator.deduplicateBills(_rangeBills).where((b) => b.isPaidCancel).toList();
 
@@ -345,8 +345,9 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
   int get _netRevenueWithOther => _netRevenue + _otherIncome - _refundAmount;
   int get _netRevenueWithoutOther => _netRevenue - _refundAmount;
 
+  /// Tổng số khách THẬT ghi trên các hóa đơn đã thanh toán (trước đây = số hóa đơn)
   int get _totalPaidGuests {
-    return _paidBills.length; // 1 guest per bill as baseline, plus table guest counts if tracked
+    return _paidBills.fold(0, (s, b) => s + ReportCalculator.getGuestCount(b));
   }
 
   int get _avgRevenuePerBill {
@@ -355,17 +356,12 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
   }
 
   // ==================== TAB 2: THU CHI CALCULATIONS ====================
-  int get _cashSales => _paidBills
-      .where((b) => b.paymentMethod == 'CASH')
-      .fold(0, (s, b) => s + b.finalAmount);
+  // Hóa đơn hỗn hợp (tiền mặt + QR) chia đúng phần từng phương thức → TM + QR + Thẻ = Tổng thực thu
+  int get _cashSales => _paidBills.fold(0, (s, b) => s + b.paymentPortions['CASH']!);
 
-  int get _qrSales => _paidBills
-      .where((b) => b.paymentMethod.contains('QR') || b.paymentMethod.contains('TRANSFER'))
-      .fold(0, (s, b) => s + b.finalAmount);
+  int get _qrSales => _paidBills.fold(0, (s, b) => s + b.paymentPortions['TRANSFER_QR']!);
 
-  int get _cardSales => _paidBills
-      .where((b) => b.paymentMethod == 'CARD')
-      .fold(0, (s, b) => s + b.finalAmount);
+  int get _cardSales => _paidBills.fold(0, (s, b) => s + b.paymentPortions['CARD']!);
 
   // Cash shift adjustments within range
   int get _totalCashIn {
@@ -442,8 +438,9 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
           // Gom theo mã món: Thạch dừa gọi riêng và gọi làm topping cùng một dòng
           final key = part.isTopping ? productMergeKey(part.code, part.name) : productMergeKey(_codeOf(item.productId, item.name.trim()), item.name.trim());
           final entry = productMap.putIfAbsent(key, () => {
-                'name': part.isTopping ? part.name : key,
-                'code': part.isTopping ? part.code : _codeOf(item.productId, key),
+                // Tên / mã hiển thị lấy từ món (khóa gom 'code:…' chỉ dùng để gộp dòng)
+                'name': part.isTopping ? part.name : item.name.trim(),
+                'code': part.isTopping ? part.code : _codeOf(item.productId, item.name.trim()),
                 'productId': part.isTopping ? part.productId : item.productId,
                 'quantity': 0,
                 'revenue': 0,
@@ -912,10 +909,10 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
             // Topping tách thành dòng riêng
             for (final part in splitLineParts(item, mainKey: item.name.trim(), mainUnitCost: 0, productsMap: _productsMap)) {
               // Gom theo mã món: Thạch dừa gọi riêng và gọi làm topping cùng một dòng
-          final key = part.isTopping ? productMergeKey(part.code, part.name) : productMergeKey(_codeOf(item.productId, item.name.trim()), item.name.trim());
+              final key = part.isTopping ? productMergeKey(part.code, part.name) : productMergeKey(_codeOf(item.productId, item.name.trim()), item.name.trim());
               final e = pMap.putIfAbsent(key, () => {
-                    'name': part.isTopping ? '${part.name} (topping)' : key,
-                    'code': part.isTopping ? part.code : _codeOf(item.productId, key),
+                    'name': part.isTopping ? '${part.name} (topping)' : item.name.trim(),
+                    'code': part.isTopping ? part.code : _codeOf(item.productId, item.name.trim()),
                     'unitPrice': part.quantity > 0 ? (part.grossRevenue / part.quantity).round() : 0,
                     'quantity': 0,
                     'revenue': 0,
@@ -1155,10 +1152,10 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
                   title: const Text('Quy ước tính toán Báo Cáo Cuối Ngày'),
                   content: const SingleChildScrollView(
                     child: Text(
-                      '• Doanh thu tổng: Tổng tiền hàng trước khi áp dụng chiết khấu/khuyến mãi.\n'
-                      '• Giảm giá món: Chiết khấu trực tiếp trên từng dòng sản phẩm.\n'
-                      '• Giảm giá hóa đơn: Voucher khuyến mãi, thẻ thành viên, trừ điểm.\n'
-                      '• Doanh thu: Số tiền thực tế sau giảm giá (đã bao gồm thuế GTGT).\n'
+                      '• Doanh thu tổng (thực nhận): Số tiền thực tế thu của khách, đã trừ mọi giảm giá / khuyến mãi (gồm thuế GTGT).\n'
+                      '• Tổng tiền hàng: Tiền hàng theo giá bán trước khi áp dụng chiết khấu/khuyến mãi.\n'
+                      '• Giảm giá món: Giảm trên từng món (giảm tay, combo, tặng / giảm món, đồng giá).\n'
+                      '• Giảm giá hóa đơn: Giảm cả hóa đơn, voucher, trừ điểm.\n'
                       '• Đang phục vụ: Thống kê tức thời các bàn đang có khách ngồi tại quán.\n'
                       '• Doanh thu thuần: Doanh thu bán hàng trừ chi phí hoàn trả hàng.',
                     ),
@@ -1532,14 +1529,15 @@ class _EndOfDayReportScreenState extends State<EndOfDayReportScreen>
         _buildSectionCard(
           title: 'TỔNG KẾT BÁN HÀNG',
           rows: [
-            _buildReportRow('Doanh thu tổng', FormatUtils.vnd(_grossRevenue)),
+            _buildReportRow(
+              'Doanh thu tổng (thực nhận)',
+              FormatUtils.vnd(_netRevenue),
+              subtitle: 'Đã trừ mọi giảm giá / khuyến mãi • gồm ${FormatUtils.vnd(_vatTotal)} tiền thuế',
+              isBold: true,
+            ),
+            _buildReportRow('Tổng tiền hàng (trước giảm giá)', FormatUtils.vnd(_grossRevenue)),
             _buildReportRow('Tổng giảm giá món', FormatUtils.vnd(_itemDiscounts)),
             _buildReportRow('Tổng giảm giá hóa đơn', FormatUtils.vnd(_billDiscounts)),
-            _buildReportRow(
-              'Doanh thu (Đã thu)',
-              FormatUtils.vnd(_netRevenue),
-              subtitle: 'Bao gồm ${FormatUtils.vnd(_vatTotal)} tiền thuế',
-            ),
             _buildReportRow(
               'Doanh thu ước tính cả ngày',
               FormatUtils.vnd(_netRevenue + _servingEstimatedRevenue),

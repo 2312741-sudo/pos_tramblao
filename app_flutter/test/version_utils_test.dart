@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tram_flutter/core/services/app_update_service.dart';
 import 'package:tram_flutter/core/utils/version_utils.dart';
 
 void main() {
@@ -27,33 +26,6 @@ void main() {
       expect(VersionUtils.isAtLeast('1.0.1', '1.0.0'), isTrue);
       expect(VersionUtils.isAtLeast('1.0.0', '1.0.0'), isTrue);
       expect(VersionUtils.isAtLeast('0.9.9', '1.0.0'), isFalse);
-    });
-  });
-
-  group('AppVersionControlModel Tests', () {
-    test('parses from map correctly', () {
-      final map = {
-        'latestVersion': '1.0.5',
-        'minimumRequiredVersion': '1.0.2',
-        'updateMessage': 'Bản nâng cấp ổn định hệ thống',
-        'updateUrlIos': 'https://apps.apple.com/app/id123456',
-        'updateUrlAndroid': 'https://play.google.com/store/apps/details?id=com.tramblao.pos',
-        'updateUrl': 'https://pos-tramblao.vercel.app',
-      };
-
-      final model = AppVersionControlModel.fromMap(map);
-      expect(model.latestVersion, '1.0.5');
-      expect(model.minimumRequiredVersion, '1.0.2');
-      expect(model.updateMessage, 'Bản nâng cấp ổn định hệ thống');
-      expect(model.updateUrlIos, 'https://apps.apple.com/app/id123456');
-    });
-
-    test('uses sensible defaults when map is empty', () {
-      final model = AppVersionControlModel.fromMap({});
-      expect(model.latestVersion, '1.0.0');
-      expect(model.minimumRequiredVersion, '1.0.0');
-      expect(model.updateMessage, isNotEmpty);
-      expect(model.updateUrl, 'https://pos-tramblao.vercel.app');
     });
   });
 }
