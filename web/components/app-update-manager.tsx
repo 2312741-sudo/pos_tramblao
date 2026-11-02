@@ -18,9 +18,9 @@ interface AppUpdateConfig {
 
 export function AppUpdateManager({ isOwner }: { isOwner: boolean }) {
   const [config, setConfig] = useState<AppUpdateConfig>({
-    versionCode: 8,
-    versionName: "1.0.7",
-    minVersionCode: 7,
+    versionCode: 7,
+    versionName: "1.0.5",
+    minVersionCode: 6,
     apkUrl: "",
     releaseNotes: "- Cập nhật tính năng mới\n- Sửa lỗi và cải thiện hiệu năng",
     apkSize: "45 MB",
