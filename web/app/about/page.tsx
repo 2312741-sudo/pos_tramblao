@@ -113,7 +113,7 @@ export default function PublicAboutPage() {
                 fontSize: 13,
               }}
             >
-              Phiên bản 1.0.5 (Build 7)
+              Phiên bản 1.0.6 (Build 8)
             </span>
             <span style={{ fontSize: 13, color: "var(--subtext)" }}>
               Năm phát hành: <strong>2026</strong>
@@ -305,7 +305,7 @@ export default function PublicAboutPage() {
 
             <div style={{ padding: "12px 16px", background: "var(--surface-muted)", borderRadius: "var(--radius-md)" }}>
               <div style={{ color: "var(--subtext)", marginBottom: 4 }}>Phiên bản hiện tại:</div>
-              <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14 }}>1.0.5 (Build 7)</div>
+              <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14 }}>1.0.6 (Build 8)</div>
             </div>
 
             <div style={{ padding: "12px 16px", background: "var(--surface-muted)", borderRadius: "var(--radius-md)" }}>
