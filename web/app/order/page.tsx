@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { ref, onValue, push, set } from "firebase/database";
 import { DEFAULT_BLAO_PRODUCTS, DEFAULT_BLAO_CATEGORIES } from "@/lib/default-menu";
+import { isDrinkProduct } from "@/lib/product-options";
 import {
   UtensilsCrossed,
   Bell,
@@ -158,7 +159,8 @@ function OrderContent() {
           });
         }
       }
-      setProducts(list.length > 0 ? list : DEFAULT_PRODUCTS);
+      // Đồ uống không chọn size (bán một cỡ) → bỏ bảng size; món khác (bánh Nhỏ/Lớn) giữ nguyên
+      setProducts((list.length > 0 ? list : DEFAULT_PRODUCTS).map((p) => (isDrinkProduct(p) ? { ...p, sizes: undefined } : p)));
       setLoading(false);
     });
 
@@ -1404,9 +1406,11 @@ function OrderContent() {
 
                     {/* Options list */}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "6px" }}>
-                      <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", background: "#EBFBF6", color: "#143A2F" }}>
-                        Size {item.selectedSize}
-                      </span>
+                      {item.selectedSize && (
+                        <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", background: "#EBFBF6", color: "#143A2F" }}>
+                          Size {item.selectedSize}
+                        </span>
+                      )}
                       <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "#FFFFFF", border: "1px solid #E6DEC8", color: "#5D5B63" }}>
                         {item.selectedSugar}
                       </span>

@@ -13,18 +13,19 @@ const tops: OptionProduct[] = [
 const cake: OptionProduct = { id: "2", name: "Bánh waffle", price: 55000, category: "Bánh" };
 
 describe("tùy chọn món", () => {
-  it("đồ uống có size, topping và đường/đá; bánh không có gì để hỏi", () => {
+  it("đồ uống KHÔNG chọn size (kể cả đã cấu hình S/M/L), vẫn có topping và đường/đá; bánh không có gì để hỏi", () => {
     const o = getProductOptions(tea, [], [tea, ...tops]);
-    expect(o.sizes.map((s) => s.name)).toEqual(["S", "M", "L"]);
+    expect(o.sizes).toEqual([]);
     expect(o.iceSugar).toBe(true);
     expect(o.toppings.find((t) => t.name === "Kem Cheese")?.price).toBe(12000);
     expect(getProductOptions(cake, [], [cake, ...tops]).hasAny).toBe(false);
     expect(getProductOptions(tops[0], [], tops).hasAny).toBe(false);
   });
 
-  it("thiếu size ở danh mục đồ uống → mặc định S/M/L", () => {
+  it("thiếu size ở danh mục đồ uống → không tự thêm S/M/L", () => {
     const o = getProductOptions({ id: "3", name: "Sữa tươi", price: 20000, category: "Sữa" }, [], []);
-    expect(o.sizes).toEqual([{ name: "S", extra: 0 }, { name: "M", extra: 5000 }, { name: "L", extra: 10000 }]);
+    expect(o.sizes).toEqual([]);
+    expect(o.iceSugar).toBe(true);
   });
 
   it("topping theo danh mục (allowedToppingIds) ưu tiên hơn mặc định", () => {
@@ -32,17 +33,25 @@ describe("tùy chọn món", () => {
     expect(o.toppings).toEqual([{ name: "Kem Cheese", price: 12000 }, { name: "Thạch chanh", price: 5000 }]);
   });
 
-  it("dòng có size + topping tính đúng đơn giá và ghi trường như POS", () => {
+  it("dòng đồ uống + topping: không ghi size, đơn giá = giá món + topping", () => {
     const o = getProductOptions(tea, [], [tea, ...tops]);
     const sel = { ...defaultSelection(o), size: "L", sugar: "70% đường", ice: "Không đá", toppings: ["Trân châu đen", "Kem Cheese"] };
     const line = makeConfiguredLine(tea, o, sel, 2, " ít ngọt ", actor, 1);
-    expect(line).toMatchObject({ productId: 1, selectedSize: "L", sizeExtraPrice: 10000, selectedSugar: "70% đường", selectedIce: "Không đá", toppingPrice: 17000, quantity: 2, note: "ít ngọt" });
-    expect(lineUnitPrice(line)).toBe(30000 + 10000 + 17000);
-    expect(describeSelection(line)).toBe("Size L • 70% đường • Không đá • + Trân châu đen, Kem Cheese");
+    expect(line).toMatchObject({ productId: 1, selectedSugar: "70% đường", selectedIce: "Không đá", toppingPrice: 17000, quantity: 2, note: "ít ngọt" });
+    expect(line.selectedSize).toBeUndefined();
+    expect(line.sizeExtraPrice).toBeUndefined();
+    expect(lineUnitPrice(line)).toBe(30000 + 17000);
+    expect(describeSelection(line)).toBe("70% đường • Không đá • + Trân châu đen, Kem Cheese");
   });
 
-  it("mặc định: size nhỏ nhất, 100% đường/đá, không topping", () => {
-    expect(defaultSelection(getProductOptions(tea, [], []))).toEqual({ size: "S", sugar: "100% đường", ice: "100% đá", toppings: [] });
+  it("mặc định đồ uống: không size, 100% đường/đá, không topping", () => {
+    expect(defaultSelection(getProductOptions(tea, [], []))).toEqual({ size: "", sugar: "100% đường", ice: "100% đá", toppings: [] });
+  });
+
+  it("món không phải đồ uống (bánh Nhỏ/Lớn) vẫn giữ size", () => {
+    const banh: OptionProduct = { id: "10", name: "Bánh Lăn Nướng", price: 29000, category: "Bánh Lăn Nướng", sizes: { "Nhỏ": 0, "Lớn": 5000 } };
+    const oBanh = getProductOptions(banh, [], []);
+    expect(oBanh.sizes).toEqual([{ name: "Nhỏ", extra: 0 }, { name: "Lớn", extra: 5000 }]);
   });
 
   it("chỉ gộp dòng khi cùng tùy chọn", () => {
@@ -50,7 +59,7 @@ describe("tùy chọn món", () => {
     const base = defaultSelection(o);
     const a = makeConfiguredLine(tea, o, base, 1, "", actor, 1);
     const same = makeConfiguredLine(tea, o, base, 1, "", actor, 2);
-    const diff = makeConfiguredLine(tea, o, { ...base, size: "L" }, 1, "", actor, 3);
+    const diff = makeConfiguredLine(tea, o, { ...base, sugar: "50% đường" }, 1, "", actor, 3);
     expect(addLineToOrder(addLineToOrder([], a), same)).toHaveLength(1);
     expect(addLineToOrder(addLineToOrder([], a), diff)).toHaveLength(2);
   });

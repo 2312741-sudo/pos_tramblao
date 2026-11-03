@@ -120,6 +120,13 @@ class ProductModel {
     return 0;
   }
 
+  /// Danh mục đồ uống (cùng bộ từ khóa với màn gọi món / web isDrinkCategory)
+  static bool isDrinkCategoryName(String category) {
+    final c = category.toLowerCase();
+    const keys = ['trà', 'tea', 'cà phê', 'cafe', 'coffee', 'nước', 'uống', 'sinh tố', 'đá xay', 'sữa', 'matcha'];
+    return keys.any(c.contains);
+  }
+
   factory ProductModel.fromMap(dynamic val, [String? key]) {
     if (val is Map) {
       final map = Map<dynamic, dynamic>.from(val);
@@ -138,8 +145,10 @@ class ProductModel {
 
       final cat = map['category']?.toString() ?? 'Khác';
       final isDrink = cat.contains('Trà') || cat.contains('CAFE') || cat.contains('Sữa') || cat.contains('Bơ');
-      if (sizesMap.isEmpty && isDrink) {
-        sizesMap = {'S': 0, 'M': 5000, 'L': 10000};
+      // ĐỒ UỐNG KHÔNG chọn size (bán một cỡ): bỏ size đã cấu hình và không tự thêm S/M/L.
+      // Món khác (vd. bánh Nhỏ/Lớn) vẫn giữ size. Bản web song song: isDrinkProduct (web/lib/product-options.ts).
+      if (map['hasIceSugarOptions'] == true || isDrink || isDrinkCategoryName(cat)) {
+        sizesMap = {};
       }
       if (toppings.isEmpty && isDrink) {
         toppings = ['Trân châu đen', 'Trân châu trắng', 'Thạch phô mai', 'Kem Cheese'];

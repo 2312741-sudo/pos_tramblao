@@ -1,6 +1,6 @@
 /**
  * Tùy chọn món khi gọi trên Web — cùng quy tắc với POS Flutter (order_cart_screen.dart):
- *  - size: product.sizes {S:0,M:5000,...}; thiếu thì mặc định S/M/L cho đồ uống
+ *  - size: chỉ món KHÔNG phải đồ uống (vd. bánh Nhỏ/Lớn) theo product.sizes; đồ uống không chọn size
  *  - topping: ưu tiên category.allowedToppingIds → product.allowedToppings → mọi món topping → bộ topping mặc định
  *  - đường / đá: khi món là đồ uống (hasIceSugarOptions, có size hoặc danh mục đồ uống)
  */
@@ -97,6 +97,11 @@ export function looksLikeRef(s: string): boolean {
   return !/\s/.test(t) && /[0-9_]/.test(t) && /[A-Za-z]/.test(t);
 }
 
+/** Món là đồ uống (không chọn size): bật đường/đá hoặc thuộc danh mục đồ uống */
+export function isDrinkProduct(p: { category?: string; hasIceSugarOptions?: boolean | null }): boolean {
+  return p.hasIceSugarOptions === true || isDefaultDrink(p.category) || isDrinkCategory(p.category);
+}
+
 export function getProductOptions(
   product: OptionProduct,
   categories: OptionCategory[],
@@ -105,13 +110,13 @@ export function getProductOptions(
 ): ProductOptions {
   if (product.isTopping) return { sizes: [], toppings: [], iceSugar: false, catalogMode: false, toppingGroups: [], noteChips: [], hasAny: false };
 
-  // --- size
-  let sizeMap: Record<string, number> = {};
+  // --- size: ĐỒ UỐNG KHÔNG còn chọn size (bán một cỡ, không tự thêm S/M/L).
+  // Món khác (vd. bánh Nhỏ/Lớn) vẫn giữ size đã cấu hình.
+  const sizeMap: Record<string, number> = {};
   if (product.sizes && typeof product.sizes === "object") {
     for (const [k, v] of Object.entries(product.sizes)) sizeMap[k] = Math.max(0, Math.trunc(Number(v)) || 0);
   }
-  if (Object.keys(sizeMap).length === 0 && isDefaultDrink(product.category)) sizeMap = { S: 0, M: 5000, L: 10000 };
-  const sizes = Object.entries(sizeMap).map(([name, extra]) => ({ name, extra }));
+  const sizes: SizeOption[] = isDrinkProduct(product) ? [] : Object.entries(sizeMap).map(([name, extra]) => ({ name, extra }));
 
   // --- topping
   const toppingProducts = allProducts.filter((p) => p.isTopping || lc(p.category).includes("topping"));
