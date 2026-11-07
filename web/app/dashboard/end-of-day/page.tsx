@@ -27,6 +27,9 @@ import {
   User,
 } from "lucide-react";
 
+/** Giá trị bộ lọc: món không thuộc nhân viên nào trong danh sách */
+const UNASSIGNED_STAFF = "__UNASSIGNED__";
+
 export default function EndOfDayReportPage() {
   const { stores, currentStoreCode, setCurrentStoreCode, historyData, tables, usersList, cashShifts, products } = useDashboardData();
 
@@ -242,13 +245,38 @@ export default function EndOfDayReportPage() {
     return Array.from(byKey.values()).sort((a, b) => a.localeCompare(b, "vi"));
   }, [usersList, soldRows]);
 
+  /**
+   * Món KHÔNG thuộc nhân viên nào trong bộ lọc: không ghi người order ("Không rõ" — vd. khách tự đặt qua QR),
+   * tài khoản đã xóa / ngưng hoạt động / chi nhánh khác, hoặc chỉ lưu username không khớp tài khoản hiện có.
+   * Trước đây các món này không chọn được ở bộ lọc → tổng các nhân viên thấp hơn tổng doanh số.
+   */
+  const isUnassignedRow = useMemo(() => {
+    const listed = new Set(availableStaffList.map((n) => n.toLocaleLowerCase("vi")));
+    return (raw: string) => !splitStaff(raw).some((n) => listed.has(n.toLocaleLowerCase("vi")));
+  }, [availableStaffList]);
+  const unassignedSummary = useMemo(() => {
+    let qty = 0;
+    let amount = 0;
+    const names = new Set<string>();
+    for (const r of soldRows) {
+      if (!isUnassignedRow(r.orderStaffName)) continue;
+      qty += r.quantity;
+      amount += r.netAmount;
+      names.add(r.orderStaffName || "Không rõ");
+    }
+    return { qty, amount, names: Array.from(names) };
+  }, [soldRows, isUnassignedRow]);
+
   // Hàng hóa theo nhân viên: gộp các dòng món do nhân viên đó order
   const staffProductList = useMemo<ProductReportItem[] | null>(() => {
     if (productStaffFilter === "ALL") return null;
     const want = productStaffFilter.toLocaleLowerCase("vi");
     const map = new Map<string, ProductReportItem>();
     for (const r of soldRows) {
-      if (!splitStaff(r.orderStaffName).some((n) => n.toLocaleLowerCase("vi") === want)) continue;
+      const match = productStaffFilter === UNASSIGNED_STAFF
+        ? isUnassignedRow(r.orderStaffName)
+        : splitStaff(r.orderStaffName).some((n) => n.toLocaleLowerCase("vi") === want);
+      if (!match) continue;
       const key = r.productCode || r.productName;
       let e = map.get(key);
       if (!e) {
@@ -265,7 +293,7 @@ export default function EndOfDayReportPage() {
       e.netRevenue += r.netAmount;
     }
     return Array.from(map.values()).map((e) => ({ ...e, basePrice: e.quantity > 0 ? Math.round(e.grossRevenue / e.quantity) : 0 }));
-  }, [productStaffFilter, soldRows, productsMap]);
+  }, [productStaffFilter, soldRows, productsMap, isUnassignedRow]);
 
   // Tab 3: Filtered Product list
   const productSalesList = useMemo(() => {
@@ -1200,6 +1228,9 @@ export default function EndOfDayReportPage() {
                       {st}
                     </option>
                   ))}
+                  {unassignedSummary.qty > 0 && (
+                    <option value={UNASSIGNED_STAFF}>Chưa rõ nhân viên / tài khoản khác</option>
+                  )}
                 </select>
               </div>
 
@@ -1264,6 +1295,18 @@ export default function EndOfDayReportPage() {
               Tổng doanh số món: <strong style={{ color: productViewMode === "AMOUNT" ? "var(--primary)" : "var(--text)" }}>{formatVND(totalProductRev)}</strong>
             </div>
           </div>
+
+          {productStaffFilter !== UNASSIGNED_STAFF && unassignedSummary.qty > 0 && (
+            <div
+              role="note"
+              style={{ padding: "10px 14px", borderRadius: "10px", marginBottom: "16px", fontSize: "12px", lineHeight: 1.5, background: "#FFF4D6", color: "#7A5200" }}
+            >
+              Có <strong>{unassignedSummary.qty} phần · {formatVND(unassignedSummary.amount)}</strong> không thuộc nhân viên nào trong bộ lọc
+              {" "}(người order: {unassignedSummary.names.slice(0, 5).join(", ")}{unassignedSummary.names.length > 5 ? "…" : ""}) — thường là món khách tự đặt
+              qua QR, tài khoản đã xóa/ngưng hoạt động hoặc chi nhánh khác. Chọn &quot;Chưa rõ nhân viên / tài khoản khác&quot; để xem chi tiết.
+              Lưu ý: doanh số theo nhân viên là tiền món (chưa trừ giảm giá cả hóa đơn, gồm mọi hình thức thanh toán) nên có thể khác tiền mặt thu được.
+            </div>
+          )}
 
           {/* Table */}
           <div style={{ overflowX: "auto" }}>
