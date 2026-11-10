@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/permissions/app_permissions.dart';
 import '../../core/printer/receipt_printer.dart';
 import '../../core/domain/item_options.dart';
+import '../../core/domain/order_merge.dart';
 import '../../core/utils/topping_utils.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/manager_pin_service.dart';
@@ -97,6 +98,129 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
   // Huỷ các listener Firebase khi rời màn hình (trước đây bị rò rỉ listener)
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
+  bool _mergeBusy = false;
+  int _lastSaveErrorAt = 0;
+
+  /// Lưu bàn thất bại (bị từ chối / lỗi thật — mất mạng thì SDK tự đồng bộ, không vào đây): báo cho nhân viên
+  /// thay vì im lặng, để không tưởng đã lưu rồi mất món.
+  void _saveFailed(Object e) {
+    debugPrint('[Cart] Lưu bàn thất bại: $e');
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (!mounted || now - _lastSaveErrorAt < 4000) return;
+    _lastSaveErrorAt = now;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Chưa lưu được thay đổi của bàn (có thể bàn đã thanh toán / đóng ở máy khác). Vui lòng kiểm tra lại.\n$e'),
+      backgroundColor: AppColors.danger,
+      duration: const Duration(seconds: 5),
+    ));
+  }
+
+  // Đang mở màn "Thêm món" (màn đó tự gộp khi lưu): tạm không áp cập nhật từ máy khác vào giỏ, giữ lại bản mới nhất
+  bool _remotePaused = false;
+  TableModel? _pendingRemote;
+  // Đơn trên màn hình này đã thanh toán / hủy / đóng (trên máy này hoặc máy khác) → không bao giờ lưu lại bàn khi thoát
+  bool _orderClosed = false;
+
+  /// Bàn đổi trên server (máy khác thêm / sửa / xóa món, áp khuyến mãi, hoặc thanh toán/hủy đơn...):
+  /// gộp vào giỏ đang mở theo bản gốc máy này đã đọc — thay đổi chưa lưu của máy này được giữ nguyên.
+  void _onRemoteTable(TableModel? remote) {
+    if (!mounted || remote == null || _orderClosed) return;
+    final t = widget.table;
+    final currentBillId = t.currentBillId;
+    final wasClosedOnServer = !remote.inUse &&
+        ((currentBillId != null && currentBillId.isNotEmpty && remote.closedBillId == currentBillId) ||
+            (t.syncedOrderJson != null && t.syncedOrderJson!.trim().isNotEmpty));
+    if (wasClosedOnServer) {
+      if (_remotePaused) {
+        _pendingRemote = remote;
+        return;
+      }
+      _orderClosed = true;
+      t.clearTable();
+      if (remote.closedBillId != null && remote.closedBillId!.isNotEmpty) {
+        t.closedBillId = remote.closedBillId;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đơn bàn ${t.name} đã được thanh toán hoặc hủy trên thiết bị khác.'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          context.go('/tables');
+        }
+      }
+      return;
+    }
+    if (!remote.inUse) return;
+    if (_remotePaused) {
+      _pendingRemote = remote;
+      return;
+    }
+    final base = t.syncedOrderJson;
+    if (base == null) return;
+    final remoteJson = remote.syncedOrderJson ?? remote.currentOrderJson;
+    final orderChanged = remoteJson != base;
+
+    // Khuyến mãi / số khách / khách / ghi chú: máy này chưa đổi (so với bản đã đọc) thì lấy theo máy khác
+    final baseMeta = t.syncedMeta;
+    final localMeta = t.metaSnapshot();
+    final remoteMeta = remote.metaSnapshot();
+    final adopt = <String>{
+      if (baseMeta != null)
+        for (final f in TableModel.mergedMetaFields)
+          if (jsonEncode(remoteMeta[f]) != jsonEncode(baseMeta[f]) && jsonEncode(localMeta[f]) == jsonEncode(baseMeta[f])) f,
+    };
+    if (!orderChanged && adopt.isEmpty) {
+      if (baseMeta != null) t.syncedMeta = remoteMeta;
+      return;
+    }
+
+    setState(() {
+      if (orderChanged) {
+        final localJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
+        final merged = OrderMerge.mergeJson(base: base, local: localJson, server: remoteJson);
+        _cart = [for (final e in jsonDecode(merged) as List) OrderItemModel.fromMap(e as Map)];
+        t.currentOrderJson = merged;
+        t.syncedOrderJson = remoteJson;
+        t.prePrintedAt = remote.prePrintedAt;
+        t.prePrintedBy = remote.prePrintedBy;
+        t.actionLogsJson = OrderMerge.unionJsonLists(remote.actionLogsJson, t.actionLogsJson) ?? t.actionLogsJson;
+        t.deletedItemsJson = OrderMerge.unionJsonLists(remote.deletedItemsJson, t.deletedItemsJson) ?? t.deletedItemsJson;
+      }
+      if (adopt.contains('discountsJson')) {
+        t.discountsJson = remote.discountsJson;
+        _appliedDiscounts = List.from(t.currentDiscounts);
+      }
+      if (adopt.contains('guestCount')) {
+        t.guestCount = remote.guestCount;
+        _guestCount = remote.guestCount ?? _guestCount;
+      }
+      if (adopt.contains('note')) t.note = remote.note;
+      if (adopt.any((f) => f.startsWith('customer'))) {
+        t.customerId = remote.customerId;
+        t.customerName = remote.customerName;
+        t.customerPhone = remote.customerPhone;
+        _selectedCustomer = TableCustomerLogic.restore(t);
+      }
+      if (baseMeta != null) t.syncedMeta = remoteMeta;
+    });
+    // Món đổi → tính lại khuyến mãi theo đơn mới (có lưu). Chỉ đổi khuyến mãi / số khách: không lưu lại
+    // (tránh hai máy ghi qua ghi lại).
+    if (orderChanged) _recalculateDiscounts();
+  }
+
+  /// Mở lại việc nhận cập nhật sau khi màn con đóng, áp bản mới nhất đã giữ lại
+  void _resumeRemote() {
+    _remotePaused = false;
+    final p = _pendingRemote;
+    _pendingRemote = null;
+    if (p != null) _onRemoteTable(p);
+  }
+
   @override
   void dispose() {
     _earnFailSub?.cancel();
@@ -117,6 +241,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     _isShiftOpen = _fb.activeShiftCache != null && _fb.activeShiftCache!.isOpen;
     widget.table.ensureCodes();
     _cart = List.from(widget.initialProducts.isNotEmpty ? widget.initialProducts : widget.table.currentItems);
+    // Máy khác thêm / sửa món của bàn này → cập nhật giỏ ngay (giữ nguyên thay đổi chưa lưu của máy này)
+    _subscriptions.add(_fb.tableStream(widget.table.firebaseKey).listen(_onRemoteTable, onError: (_) {}));
     _guestCount = widget.table.guestCount ?? 1;
     // Phục hồi ưu đãi khuyến mãi đã áp dụng từ bàn (giúp treo đơn qua giờ combo không bị mất)
     _appliedDiscounts = List.from(widget.table.currentDiscounts);
@@ -301,14 +427,23 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
 
   int get _subTotal => _rawSubTotal;
 
-  /// Số tiền của giảm giá thủ công [pct]% hóa đơn: tính trên tiền món sau giảm giá từng món
-  int _manualPercentAmount(int pct) {
-    final diff = _subTotal - _itemDiscountTotal;
+  /// Số tiền của giảm giá thủ công [pct]% hóa đơn: tính trên PHẦN CÒN LẠI sau giảm giá từng món và sau các
+  /// khuyến mãi khác đã áp ([otherDiscounts]) — giống giảm hóa đơn của chương trình KM. Trước đây không trừ
+  /// khuyến mãi khác nên combo 30K + giảm tay 100% ghi tổng giảm lớn hơn cả tiền hóa đơn.
+  int _manualPercentAmount(int pct, {int otherDiscounts = 0}) {
+    final diff = _subTotal - _itemDiscountTotal - otherDiscounts;
     final base = diff > 0 ? diff : 0;
     return pct >= 100 ? base : (base * pct / 100).round();
   }
 
-  int get _totalDiscount => _itemDiscountTotal + _voucherDiscountTotal + _pointsDiscount;
+  /// Tổng các khuyến mãi KHÔNG phải giảm % thủ công trong [list]
+  static int _nonManualPercentTotal(Iterable<BillDiscountModel> list) =>
+      list.where((d) => d.effectiveManualPercent == null).fold(0, (s, d) => s + d.amount);
+
+  int get _totalDiscount {
+    final sum = _itemDiscountTotal + _voucherDiscountTotal + _pointsDiscount;
+    return sum > _subTotal ? _subTotal : sum; // không ghi tổng giảm vượt tiền hàng
+  }
 
   int get _afterDiscount {
     final diff = _subTotal - _totalDiscount;
@@ -389,7 +524,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       });
     }
     widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
-    await _fb.saveTable(widget.table).catchError((_) {});
+    await _fb.saveTable(widget.table).catchError(_saveFailed);
     _recalculateDiscounts();
   }
 
@@ -512,7 +647,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     if (saved > 0) {
       _recordDeletion(item, removeQty: 1, savedQty: saved, reason: reason!);
       widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
-      await _fb.saveTable(widget.table).catchError((_) {});
+      await _fb.saveTable(widget.table).catchError(_saveFailed);
     }
   }
 
@@ -791,10 +926,11 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
 
     // Nếu giỏ hàng đã bị xóa hết món -> Chuyển bàn về trạng thái TRỐNG hoàn toàn!
     if (_cart.isEmpty) {
+      _orderClosed = true;
+      widget.table.currentOrderJson = '';
       _recalculateDiscounts();
       if (widget.table.deletedItems.isNotEmpty) {
         // Có món đã lưu bị xóa → ghi HĐ ĐÃ HỦY (giữ deletedItems cho báo cáo) rồi dọn bàn.
-        widget.table.currentOrderJson = '';
         try {
           await _fb.cancelActiveBill(
             widget.table,
@@ -805,11 +941,11 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           );
         } catch (_) {
           widget.table.clearTable();
-          await _fb.saveTable(widget.table).catchError((_) {});
+          await _fb.saveTable(widget.table).catchError(_saveFailed);
         }
       } else {
         widget.table.clearTable();
-        await _fb.saveTable(widget.table).catchError((_) {});
+        await _fb.saveTable(widget.table).catchError(_saveFailed);
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -824,7 +960,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     }
 
     widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
-    await _fb.saveTable(widget.table).catchError((_) {});
+    await _fb.saveTable(widget.table).catchError(_saveFailed);
     _recalculateDiscounts();
   }
 
@@ -832,6 +968,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
   Future<void> _showCancelBillDialog() async {
     if (!await _ensureShiftOpen() || !mounted) return;
     if (_cart.isEmpty) {
+      _orderClosed = true;
       widget.table.clearTable();
       await _fb.saveTable(widget.table);
       if (mounted) Navigator.of(context).pop();
@@ -964,6 +1101,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     if (confirmed == true) {
       final reason = reasonCtrl.text.trim();
       setState(() => _isLoading = true);
+      _orderClosed = true;
       try {
         await _fb.cancelActiveBill(
           widget.table,
@@ -984,6 +1122,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
           Navigator.of(context).pop();
         }
       } catch (e) {
+        _orderClosed = false;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Lỗi hủy hóa đơn: $e'), backgroundColor: AppColors.danger),
@@ -1057,7 +1196,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       ));
     });
     widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
-    await _fb.saveTable(widget.table).catchError((_) {});
+    await _fb.saveTable(widget.table).catchError(_saveFailed);
     // Cho nhân viên chọn thêm topping tặng: mở ngay bảng chọn size / đường / đá / topping cho dòng tặng
     final freeToppings = c.tiers.fold<int>(0, (m, t) => t.rewardToppingQty > m ? t.rewardToppingQty : m);
     if (freeToppings > 0 && mounted) {
@@ -1152,7 +1291,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       }
     });
     widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
-    await _fb.saveTable(widget.table).catchError((_) {});
+    await _fb.saveTable(widget.table).catchError(_saveFailed);
     return true;
   }
 
@@ -1327,17 +1466,21 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     final List<String> dropped = [];
     // Chương trình KM mới: tính lại CỘNG DỒN cả nhóm bằng Pricing Engine (bỏ qua khung giờ nếu đã áp dụng)
     final campaignDs = _appliedDiscounts.where((d) => d.campaignId != null && _campaignById.containsKey(d.campaignId)).toList();
-    final campRes = CartCampaignPricing.recalculate(
-      campaignDs,
-      _campaignById,
-      cart: _cart,
-      products: _products,
-      branchId: _fb.currentStoreCode,
-      guestCount: _guestCount,
-      customerBirthday: _selectedCustomer?.birthday,
-      orderTimestampMs: widget.table.openedAt,
-      isExistingOrder: true,
-    );
+    // Chưa tải được thực đơn (mạng chậm / lỗi): không biết nhóm món nên combo theo nhóm sẽ tính ra 0đ và bị GỠ
+    // oan → giữ nguyên khuyến mãi đang áp, tính lại khi thực đơn tải xong.
+    final campRes = _products.isEmpty
+        ? (discounts: campaignDs, dropped: <String>[])
+        : CartCampaignPricing.recalculate(
+            campaignDs,
+            _campaignById,
+            cart: _cart,
+            products: _products,
+            branchId: _fb.currentStoreCode,
+            guestCount: _guestCount,
+            customerBirthday: _selectedCustomer?.birthday,
+            orderTimestampMs: widget.table.openedAt,
+            isExistingOrder: true,
+          );
     final campById = {for (final d in campRes.discounts) d.campaignId: d};
     dropped.addAll(campRes.dropped);
     // Đơn không còn đủ điều kiện → gỡ ly tặng CHƯA gửi bếp của các chương trình bị gỡ (không để thành ly tính tiền)
@@ -1345,7 +1488,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     if (droppedIds.isNotEmpty && _cart.any((i) => droppedIds.contains(i.rewardCampaignId) && !i.isSentKitchen)) {
       _cart.removeWhere((i) => droppedIds.contains(i.rewardCampaignId) && !i.isSentKitchen);
       widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
-      unawaited(_fb.saveTable(widget.table).catchError((_) {}));
+      unawaited(_fb.saveTable(widget.table).catchError(_saveFailed));
     }
     for (final d in _appliedDiscounts) {
       if (d.campaignId != null && _campaignById.containsKey(d.campaignId)) {
@@ -1382,10 +1525,16 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         valid.add(d);
       }
     }
+    // Giảm % thủ công tính sau cùng, trên phần còn lại sau các khuyến mãi khác
+    final others = _nonManualPercentTotal(valid);
+    for (var i = 0; i < valid.length; i++) {
+      final pct = valid[i].effectiveManualPercent;
+      if (pct != null) valid[i] = valid[i].copyWith(amount: _manualPercentAmount(pct, otherDiscounts: others));
+    }
     setState(() => _appliedDiscounts = valid);
     _syncTableDiscounts();
-    if (widget.table.currentOrderJson.isNotEmpty) {
-      _fb.saveTable(widget.table).catchError((_) {});
+    if (!_orderClosed && _cart.isNotEmpty && widget.table.inUse && widget.table.currentOrderJson.isNotEmpty) {
+      _fb.saveTable(widget.table).catchError(_saveFailed);
     }
     if (dropped.isNotEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2136,6 +2285,9 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                               shouldPrint: _autoPrintBill,
                             );
 
+                            if (remainingItems.isEmpty) {
+                              _orderClosed = true;
+                            }
                             if (mounted) {
                               setState(() {
                                 _cart = remainingItems;
@@ -2201,6 +2353,9 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             staffRole: staffRole,
                           );
 
+                          if (remainingItems.isEmpty) {
+                            _orderClosed = true;
+                          }
                           if (mounted) {
                             setState(() {
                               _cart = remainingItems;
@@ -2278,13 +2433,26 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                 title: Text(t.name),
                 subtitle: Text('${t.zone} • ${t.currentItems.length} món'),
                 onTap: () async {
-                  await _fb.mergeTables(t, widget.table);
-                  final refreshed = await _fb.tablesStream().first;
-                  final currentT = refreshed.where((x) => x.name == widget.table.name).firstOrNull;
-                  if (currentT != null && mounted) {
-                    setState(() {
-                      _cart = List.from(currentT.currentItems);
-                    });
+                  if (_mergeBusy) return; // chặn bấm 2 lần
+                  _mergeBusy = true;
+                  try {
+                    // Lưu thay đổi chưa lưu của giỏ trước, rồi gộp trên bản mới nhất của 2 bàn
+                    widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
+                    await _fb.mergeTables(t, widget.table);
+                  } catch (e) {
+                    _mergeBusy = false;
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Lỗi gộp bàn: $e'), backgroundColor: AppColors.danger),
+                      );
+                    }
+                    return;
+                  }
+                  _mergeBusy = false;
+                  if (mounted) {
+                    // mergeTables đã cập nhật widget.table (bàn đích) theo đơn sau gộp
+                    setState(() => _cart = List.from(widget.table.currentItems));
+                    _recalculateDiscounts();
                   }
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
@@ -3002,14 +3170,14 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     if (!await _ensureShiftOpen() || !mounted) return;
     final item = _cart[index];
 
-    // Find original product if possible
-    ProductModel? originalProduct;
-    for (final p in _products) {
-      if (p.id == item.productId ||
-          (p.code.isNotEmpty && p.code.toLowerCase() == item.name.toLowerCase()) ||
-          p.name.toLowerCase() == item.name.toLowerCase()) {
-        originalProduct = p;
-        break;
+    // Món gốc: món tạo từ web / sao chép có productId 0 (dùng chung) → tra theo tên, không lấy món id 0 đầu tiên
+    ProductModel? originalProduct = CartCampaignPricing.resolveProduct(item, _products);
+    if (originalProduct == null) {
+      for (final p in _products) {
+        if (p.code.isNotEmpty && p.code.toLowerCase() == item.name.toLowerCase()) {
+          originalProduct = p;
+          break;
+        }
       }
     }
 
@@ -3469,7 +3637,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             });
 
                             widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
-                            await _fb.saveTable(widget.table).catchError((_) {});
+                            await _fb.saveTable(widget.table).catchError(_saveFailed);
                             _recalculateDiscounts();
 
                             if (ctx.mounted) Navigator.pop(ctx);
@@ -4217,7 +4385,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                             if (rewardUnsent > 0) {
                               setState(() => _cart.removeWhere((i) => i.rewardCampaignId == c.campaignId && !i.isSentKitchen));
                               widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
-                              await _fb.saveTable(widget.table).catchError((_) {});
+                              await _fb.saveTable(widget.table).catchError(_saveFailed);
                             }
                             if (rewardSent > 0 && context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -4280,9 +4448,12 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
                       );
                       return;
                     }
-                    final raw = manualType == 'PERCENT' ? _manualPercentAmount(val) : val;
-                    final amt = raw > _subTotal ? _subTotal : raw;
                     if (!allowStack) _appliedDiscounts.clear();
+                    // Giảm tay tính trên phần còn lại sau giảm giá món và các khuyến mãi đã chọn
+                    final others = _nonManualPercentTotal(_appliedDiscounts);
+                    final remaining = (_subTotal - _itemDiscountTotal - others).clamp(0, _subTotal);
+                    final raw = manualType == 'PERCENT' ? _manualPercentAmount(val, otherDiscounts: others) : val;
+                    final amt = raw > remaining ? remaining : raw;
                     _appliedDiscounts.add(BillDiscountModel(
                       description: 'Giảm giá thủ công (${manualType == "PERCENT" ? "$val%" : FormatUtils.vnd(val)})',
                       amount: amt,
@@ -4305,8 +4476,8 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         ..addAll(originalDiscounts);
     } else {
       _syncTableDiscounts();
-      if (widget.table.currentOrderJson.isNotEmpty) {
-        _fb.saveTable(widget.table).catchError((_) {});
+      if (!_orderClosed && _cart.isNotEmpty && widget.table.inUse && widget.table.currentOrderJson.isNotEmpty) {
+        await _fb.saveTable(widget.table).catchError(_saveFailed);
       }
     }
     if (mounted) setState(() {});
@@ -4388,6 +4559,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
         if (qrPart > 0) bill.qrConfirmedBy = qrManual ? 'MANUAL' : 'BANK';
 
         // Đổi điểm (chặn nếu thiếu điểm) + tích điểm được xử lý trong closeAndPayBill (transaction, idempotent)
+        _orderClosed = true;
         await _fb.closeAndPayBill(
           bill,
           widget.table,
@@ -4430,6 +4602,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
 
         _fireBackgroundPaymentTasks(bill, paymentMethod, shouldPrint: _autoPrintBill);
       } catch (e) {
+        _orderClosed = false;
         if (ctx.mounted) {
           setSheetState(() {
             isProcessingPayment = false;
@@ -4972,11 +5145,14 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
   Future<void> _goToAddItems() async {
     if (!await _ensureShiftOpen() || !mounted) return;
 
+    _remotePaused = true;
     final res = await context.push('/order-list', extra: {
       'table': widget.table,
       'isAddingMore': true,
     });
     if (!mounted) return;
+    _resumeRemote();
+    if (_orderClosed) return;
     if (res is List<OrderItemModel>) {
       setState(() {
         _cart = List.from(res);
@@ -4984,6 +5160,7 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       _recalculateDiscounts();
     } else {
       final refreshed = await _fb.tablesStream().first;
+      if (_orderClosed || !mounted) return;
       final currentT = refreshed.where((x) => x.name == widget.table.name).firstOrNull;
       if (currentT != null && mounted) {
         setState(() {
@@ -5153,9 +5330,10 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
+        if (_orderClosed || _cart.isEmpty || !widget.table.inUse) return;
         _syncTableDiscounts();
         if (widget.table.currentOrderJson.isNotEmpty) {
-          _fb.saveTable(widget.table).catchError((_) {});
+          _fb.saveTable(widget.table).catchError(_saveFailed);
         }
       },
       child: Scaffold(

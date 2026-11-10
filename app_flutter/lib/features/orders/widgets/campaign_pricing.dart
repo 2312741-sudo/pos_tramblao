@@ -9,20 +9,32 @@ import '../../../data/models/promotion_model.dart';
 class CartCampaignPricing {
   CartCampaignPricing._();
 
+  /// Tra món của dòng giỏ hàng. Món tạo từ Web / sao chép chưa có id số nên có `id` = 0 và DÙNG CHUNG productId 0:
+  /// tra theo id 0 sẽ ra một món bất kỳ (sai nhóm / mã → combo không tính món đó). Chỉ tin id khi > 0 và khớp tên;
+  /// còn lại tra theo TÊN món.
+  static ProductModel? resolveProduct(OrderItemModel item, List<ProductModel> products) {
+    final nameKey = item.name.trim().toLowerCase();
+    ProductModel? byName;
+    ProductModel? byId;
+    for (final p in products) {
+      if (byName == null && p.name.trim().toLowerCase() == nameKey) byName = p;
+      if (byId == null && item.productId > 0 && p.id == item.productId) byId = p;
+    }
+    if (byId != null && (byName == null || byId.name.trim().toLowerCase() == nameKey)) return byId;
+    return byName ?? byId;
+  }
+
   /// Dựng dòng tính giá từ giỏ hàng (lineId = vị trí dòng, groupId = tên nhóm món)
   static List<PricingLineItem> lines(List<OrderItemModel> cart, List<ProductModel> products) {
-    final cat = {for (final p in products) p.id: p.category};
-    final prodByNumId = {for (final p in products) p.id: p};
-    final prodByName = {for (final p in products) p.name.trim().toLowerCase(): p};
     return [
       for (int i = 0; i < cart.length; i++)
         (() {
           final item = cart[i];
-          final p = prodByNumId[item.productId] ?? prodByName[item.name.trim().toLowerCase()];
+          final p = resolveProduct(item, products);
           return PricingLineItem.fromOrderItem(
             item,
             lineId: 'L$i',
-            groupId: p?.category ?? cat[item.productId],
+            groupId: p?.category,
             itemCode: p?.code,
             dbKey: p?.dbKey,
           );
@@ -68,35 +80,39 @@ class CartCampaignPricing {
       if (c == null) continue;
 
       final q = stacked[c.campaignId]!;
+      // Tổng hiển thị trên các dòng KHÔNG được vượt số tiền KM thực tính trên hóa đơn (d.amount): tính lại có thể ra
+      // nhiều hơn (VD thêm bánh sau khi áp combo) → dòng thừa bị gắn nhầm nhãn KM và giá sau giảm sai.
+      var budget = d.amount;
+
+      void add(String lineId, int money, int qty, bool isGift) {
+        if (money <= 0 || budget <= 0) return;
+        final lineIdx = int.tryParse(lineId.replaceAll(RegExp(r'[^0-9]'), ''));
+        if (lineIdx == null || lineIdx < 0 || lineIdx >= cart.length) return;
+        final take = money < budget ? money : budget;
+        // Bớt số phần theo tỉ lệ khi bị cắt bớt tiền (giữ ít nhất 1 phần)
+        final takeQty = take == money || qty <= 0 ? qty : ((take * qty) / money).ceil().clamp(1, qty);
+        budget -= take;
+        result.putIfAbsent(lineIdx, () => []).add((
+          campaignName: c.name,
+          discountAmount: take,
+          quantity: takeQty,
+          isGift: isGift,
+        ));
+      }
 
       final seenLines = <String>{};
       for (final rb in q.rewardBenefits) {
         if (rb.discountMoney <= 0) continue;
-        final idxStr = rb.lineId.replaceAll(RegExp(r'[^0-9]'), '');
-        final lineIdx = int.tryParse(idxStr);
-        if (lineIdx != null && lineIdx >= 0 && lineIdx < cart.length) {
-          seenLines.add(rb.lineId);
-          result.putIfAbsent(lineIdx, () => []).add((
-            campaignName: c.name,
-            discountAmount: rb.discountMoney,
-            quantity: rb.quantity > 0 ? rb.quantity : cart[lineIdx].quantity,
-            isGift: rb.isGift,
-          ));
-        }
+        seenLines.add(rb.lineId);
+        final idx = int.tryParse(rb.lineId.replaceAll(RegExp(r'[^0-9]'), ''));
+        final fallbackQty = idx != null && idx >= 0 && idx < cart.length ? cart[idx].quantity : 0;
+        add(rb.lineId, rb.discountMoney, rb.quantity > 0 ? rb.quantity : fallbackQty, rb.isGift);
       }
 
       for (final lb in q.lineBenefits) {
         if (seenLines.contains(lb.lineId) || lb.discountMoney <= 0) continue;
-        final idxStr = lb.lineId.replaceAll(RegExp(r'[^0-9]'), '');
-        final lineIdx = int.tryParse(idxStr);
-        if (lineIdx != null && lineIdx >= 0 && lineIdx < cart.length) {
-          result.putIfAbsent(lineIdx, () => []).add((
-            campaignName: c.name,
-            discountAmount: lb.discountMoney,
-            quantity: cart[lineIdx].quantity,
-            isGift: lb.isGift,
-          ));
-        }
+        final idx = int.tryParse(lb.lineId.replaceAll(RegExp(r'[^0-9]'), ''));
+        add(lb.lineId, lb.discountMoney, idx != null && idx >= 0 && idx < cart.length ? cart[idx].quantity : 0, lb.isGift);
       }
     }
 
