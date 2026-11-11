@@ -633,10 +633,10 @@ export default function PromotionsPage() {
                   <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
                   <input value={search} onChange={(e) => setSearch(e.target.value)}
                     placeholder="Tìm theo tên, mã KM..."
-                    style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px" }} />
+                    style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: "8px", border: "1px solid var(--border-light)", fontSize: "14px" }} />
                 </div>
                 <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
-                  style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px", minWidth: "160px" }}>
+                  style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border-light)", fontSize: "13px", minWidth: "160px" }}>
                   <option value="">Tất cả loại KM</option>
                   {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
@@ -801,7 +801,7 @@ export default function PromotionsPage() {
 
               <div style={{ display: "flex", gap: "12px", marginBottom: "16px", alignItems: "center", flexWrap: "wrap" }}>
                 <select value={selectedVoucherCampaign} onChange={(e) => { setSelectedVoucherCampaign(e.target.value); setVoucherSearch(""); }}
-                  style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", flex: 1, minWidth: "220px", fontWeight: "600" }}>
+                  style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border-light)", fontSize: "14px", flex: 1, minWidth: "220px", fontWeight: "600" }}>
                   <option value="">-- Chọn chương trình khuyến mãi để quản lý mã --</option>
                   {campaigns.map(c => (
                     <option key={c.campaignId} value={c.campaignId}>{c.programCode} - {c.name} {c.hasCodes ? "(Đã có mã)" : ""}</option>
@@ -837,16 +837,16 @@ export default function PromotionsPage() {
                       <div style={{ fontSize: "13px", color: "var(--muted)", fontWeight: "600" }}>Tổng mã</div>
                       <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--text)" }}>{voucherStats.total}</div>
                     </div>
-                    <div style={{ background: "var(--success-bg)", padding: "16px", borderRadius: "12px", border: "1px solid #bbf7d0" }}>
-                      <div style={{ fontSize: "13px", color: "#166534", fontWeight: "600" }}>Chưa dùng</div>
+                    <div style={{ background: "var(--success-bg)", padding: "16px", borderRadius: "12px", border: "1px solid var(--border-light)" }}>
+                      <div style={{ fontSize: "13px", color: "var(--success)", fontWeight: "600" }}>Chưa dùng</div>
                       <div style={{ fontSize: "24px", fontWeight: "800", color: "#15803d" }}>{voucherStats.unused}</div>
                     </div>
-                    <div style={{ background: "var(--warning-bg)", padding: "16px", borderRadius: "12px", border: "1px solid #fef08a" }}>
-                      <div style={{ fontSize: "13px", color: "#854d0e", fontWeight: "600" }}>Đã dùng</div>
+                    <div style={{ background: "var(--warning-bg)", padding: "16px", borderRadius: "12px", border: "1px solid var(--border-light)" }}>
+                      <div style={{ fontSize: "13px", color: "var(--warning)", fontWeight: "600" }}>Đã dùng</div>
                       <div style={{ fontSize: "24px", fontWeight: "800", color: "#a16207" }}>{voucherStats.used}</div>
                     </div>
                     <div style={{ background: "var(--danger-bg)", padding: "16px", borderRadius: "12px", border: "1px solid #fecaca" }}>
-                      <div style={{ fontSize: "13px", color: "#991b1b", fontWeight: "600" }}>Đã hủy</div>
+                      <div style={{ fontSize: "13px", color: "var(--danger)", fontWeight: "600" }}>Đã hủy</div>
                       <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--danger)" }}>{voucherStats.cancelled}</div>
                     </div>
                   </div>
@@ -856,7 +856,7 @@ export default function PromotionsPage() {
                     <input value={voucherSearch} onChange={(e) => setVoucherSearch(e.target.value)}
                       placeholder="Tìm mã voucher hoặc mã đơn..."
                       aria-label="Tìm mã voucher"
-                      style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", boxSizing: "border-box" }} />
+                      style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: "8px", border: "1px solid var(--border-light)", fontSize: "14px", boxSizing: "border-box" }} />
                   </div>
 
                   <div style={{ borderRadius: "12px", border: "1px solid var(--border)", overflowX: "auto" }}>
@@ -963,7 +963,7 @@ export default function PromotionsPage() {
             </div>
             
             {/* 1. Cấu hình Ưu đãi & Giảm giá */}
-            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #eee", paddingTop: "12px", marginTop: "4px" }}>
+            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--border-light)", paddingTop: "12px", marginTop: "4px" }}>
               <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "8px", color: "var(--primary)" }}>Cấu hình Ưu đãi & Giảm giá</div>
               {campaignForm.campaignType === "BILLDISCOUNT" && (
                 <div className="grid-stack-sm" style={benefitBox}>
@@ -1046,7 +1046,7 @@ export default function PromotionsPage() {
                   <div style={{ gridColumn: "1 / -1" }}>
                     <GroupMultiPicker
                       label={`Nhóm món mua X (${campaignForm.buyGroupIds.length}) — mọi món trong nhóm đều tính là X`}
-                      color="#1e40af"
+                      color="var(--info)"
                       categories={categories}
                       selected={campaignForm.buyGroupIds}
                       onChange={(ids) => setCampaignForm(prev => ({ ...prev, buyGroupIds: ids }))}
@@ -1055,7 +1055,7 @@ export default function PromotionsPage() {
                     <div style={{ height: "10px" }} />
                     <ItemMultiPicker
                       label={`Món mua X (${campaignForm.buyItemIds.length}) *`}
-                      color="#1e40af"
+                      color="var(--info)"
                       products={products}
                       selected={campaignForm.buyItemIds}
                       onChange={(ids) => setCampaignForm(prev => ({ ...prev, buyItemIds: ids }))}
@@ -1084,15 +1084,15 @@ export default function PromotionsPage() {
 
             {/* 2. Phạm vi áp dụng món & nhóm hàng — chỉ cho Đồng giá (Giảm giá đơn hàng áp dụng toàn bộ hóa đơn) */}
             {campaignForm.campaignType === "ITEMPRICERULE" && (
-            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #eee", paddingTop: "12px", marginTop: "4px" }}>
-              <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "8px", color: "#1e3a8a" }}>Phạm vi áp dụng món / nhóm hàng</div>
+            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--border-light)", paddingTop: "12px", marginTop: "4px" }}>
+              <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "8px", color: "var(--info)" }}>Phạm vi áp dụng món / nhóm hàng</div>
               <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "8px" }}>
                 Nếu để trống cả 2 mục, ưu đãi sẽ được áp dụng cho toàn bộ menu.
               </div>
 
               {/* Nhóm hàng */}
               <div style={{ marginBottom: "12px", background: "var(--surface-muted)", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}>
-                <label style={{ ...labelStyle, color: "#1e40af" }}>Nhóm hàng áp dụng ({campaignForm.includedGroupIds.length})</label>
+                <label style={{ ...labelStyle, color: "var(--info)" }}>Nhóm hàng áp dụng ({campaignForm.includedGroupIds.length})</label>
                 <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
                   <select
                     style={{ ...inputStyle, flex: 1 }}
@@ -1121,12 +1121,12 @@ export default function PromotionsPage() {
                 {campaignForm.includedGroupIds.length > 0 ? (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                     {campaignForm.includedGroupIds.map(g => (
-                      <span key={g} style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", background: "var(--info-bg)", color: "#1e40af", borderRadius: "16px", fontSize: "12px", fontWeight: "600" }}>
+                      <span key={g} style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", background: "var(--info-bg)", color: "var(--info)", borderRadius: "16px", fontSize: "12px", fontWeight: "600" }}>
                         {g}
                         <button
                           type="button"
                           onClick={() => setCampaignForm(prev => ({ ...prev, includedGroupIds: prev.includedGroupIds.filter(x => x !== g) }))}
-                          style={{ border: "none", background: "none", cursor: "pointer", color: "#1e40af", fontWeight: "bold", fontSize: "14px", lineHeight: 1 }}
+                          style={{ border: "none", background: "none", cursor: "pointer", color: "var(--info)", fontWeight: "bold", fontSize: "14px", lineHeight: 1 }}
                         >×</button>
                       </span>
                     ))}
@@ -1139,7 +1139,7 @@ export default function PromotionsPage() {
               {/* Món hàng */}
               <ItemMultiPicker
                 label={`Món hàng áp dụng (${campaignForm.includedItemIds.length})`}
-                color="#b45309"
+                color="var(--warning)"
                 products={products}
                 selected={campaignForm.includedItemIds}
                 onChange={(ids) => setCampaignForm(prev => ({ ...prev, includedItemIds: ids }))}
@@ -1149,16 +1149,16 @@ export default function PromotionsPage() {
             )}
 
             {/* 3. Lịch trình, Ngày trong tuần & Happy Hours */}
-            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #eee", paddingTop: "12px", marginTop: "4px" }}>
-              <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "8px", color: "#065f46" }}>Lịch trình & Khung giờ áp dụng (Happy hours)</div>
+            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--border-light)", paddingTop: "12px", marginTop: "4px" }}>
+              <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "8px", color: "var(--success)" }}>Lịch trình & Khung giờ áp dụng (Happy hours)</div>
             </div>
             <FormField label="Ngày bắt đầu" value={campaignForm.startDate} onChange={(v) => setCampaignForm({ ...campaignForm, startDate: v })} type="datetime-local" />
             <FormField label="Ngày kết thúc" value={campaignForm.endDate} onChange={(v) => setCampaignForm({ ...campaignForm, endDate: v })} type="datetime-local" />
 
             {/* Ngày trong tuần */}
-            <div style={{ gridColumn: "1 / -1", background: "var(--success-bg)", padding: "12px", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
+            <div style={{ gridColumn: "1 / -1", background: "var(--success-bg)", padding: "12px", borderRadius: "8px", border: "1px solid var(--border-light)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "4px" }}>
-                <label style={{ ...labelStyle, color: "#166534", margin: 0 }}>
+                <label style={{ ...labelStyle, color: "var(--success)", margin: 0 }}>
                   Ngày áp dụng trong tuần: {campaignForm.daysOfWeek.length === 0 || campaignForm.daysOfWeek.length === 7 ? "Tất cả các ngày (T2 - CN)" : `${campaignForm.daysOfWeek.length} ngày đã chọn`}
                 </label>
                 <div style={{ display: "flex", gap: "6px" }}>
@@ -1235,10 +1235,10 @@ export default function PromotionsPage() {
             </div>
 
             {/* Happy Hours slots */}
-            <div style={{ gridColumn: "1 / -1", background: "var(--info-bg)", padding: "12px", borderRadius: "8px", border: "1px solid #ddd6fe" }}>
+            <div style={{ gridColumn: "1 / -1", background: "var(--info-bg)", padding: "12px", borderRadius: "8px", border: "1px solid var(--border-light)" }}>
               <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                 <div>
-                  <label style={{ ...labelStyle, color: "#6b21a8", margin: 0 }}>
+                  <label style={{ ...labelStyle, color: "var(--table-awaiting)", margin: 0 }}>
                     Khung giờ Happy Hours ({campaignForm.timeSlots.length})
                   </label>
                   <div style={{ fontSize: "12px", color: "#7c3aed" }}>
@@ -1275,8 +1275,8 @@ export default function PromotionsPage() {
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   {campaignForm.timeSlots.map((slot, idx) => (
-                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--surface)", padding: "8px 12px", borderRadius: "6px", border: "1px solid #e9d5ff" }}>
-                      <span style={{ fontSize: "13px", fontWeight: "600", color: "#6b21a8", minWidth: "60px" }}>Ca #{idx + 1}</span>
+                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--surface)", padding: "8px 12px", borderRadius: "6px", border: "1px solid var(--border-light)" }}>
+                      <span style={{ fontSize: "13px", fontWeight: "600", color: "var(--table-awaiting)", minWidth: "60px" }}>Ca #{idx + 1}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         <span style={{ fontSize: "12px", color: "var(--subtext)" }}>Từ:</span>
                         <input
@@ -1328,7 +1328,7 @@ export default function PromotionsPage() {
             </div>
 
             {/* 4. Hạn mức */}
-            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #eee", paddingTop: "12px", marginTop: "4px" }}>
+            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--border-light)", paddingTop: "12px", marginTop: "4px" }}>
               <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "8px" }}>Hạn mức</div>
             </div>
             <FormField label="Ngân sách (VND)" value={campaignForm.budgetMoney} onChange={(v) => setCampaignForm({ ...campaignForm, budgetMoney: v })} type="number" />
@@ -1361,7 +1361,7 @@ export default function PromotionsPage() {
             </div>
 
             {/* 5. Bắt buộc nhân viên nhập ghi chú (Mục 2 của Module 1) */}
-            <div style={{ gridColumn: "1 / -1", background: "var(--warning-bg)", border: "1px solid #fef08a", borderRadius: "8px", padding: "12px 14px", marginTop: "4px" }}>
+            <div style={{ gridColumn: "1 / -1", background: "var(--warning-bg)", border: "1px solid var(--border-light)", borderRadius: "8px", padding: "12px 14px", marginTop: "4px" }}>
               <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer" }}>
                 <input
                   type="checkbox"
@@ -1370,7 +1370,7 @@ export default function PromotionsPage() {
                   style={{ marginTop: "3px", width: "16px", height: "16px" }}
                 />
                 <div>
-                  <div style={{ fontSize: "13px", fontWeight: "700", color: "#854d0e" }}>
+                  <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--warning)" }}>
                     Bắt buộc nhân viên nhập ghi chú/lý do khi áp dụng mã tại POS
                   </div>
                   <div style={{ fontSize: "12px", color: "#a16207", marginTop: "2px" }}>
@@ -1429,7 +1429,7 @@ export default function PromotionsPage() {
             </div>
 
             {/* 6. Cài đặt khác */}
-            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #eee", paddingTop: "12px", marginTop: "4px" }}>
+            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--border-light)", paddingTop: "12px", marginTop: "4px" }}>
               <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "8px" }}>Cài đặt khác</div>
             </div>
             <div style={{ gridColumn: "1 / -1", display: "flex", gap: "24px", flexWrap: "wrap" }}>
@@ -1471,7 +1471,7 @@ export default function PromotionsPage() {
             </div>
           </div>
           {formError && <div style={{ color: "#ef4444", fontSize: "13px", marginTop: "8px" }}>{formError}</div>}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #eee" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--border-light)" }}>
             <button onClick={() => setShowCampaignModal(false)} style={btnSecondary}>Hủy</button>
             <button onClick={handleSaveCampaign} disabled={saving} style={btnPrimary}>{saving ? "Đang lưu..." : "Lưu KM"}</button>
           </div>
@@ -1544,10 +1544,10 @@ function ItemMultiPicker({ label, color, products, selected, onChange, emptyText
           {selected.map(id => {
             const prod = products.find(p => String(p.id) === String(id));
             return (
-              <span key={id} style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", background: "var(--warning-bg)", color: "#92400e", borderRadius: "16px", fontSize: "12px", fontWeight: "600" }}>
+              <span key={id} style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", background: "var(--warning-bg)", color: "var(--warning)", borderRadius: "16px", fontSize: "12px", fontWeight: "600" }}>
                 {prod ? prod.name : id}
                 <button type="button" aria-label={`Bỏ ${prod ? prod.name : id}`} onClick={() => onChange(selected.filter(x => x !== id))}
-                  style={{ border: "none", background: "none", cursor: "pointer", color: "#92400e", fontWeight: "bold", fontSize: "14px", lineHeight: 1 }}>×</button>
+                  style={{ border: "none", background: "none", cursor: "pointer", color: "var(--warning)", fontWeight: "bold", fontSize: "14px", lineHeight: 1 }}>×</button>
               </span>
             );
           })}
@@ -1613,7 +1613,7 @@ function RewardEditor({ form, setForm, products, categories, title }: {
       <div style={{ gridColumn: "1 / -1" }}>
         <GroupMultiPicker
           label={`Nhóm món được tặng/giảm (${form.rewardGroupIds.length}) — chọn nhóm để tránh thiếu món`}
-          color="#b45309"
+          color="var(--warning)"
           categories={categories}
           selected={form.rewardGroupIds}
           onChange={(ids) => setForm(prev => ({ ...prev, rewardGroupIds: ids }))}
@@ -1622,7 +1622,7 @@ function RewardEditor({ form, setForm, products, categories, title }: {
         <div style={{ height: "10px" }} />
         <ItemMultiPicker
           label={`${title} (${form.rewardItemIds.length}) *`}
-          color="#b45309"
+          color="var(--warning)"
           products={products}
           selected={form.rewardItemIds}
           onChange={(ids) => setForm(prev => ({ ...prev, rewardItemIds: ids }))}
@@ -1634,7 +1634,7 @@ function RewardEditor({ form, setForm, products, categories, title }: {
         <div style={{ gridColumn: "1 / -1" }}>
           <ItemMultiPicker
             label={`Topping luôn kèm món tặng — tặng luôn, vd "Tăng giá Grab 2K" (${form.rewardToppingIds.length})`}
-            color="#b45309"
+            color="var(--warning)"
             products={products.filter((p) => p.isTopping || String(p.category ?? "").toLowerCase().includes("topping"))}
             selected={form.rewardToppingIds}
             onChange={(ids) => setForm(prev => ({ ...prev, rewardToppingIds: ids }))}
@@ -1706,7 +1706,7 @@ const btnPrimary: React.CSSProperties = {
   fontSize: "13px", fontWeight: "700", cursor: "pointer",
 };
 const btnSecondary: React.CSSProperties = {
-  padding: "10px 18px", background: "#f5f5f5", color: "#333", border: "1px solid #ddd",
+  padding: "10px 18px", background: "#f5f5f5", color: "#333", border: "1px solid var(--border-light)",
   borderRadius: "10px", fontSize: "13px", fontWeight: "600", cursor: "pointer",
 };
 const thStyle: React.CSSProperties = {
@@ -1714,13 +1714,13 @@ const thStyle: React.CSSProperties = {
   color: "#666", textTransform: "uppercase", letterSpacing: "0.03em",
 };
 const tdStyle: React.CSSProperties = {
-  padding: "12px 14px", fontSize: "13px", color: "#333", verticalAlign: "middle"
+  padding: "12px 14px", fontSize: "13px", color: "var(--text)", verticalAlign: "middle"
 };
 const labelStyle: React.CSSProperties = {
-  display: "block", fontSize: "12px", fontWeight: "600", color: "#555", marginBottom: "4px",
+  display: "block", fontSize: "12px", fontWeight: "600", color: "var(--subtext)", marginBottom: "4px",
 };
 const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", boxSizing: "border-box"
+  width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border-light)", fontSize: "14px", boxSizing: "border-box"
 };
 const badgeStyle = (color: string): React.CSSProperties => ({
   display: "inline-block", padding: "2px 8px", borderRadius: "6px", fontSize: "11px",

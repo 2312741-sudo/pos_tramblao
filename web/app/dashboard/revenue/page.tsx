@@ -204,7 +204,7 @@ export default function RevenuePage() {
               padding: "6px 12px",
             }}
           >
-            <Store size={16} color="#1B4D3E" />
+            <Store size={16} color="var(--text-brand)" />
             <select
               value={currentStoreCode}
               onChange={(e) => setCurrentStoreCode(e.target.value)}
@@ -331,7 +331,7 @@ export default function RevenuePage() {
               <Utensils size={18} />
             </div>
             <div>
-              <div style={{ fontWeight: "700", color: "#1E3A8A", fontSize: "14px" }}>
+              <div style={{ fontWeight: "700", color: "var(--info)", fontSize: "14px" }}>
                 Đang phục vụ: {servingCount} bàn chưa thanh toán
               </div>
               <div style={{ color: "#3B82F6", fontSize: "12px" }}>
@@ -341,7 +341,7 @@ export default function RevenuePage() {
           </div>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
             {servingTables.slice(0, 4).map((st) => (
-              <span key={st.id || st.name} style={{ background: "var(--surface)", border: "1px solid #93C5FD", borderRadius: "8px", padding: "4px 10px", fontSize: "12px", color: "#1E40AF" }}>
+              <span key={st.id || st.name} style={{ background: "var(--surface)", border: "1px solid #93C5FD", borderRadius: "8px", padding: "4px 10px", fontSize: "12px", color: "var(--info)" }}>
                 {st.name} ({st.zone}): <strong>{formatVND(getTableServingTotal(st))}</strong>
               </span>
             ))}
@@ -405,7 +405,7 @@ export default function RevenuePage() {
                 </tr>
               ) : (
                 periodItems.map((item) => (
-                  <tr key={item.periodKey} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                  <tr key={item.periodKey} style={{ borderBottom: "1px solid var(--border-light)" }}>
                     <td style={{ padding: "10px 12px", fontWeight: "700", color: "var(--text)" }}>
                       {item.periodLabel}
                     </td>

@@ -323,7 +323,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
               padding: "10px 12px",
               borderRadius: "10px",
               background: "var(--primary)",
-              color: "#143A2F",
+              color: "var(--text-brand)",
               fontSize: "13px",
               fontWeight: 700,
             }}

@@ -112,7 +112,7 @@ export default function ChangePasswordPage() {
               margin: "0 auto 14px",
             }}
           >
-            <KeyRound size={28} color="#1B4D3E" />
+            <KeyRound size={28} color="var(--text-brand)" />
           </div>
           <h1
             style={{

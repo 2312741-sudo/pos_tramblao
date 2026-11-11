@@ -22,7 +22,7 @@ function RequestButton({ subject, label }: { subject: string; label: string }) {
         padding: "10px 16px",
         borderRadius: 8,
         background: "var(--primary)",
-        color: "#143A2F",
+        color: "var(--text-brand)",
         fontWeight: 700,
         textDecoration: "none",
       }}

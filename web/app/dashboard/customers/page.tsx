@@ -834,7 +834,7 @@ export default function CustomersPage() {
                   return (
                     <tr
                       key={`${c.storeCode}:${c.id}`}
-                      style={{ borderBottom: "1px solid #F0ECE1" }}
+                      style={{ borderBottom: "1px solid var(--border-light)" }}
                     >
                       <td style={{ padding: "12px 14px", textAlign: "center", color: "var(--muted)" }}>{idx + 1}</td>
                       {showStoreColumn && (
@@ -845,7 +845,7 @@ export default function CustomersPage() {
                       </td>
                       <td style={{ padding: "12px 14px" }}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                          <Phone size={13} color="#1B4D3E" />
+                          <Phone size={13} color="var(--text-brand)" />
                           <strong>{c.soDienThoai || "—"}</strong>
                         </span>
                       </td>
@@ -1099,7 +1099,7 @@ export default function CustomersPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-              <Settings size={20} color="#1B4D3E" />
+              <Settings size={20} color="var(--text-brand)" />
               <h2 style={{ fontSize: "17px", fontWeight: "800", color: "var(--text)", margin: 0 }}>
                 Cấu hình Tỷ Lệ Đổi Điểm KMT CRM
               </h2>

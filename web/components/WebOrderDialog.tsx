@@ -128,9 +128,9 @@ export default function WebOrderDialog({
   const stepperChip = (key: string, label: string, count: number, canAdd: boolean, onAdd: () => void, onSub: () => void) => (
     <span key={key} style={{ ...chip(true), display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 6px 2px 12px" }}>
       {label}
-      <button type="button" aria-label={`Bớt ${label}`} onClick={onSub} style={{ background: "transparent", border: 0, color: "#143A2F", cursor: "pointer", padding: 2, display: "inline-flex" }}><Minus size={13} /></button>
+      <button type="button" aria-label={`Bớt ${label}`} onClick={onSub} style={{ background: "transparent", border: 0, color: "var(--text-brand)", cursor: "pointer", padding: 2, display: "inline-flex" }}><Minus size={13} /></button>
       <strong>{count}</strong>
-      <button type="button" aria-label={`Thêm ${label}`} disabled={!canAdd} onClick={onAdd} style={{ background: "transparent", border: 0, color: "#143A2F", cursor: canAdd ? "pointer" : "not-allowed", opacity: canAdd ? 1 : 0.5, padding: 2, display: "inline-flex" }}><Plus size={13} /></button>
+      <button type="button" aria-label={`Thêm ${label}`} disabled={!canAdd} onClick={onAdd} style={{ background: "transparent", border: 0, color: "var(--text-brand)", cursor: canAdd ? "pointer" : "not-allowed", opacity: canAdd ? 1 : 0.5, padding: 2, display: "inline-flex" }}><Plus size={13} /></button>
     </span>
   );
 

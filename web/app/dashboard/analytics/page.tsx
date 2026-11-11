@@ -283,7 +283,7 @@ export default function AnalyticsPage() {
                 padding: "6px 12px",
               }}
             >
-              <Store size={16} color="#1B4D3E" />
+              <Store size={16} color="var(--text-brand)" />
               <select
                 value={currentStoreCode}
                 onChange={(e) => setCurrentStoreCode(e.target.value)}
@@ -392,7 +392,7 @@ export default function AnalyticsPage() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px", padding: "16px 20px" }}>
           <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", justifyContent: "space-between", alignItems: "center", color: "var(--subtext)", fontSize: "13px" }}>
             <span>Doanh thu thuần</span>
-            <DollarSign size={18} color="#1B4D3E" />
+            <DollarSign size={18} color="var(--text-brand)" />
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--primary)", marginTop: "8px" }}>
             {formatVND(overviewReport.netRevenue)}
@@ -418,7 +418,7 @@ export default function AnalyticsPage() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px", padding: "16px 20px" }}>
           <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", justifyContent: "space-between", alignItems: "center", color: "var(--subtext)", fontSize: "13px" }}>
             <span>Lợi nhuận gộp</span>
-            <TrendingUp size={18} color="#146A65" />
+            <TrendingUp size={18} color="var(--success)" />
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--success)", marginTop: "8px" }}>
             {formatVND(overviewReport.grossProfit)}
@@ -528,7 +528,7 @@ export default function AnalyticsPage() {
                 { stt: 19, name: "Lợi nhuận gộp (Gross Profit)", val: formatVND(overviewReport.grossProfit), note: "Doanh thu sau giảm giá - Tổng giá vốn" },
                 { stt: 20, name: "Tỷ suất lợi nhuận gộp (%)", val: `${overviewReport.grossProfitMarginPercent}%`, note: "Lợi nhuận gộp / Doanh thu sau giảm giá" },
               ].map((row) => (
-                <tr key={row.stt} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                <tr key={row.stt} style={{ borderBottom: "1px solid var(--border-light)" }}>
                   <td style={{ padding: "10px 12px", color: "var(--muted)" }}>{row.stt}</td>
                   <td style={{ padding: "10px 12px", fontWeight: "600", color: "var(--text)" }}>{row.name}</td>
                   <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: "700", color: "var(--primary)" }}>
@@ -605,7 +605,7 @@ export default function AnalyticsPage() {
               </thead>
               <tbody>
                 {hourlyReport.map((h) => (
-                  <tr key={h.hour} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                  <tr key={h.hour} style={{ borderBottom: "1px solid var(--border-light)" }}>
                     <td style={{ padding: "8px 12px", fontWeight: "600", color: "var(--text)" }}>{h.hourLabel}</td>
                     <td style={{ padding: "8px 12px", textAlign: "right" }}>{h.billCount}</td>
                     <td style={{ padding: "8px 12px", textAlign: "right" }}>{formatVND(h.grossRevenue)}</td>
@@ -639,7 +639,7 @@ export default function AnalyticsPage() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-              <Users size={18} color="#146A65" />
+              <Users size={18} color="var(--success)" />
               <h2 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text)", margin: 0 }}>
                 Năng suất Nhân viên Order ({staffReport.orderStaff.length} nhân viên)
               </h2>
@@ -661,7 +661,7 @@ export default function AnalyticsPage() {
                   </tr>
                 ) : (
                   staffReport.orderStaff.map((s) => (
-                    <tr key={s.staffUsername} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                    <tr key={s.staffUsername} style={{ borderBottom: "1px solid var(--border-light)" }}>
                       <td style={{ padding: "10px 12px" }}>
                         <div style={{ fontWeight: "700", color: "var(--text)" }}>{s.staffFullName}</div>
                         <div style={{ fontSize: "11px", color: "var(--muted)" }}>@{s.staffUsername}</div>
@@ -690,7 +690,7 @@ export default function AnalyticsPage() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-              <Receipt size={18} color="#1B4D3E" />
+              <Receipt size={18} color="var(--text-brand)" />
               <h2 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text)", margin: 0 }}>
                 Năng suất Thu ngân chốt Bill ({staffReport.cashierStaff.length} thu ngân)
               </h2>
@@ -712,7 +712,7 @@ export default function AnalyticsPage() {
                   </tr>
                 ) : (
                   staffReport.cashierStaff.map((s) => (
-                    <tr key={s.staffUsername} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                    <tr key={s.staffUsername} style={{ borderBottom: "1px solid var(--border-light)" }}>
                       <td style={{ padding: "10px 12px" }}>
                         <div style={{ fontWeight: "700", color: "var(--text)" }}>{s.staffFullName}</div>
                         <div style={{ fontSize: "11px", color: "var(--muted)" }}>@{s.staffUsername}</div>
@@ -746,7 +746,7 @@ export default function AnalyticsPage() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-              <PieIcon size={18} color="#1B4D3E" />
+              <PieIcon size={18} color="var(--text-brand)" />
               <h2 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text)", margin: 0 }}>
                 Tỷ trọng Hình thức Thanh toán
               </h2>
@@ -810,7 +810,7 @@ export default function AnalyticsPage() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-              <BarChart2 size={18} color="#146A65" />
+              <BarChart2 size={18} color="var(--success)" />
               <h2 style={{ fontSize: "16px", fontWeight: "700", color: "var(--text)", margin: 0 }}>
                 Top 10 Món Bán Chạy Nhất Trong Kỳ
               </h2>
