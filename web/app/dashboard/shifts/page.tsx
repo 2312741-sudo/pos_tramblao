@@ -301,7 +301,7 @@ function ShiftsContent() {
               padding: "6px 12px",
             }}
           >
-            <Store size={16} color="#7E2930" />
+            <Store size={16} color="var(--text-accent)" />
             <select
               value={currentStoreCode}
               onChange={(e) => setCurrentStoreCode(e.target.value)}
@@ -356,7 +356,7 @@ function ShiftsContent() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px", padding: "16px 20px" }}>
           <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", justifyContent: "space-between", alignItems: "center", color: "var(--subtext)", fontSize: "13px" }}>
             <span>Tổng số ca giao két</span>
-            <History size={18} color="#7E2930" />
+            <History size={18} color="var(--text-accent)" />
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--text)", marginTop: "8px" }}>
             {formatNumber(summaryKpi.totalShifts)}
@@ -369,7 +369,7 @@ function ShiftsContent() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px", padding: "16px 20px" }}>
           <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", justifyContent: "space-between", alignItems: "center", color: "var(--subtext)", fontSize: "13px" }}>
             <span>Doanh số tiền mặt ca</span>
-            <Coins size={18} color="#146A65" />
+            <Coins size={18} color="var(--success)" />
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--success)", marginTop: "8px" }}>
             {formatVND(summaryKpi.totalCashSales)}
@@ -599,7 +599,7 @@ function ShiftsContent() {
                   const isOpen = shift.status === "OPEN";
 
                   return (
-                    <tr key={shift.shiftId || shift.shiftCode} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                    <tr key={shift.shiftId || shift.shiftCode} style={{ borderBottom: "1px solid var(--border-light)" }}>
                       <td style={{ padding: "10px 12px", fontWeight: "700", color: "var(--primary)" }}>
                         {shift.shiftCode}
                       </td>
@@ -728,7 +728,7 @@ function ShiftsContent() {
             {/* Slip Paper Details */}
             <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px" }}>
               <SlipLine label="1. Tiền mặt đầu ca:" value={formatVND(selectedShift.initialCash || 0)} />
-              <SlipLine label="2. Doanh số tiền mặt (+):" value={formatVND(selectedShift.cashSales || 0)} color="#146A65" />
+              <SlipLine label="2. Doanh số tiền mặt (+):" value={formatVND(selectedShift.cashSales || 0)} color="var(--success)" />
               <SlipLine label="3. Doanh số VietQR (+):" value={formatVND(selectedShift.qrSales || 0)} color="#1877F2" />
               <SlipLine label="4. Doanh số Thẻ / Khác (+):" value={formatVND(selectedShift.cardSales || 0)} color="#8A5B00" />
               <SlipLine label="5. Tiền nộp thêm vào két (Cash In):" value={formatVND(selectedShift.cashIn || 0)} />
@@ -739,7 +739,7 @@ function ShiftsContent() {
               <div style={{ borderBottom: "1px dashed #CCC", margin: "6px 0" }} />
               <SlipLine label="TỔNG DOANH THU CA:" value={formatVND(selectedShift.totalSales || 0)} isBold />
               <div style={{ borderBottom: "1px dashed #CCC", margin: "6px 0" }} />
-              <SlipLine label="TIỀN KÉT KỲ VỌNG (Lý thuyết):" value={formatVND(selectedShift.expectedCash || 0)} isBold color="#7E2930" />
+              <SlipLine label="TIỀN KÉT KỲ VỌNG (Lý thuyết):" value={formatVND(selectedShift.expectedCash || 0)} isBold color="var(--text-accent)" />
               <SlipLine label="TIỀN KIỂM ĐẾM THỰC TẾ:" value={formatVND(selectedShift.actualCash || 0)} isBold />
               <SlipLine
                 label="CHÊNH LỆCH KÉT:"
@@ -750,7 +750,7 @@ function ShiftsContent() {
             </div>
 
             {/* Promotional Breakdown for Shift (Module 4) */}
-            <div style={{ marginTop: "14px", padding: "12px", background: "var(--primary-light)", borderRadius: "10px", border: "1px solid #F5D5D8" }}>
+            <div style={{ marginTop: "14px", padding: "12px", background: "var(--primary-light)", borderRadius: "10px", border: "1px solid var(--border-light)" }}>
               <div style={{ fontSize: "12px", fontWeight: "800", color: "var(--primary)", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
                 <span>KHUYẾN MÃI & GIẢM GIÁ TRONG CA</span>
               </div>
@@ -770,12 +770,12 @@ function ShiftsContent() {
                   value={`-${formatVND(shiftPromoStats.pointsDiscountTotal)}`}
                   color="#C93B2B"
                 />
-                <div style={{ borderBottom: "1px dashed #F5D5D8", margin: "4px 0" }} />
+                <div style={{ borderBottom: "1px dashed var(--border-light)", margin: "4px 0" }} />
                 <SlipLine
                   label="TỔNG CHI PHÍ GIẢM GIÁ CA:"
                   value={`-${formatVND(shiftPromoStats.totalPromoDiscount)}`}
                   isBold
-                  color="#7E2930"
+                  color="var(--text-accent)"
                 />
               </div>
             </div>
@@ -801,7 +801,7 @@ function ShiftsContent() {
             </div>
 
             {/* Actions */}
-            <div style={{ display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: "10px", marginTop: "24px", borderTop: "1px solid #EEE", paddingTop: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: "10px", marginTop: "24px", borderTop: "1px solid var(--border-light)", paddingTop: "16px" }}>
               <button
                 onClick={() => setSelectedShift(null)}
                 style={{
@@ -864,7 +864,7 @@ function SlipLine({
   label,
   value,
   isBold = false,
-  color = "#1C1A2D",
+  color = "var(--text)",
 }: {
   label: string;
   value: string;

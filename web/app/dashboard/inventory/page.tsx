@@ -1483,14 +1483,14 @@ export default function InventoryPage() {
                 ? "Tìm theo tên, SĐT, mã NCC..."
                 : "Tìm kiếm..."
             }
-            style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px" }}
+            style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: "8px", border: "1px solid var(--border-light)", fontSize: "14px" }}
           />
         </div>
         {activeTab === "catalog" && itemGroups.length > 0 && (
           <select
             value={filterGroup}
             onChange={(e) => setFilterGroup(e.target.value)}
-            style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px", minWidth: "160px" }}
+            style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border-light)", fontSize: "13px", minWidth: "160px" }}
           >
             <option value="">Tất cả nhóm hàng</option>
             {itemGroups.map((g) => (
@@ -1504,7 +1504,7 @@ export default function InventoryPage() {
           <select
             value={filterKind}
             onChange={(e) => setFilterKind(e.target.value)}
-            style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px", minWidth: "160px" }}
+            style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border-light)", fontSize: "13px", minWidth: "160px" }}
           >
             <option value="">Tất cả loại</option>
             {Object.entries(kindLabels).map(([k, v]) => (
@@ -1519,7 +1519,7 @@ export default function InventoryPage() {
             <select
               value={filterDocType}
               onChange={(e) => setFilterDocType(e.target.value)}
-              style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px", minWidth: "140px" }}
+              style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border-light)", fontSize: "13px", minWidth: "140px" }}
             >
               <option value="">Tất cả loại</option>
               {Object.entries(docTypeLabels).map(([k, v]) => (
@@ -1531,7 +1531,7 @@ export default function InventoryPage() {
             <select
               value={filterDocStatus}
               onChange={(e) => setFilterDocStatus(e.target.value)}
-              style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px", minWidth: "120px" }}
+              style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border-light)", fontSize: "13px", minWidth: "120px" }}
             >
               <option value="">Tất cả trạng thái</option>
               <option value="DRAFT">Phiếu tạm</option>
@@ -1904,7 +1904,7 @@ export default function InventoryPage() {
                 type="button"
                 onClick={() => handleSaveDoc(false)}
                 disabled={docSaving}
-                style={{ ...btnSecondary, background: "var(--warning-bg)", borderColor: "#F59E0B", color: "#B45309" }}
+                style={{ ...btnSecondary, background: "var(--warning-bg)", borderColor: "#F59E0B", color: "var(--warning)" }}
               >
                 {docSaving ? "Đang lưu..." : "Lưu tạm (DRAFT)"}
               </button>
@@ -2206,7 +2206,7 @@ export default function InventoryPage() {
                   <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--text)", marginBottom: "8px" }}>
                     Lưu ý
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "13px", color: "#334155", lineHeight: 1.65 }}>
+                  <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "13px", color: "var(--subtext)", lineHeight: 1.65 }}>
                     <li>Hệ thống cho phép nhập tối đa 5.000 mặt hàng mỗi lần từ file.</li>
                     <li>Mã hàng chứa kí tự đặc biệt (@, #, $, *, /, -, _, ...) và chữ có dấu sẽ gây khó khăn khi in và sử dụng mã vạch.</li>
                     <li>Với hình ảnh hàng hóa, hệ thống sẽ lưu trữ và hiển thị theo link hình ảnh được nhập trên file excel (không lưu trữ ảnh).</li>
@@ -2341,7 +2341,7 @@ export default function InventoryPage() {
                     <div style={{ border: "1px solid var(--border)", borderRadius: "8px", maxHeight: "240px", overflow: "auto" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
                         <thead>
-                          <tr style={{ background: "var(--surface-muted)", color: "#475569", borderBottom: "1px solid var(--border)" }}>
+                          <tr style={{ background: "var(--surface-muted)", color: "var(--subtext)", borderBottom: "1px solid var(--border)" }}>
                             <th style={{ padding: "8px", textAlign: "left" }}>Mã</th>
                             <th style={{ padding: "8px", textAlign: "left" }}>Tên hàng</th>
                             <th style={{ padding: "8px", textAlign: "left" }}>Loại</th>
@@ -2352,7 +2352,7 @@ export default function InventoryPage() {
                         </thead>
                         <tbody>
                           {parsedRows.map((r, idx) => (
-                            <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9", background: r.isValid ? "var(--surface)" : "#FFF5F5" }}>
+                            <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)", background: r.isValid ? "var(--surface)" : "#FFF5F5" }}>
                               <td style={{ padding: "6px 8px", fontFamily: "monospace", fontWeight: "600" }}>{r.sku}</td>
                               <td style={{ padding: "6px 8px", fontWeight: "500" }}>{r.name}</td>
                               <td style={{ padding: "6px 8px" }}>{r.kind === "TOOL" ? "Công cụ" : "NVL"}</td>
@@ -2830,7 +2830,7 @@ const btnSecondary: React.CSSProperties = {
   padding: "9px 16px",
   background: "#f5f5f5",
   color: "#333",
-  border: "1px solid #ddd",
+  border: "1px solid var(--border-light)",
   borderRadius: "10px",
   fontSize: "13px",
   fontWeight: "600",
@@ -2850,14 +2850,14 @@ const thStyle: React.CSSProperties = {
 const tdStyle: React.CSSProperties = {
   padding: "12px 14px",
   fontSize: "13px",
-  color: "#333",
+  color: "var(--text)",
 };
 
 const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: "12px",
   fontWeight: "600",
-  color: "#555",
+  color: "var(--subtext)",
   marginBottom: "4px",
 };
 
@@ -2865,7 +2865,7 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "8px 12px",
   borderRadius: "8px",
-  border: "1px solid #ddd",
+  border: "1px solid var(--border-light)",
   fontSize: "14px",
 };
 

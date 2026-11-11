@@ -1079,7 +1079,7 @@ function TablesPageContent() {
             border: "1.5px solid #10B981",
             borderRadius: "12px",
             padding: "14px 18px",
-            color: "#065F46",
+            color: "var(--success)",
             fontWeight: "600",
             display: "flex", flexWrap: "wrap", rowGap: "8px",
             alignItems: "center",
@@ -1093,7 +1093,7 @@ function TablesPageContent() {
           </div>
           <button
             onClick={() => setCheckoutToast(null)}
-            style={{ background: "transparent", border: "none", cursor: "pointer", color: "#065F46" }}
+            style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--success)" }}
           >
             <X size={16} />
           </button>
@@ -1276,7 +1276,7 @@ function TablesPageContent() {
           <div style={{ fontSize: "28px", fontWeight: "800", color: "var(--warning)" }}>
             {totalGuests} <span style={{ fontSize: "14px", fontWeight: "600", color: "var(--warning)" }}>khách</span>
           </div>
-          <div style={{ fontSize: "12px", color: "#805214", marginTop: "4px" }}>
+          <div style={{ fontSize: "12px", color: "var(--warning)", marginTop: "4px" }}>
             Đang ngồi tại {inUseCount} bàn
           </div>
         </div>
@@ -1288,13 +1288,13 @@ function TablesPageContent() {
             background: statusCounts.RESERVED > 0 ? "linear-gradient(135deg, var(--surface) 0%, var(--warning-bg) 100%)" : "var(--surface)",
           }}
         >
-          <div style={{ fontSize: "13px", fontWeight: "700", color: "#B45309", marginBottom: "8px" }}>
+          <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--warning)", marginBottom: "8px" }}>
             ĐẶT TRƯỚC (RESERVED)
           </div>
-          <div style={{ fontSize: "28px", fontWeight: "800", color: "#B45309" }}>
-            {statusCounts.RESERVED} <span style={{ fontSize: "14px", fontWeight: "600", color: "#B45309" }}>bàn</span>
+          <div style={{ fontSize: "28px", fontWeight: "800", color: "var(--warning)" }}>
+            {statusCounts.RESERVED} <span style={{ fontSize: "14px", fontWeight: "600", color: "var(--warning)" }}>bàn</span>
           </div>
-          <div style={{ fontSize: "12px", color: "#B45309", marginTop: "4px", fontWeight: "600" }}>
+          <div style={{ fontSize: "12px", color: "var(--warning)", marginTop: "4px", fontWeight: "600" }}>
             Đã có khách hẹn
           </div>
         </div>
@@ -1556,11 +1556,11 @@ function TablesPageContent() {
                         )}
                         <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "12px", color: "var(--subtext)" }}>
                           <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <Users size={14} color="#7E2930" />
+                            <Users size={14} color="var(--text-accent)" />
                             <strong>{t.guestCount || 1} khách</strong>
                           </span>
                           <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <Clock size={14} color="#7E2930" />
+                            <Clock size={14} color="var(--text-accent)" />
                             <strong>{elapsedMinutes} ph</strong>
                           </span>
                         </div>
@@ -1741,12 +1741,12 @@ function TablesPageContent() {
                     {/* Thân thẻ bàn đặt trước */}
                     <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
                       <div style={{ display: "flex", flexWrap: "wrap", rowGap: "8px", alignItems: "center", justifyContent: "space-between" }}>
-                        <span className="badge badge-warning" style={{ background: "var(--warning-bg)", color: "#B45309", border: "1px solid #FDE68A" }}>
+                        <span className="badge badge-warning" style={{ background: "var(--warning-bg)", color: "var(--warning)", border: "1px solid var(--border-light)" }}>
                           <Clock size={13} />
                           Đặt trước
                         </span>
                         {t.reservationTime && (
-                          <span style={{ fontSize: "12px", color: "#B45309", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
+                          <span style={{ fontSize: "12px", color: "var(--warning)", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
                             <Clock size={14} /> {t.reservationTime}
                           </span>
                         )}
@@ -1775,7 +1775,7 @@ function TablesPageContent() {
                           </div>
                         )}
                         {t.reservationDeposit && t.reservationDeposit > 0 ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#065F46", fontSize: "12px", fontWeight: "700" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--success)", fontSize: "12px", fontWeight: "700" }}>
                             <DollarSign size={13} color="#059669" />
                             <span>Tiền cọc: {formatVND(t.reservationDeposit)} đ</span>
                           </div>
@@ -1811,7 +1811,7 @@ function TablesPageContent() {
                         </button>
                         <button
                           className="btn-primary"
-                          style={{ padding: "6px 14px", fontSize: "12px", background: "var(--warning)", borderColor: "#B45309" }}
+                          style={{ padding: "6px 14px", fontSize: "12px", background: "var(--warning)", borderColor: "var(--warning)" }}
                           onClick={() => handleCheckInReservation(t)}
                         >
                           <Check size={14} />
@@ -1837,7 +1837,7 @@ function TablesPageContent() {
                       transition: "all 0.2s",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "#146A65";
+                      e.currentTarget.style.borderColor = "var(--success)";
                       e.currentTarget.style.transform = "translateY(-3px)";
                       e.currentTarget.style.boxShadow = "0 6px 16px rgba(20, 106, 101, 0.12)";
                     }}
@@ -2080,9 +2080,9 @@ function TablesPageContent() {
                             </div>
                           </div>
                         ) : t.isReserved ? (
-                          <div style={{ fontSize: "12px", color: "#B45309" }}>
+                          <div style={{ fontSize: "12px", color: "var(--warning)" }}>
                             <div style={{ fontWeight: "700" }}>{t.reservationCustomer || "Khách hẹn"}</div>
-                            <div style={{ fontSize: "11px", color: "#78350F" }}>
+                            <div style={{ fontSize: "11px", color: "var(--warning)" }}>
                               {t.reservationTime ? `${t.reservationTime}` : ""} {t.reservationPhone ? `• ${t.reservationPhone}` : ""}
                             </div>
                           </div>
@@ -2138,8 +2138,8 @@ function TablesPageContent() {
                                 padding: "6px 10px",
                                 borderRadius: "8px",
                                 background: "var(--warning-bg)",
-                                border: "1px solid #FDE68A",
-                                color: "#B45309",
+                                border: "1px solid var(--border-light)",
+                                color: "var(--warning)",
                                 cursor: "pointer",
                                 fontSize: "12px",
                                 fontWeight: "600",

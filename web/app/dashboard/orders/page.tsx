@@ -318,7 +318,7 @@ export default function OrdersPage() {
         >
           <XCircle size={22} color="#DC2626" />
           <div>
-            <div style={{ fontWeight: "700", color: "#991B1B", fontSize: "14px" }}>
+            <div style={{ fontWeight: "700", color: "var(--danger)", fontSize: "14px" }}>
               Báo cáo Kiểm toán Thất thoát: {cancellationReport.cancelledBillsCount} hóa đơn bị hủy
             </div>
             <div style={{ fontSize: "12px", color: "var(--danger)", marginTop: "2px" }}>
@@ -380,7 +380,7 @@ export default function OrdersPage() {
 
         <div className="stat-card">
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#1C4E6B18", display: "flex", alignItems: "center", justifyContent: "center", color: "#1C4E6B", flexShrink: 0 }}>
+            <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#1C4E6B18", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--info)", flexShrink: 0 }}>
               <CreditCard size={20} />
             </div>
             <div>
@@ -1112,7 +1112,7 @@ export default function OrdersPage() {
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
-                  color: "#B22222",
+                  color: "var(--danger)",
                   borderColor: "rgba(178, 34, 34, 0.3)",
                 }}
               >

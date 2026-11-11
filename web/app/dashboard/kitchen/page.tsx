@@ -126,7 +126,7 @@ export default function KitchenPage() {
                     <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 10px", border: `1px solid ${available ? "var(--border)" : "#B3261E"}`, borderRadius: 10, background: available ? "var(--surface)" : "#FDECEA" }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, textDecoration: available ? "none" : "line-through" }}>{p.name}</div>
-                        {!available && <div style={{ fontSize: 11, color: "#B3261E" }}>{soldOutNote(p)}</div>}
+                        {!available && <div style={{ fontSize: 11, color: "var(--danger)" }}>{soldOutNote(p)}</div>}
                       </div>
                       <button
                         className={available ? "btn-secondary" : "btn-primary"}
@@ -181,19 +181,19 @@ export default function KitchenPage() {
                     const allGone = l.cancelledQty >= l.quantity;
                     const active = l.quantity - l.cancelledQty;
                     return (
-                      <div key={i} style={{ fontSize: 14, ...(l.cancelledQty > 0 ? { background: "#FCE8E6", borderRadius: 8, padding: "4px 8px" } : null) }}>
+                      <div key={i} style={{ fontSize: 14, ...(l.cancelledQty > 0 ? { background: "var(--danger-bg)", borderRadius: 8, padding: "4px 8px" } : null) }}>
                         <span style={allGone ? { textDecoration: "line-through", color: "var(--subtext)" } : undefined}>
                           <strong>{allGone ? "HUỶ" : `${active} ×`}</strong> {l.name}
                         </span>
                         {l.cancelledQty > 0 && !allGone && (
-                          <div style={{ fontSize: 13, color: "#B3261E", fontWeight: 800 }}>Đã huỷ {l.cancelledQty} phần (từ x{l.quantity} còn x{active})</div>
+                          <div style={{ fontSize: 13, color: "var(--danger)", fontWeight: 800 }}>Đã huỷ {l.cancelledQty} phần (từ x{l.quantity} còn x{active})</div>
                         )}
                         {l.options && <div style={{ fontSize: 12, color: "var(--subtext)" }}>{l.options}</div>}
                         {l.toppings.length > 0 && (
-                          <div style={{ marginTop: 3, background: "#E6F4EA", borderRadius: 6, padding: "3px 8px" }}>
-                            <div style={{ fontSize: 11, color: "#137333", fontWeight: 700 }}>Topping:</div>
+                          <div style={{ marginTop: 3, background: "var(--success-bg)", borderRadius: 6, padding: "3px 8px" }}>
+                            <div style={{ fontSize: 11, color: "var(--success)", fontWeight: 700 }}>Topping:</div>
                             {l.toppings.map((tp) => (
-                              <div key={tp.name} style={{ fontSize: 14, fontWeight: 700, color: "#0D652D" }}>
+                              <div key={tp.name} style={{ fontSize: 14, fontWeight: 700, color: "var(--success)" }}>
                                 + {tp.name}{tp.count > 1 ? `  x${tp.count}` : ""}
                               </div>
                             ))}

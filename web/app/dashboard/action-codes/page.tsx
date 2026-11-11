@@ -119,7 +119,7 @@ export default function ActionCodesPage() {
                   <td style={td}>{a.label}</td>
                   <td style={{ ...td, color: "var(--subtext)" }}>{a.group}</td>
                   <td style={{ ...td, fontFamily: "monospace" }}>{a.permission || "—"}</td>
-                  <td style={{ ...td, color: "#B3261E", fontWeight: 700 }}>{a.sensitive ? "Có" : ""}</td>
+                  <td style={{ ...td, color: "var(--danger)", fontWeight: 700 }}>{a.sensitive ? "Có" : ""}</td>
                 </tr>
               ))}
             </tbody>

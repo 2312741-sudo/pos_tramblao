@@ -1832,7 +1832,7 @@ export default function ProductsPage() {
                   onChange={(e) => setProductForm((f) => ({ ...f, isTopping: e.target.checked }))}
                   style={{ width: "18px", height: "18px", cursor: "pointer", accentColor: "#D97706" }}
                 />
-                <label htmlFor="isToppingCheckbox" style={{ fontSize: "13px", fontWeight: "600", color: "#92400E", cursor: "pointer", margin: 0 }}>
+                <label htmlFor="isToppingCheckbox" style={{ fontSize: "13px", fontWeight: "600", color: "var(--warning)", cursor: "pointer", margin: 0 }}>
                   Đây là món Topping (có thể đính kèm khi gọi các món chính trên POS)
                 </label>
               </div>
@@ -2094,7 +2094,7 @@ export default function ProductsPage() {
                     border: "1px solid rgba(59,130,246,0.2)",
                     borderRadius: "8px",
                     padding: "10px 14px",
-                    color: "#1E40AF",
+                    color: "var(--info)",
                     fontSize: "12px",
                   }}
                 >

@@ -419,22 +419,22 @@ export default function ReportsHubPage() {
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
           <Kpi
-            title="Doanh thu thuần" icon={Wallet} color="#7E2930"
+            title="Doanh thu thuần" icon={Wallet} color="var(--text-accent)"
             value={loading ? "…" : formatVND(overview.netRevenue)} sub={`Gộp ${formatVND(overview.grossRevenue)}`}
             delta={prevOverview ? percentChange(overview.netRevenue, prevOverview.netRevenue) : undefined}
           />
           <Kpi
-            title="Lợi nhuận gộp" icon={TrendingUp} color="#166534"
+            title="Lợi nhuận gộp" icon={TrendingUp} color="var(--success)"
             value={loading ? "…" : formatVND(overview.grossProfit)} sub={`Biên LN: ${overview.grossProfitMarginPercent}%`}
             delta={prevOverview ? percentChange(overview.grossProfit, prevOverview.grossProfit) : undefined}
           />
           <Kpi
-            title="Số hóa đơn" icon={ReceiptText} color="#1E40AF"
+            title="Số hóa đơn" icon={ReceiptText} color="var(--info)"
             value={loading ? "…" : `${overview.paidBillsCount} đơn`} sub={`TB: ${formatVND(overview.avgRevenuePerPaidBill)}`}
             delta={prevOverview ? percentChange(overview.paidBillsCount, prevOverview.paidBillsCount) : undefined}
           />
           <Kpi
-            title="Tổng giảm giá" icon={BadgePercent} color="#9A3412"
+            title="Tổng giảm giá" icon={BadgePercent} color="var(--warning)"
             value={loading ? "…" : formatVND(overview.totalDiscount)} sub={`VAT: ${formatVND(overview.vatTotal)}`}
             delta={prevOverview ? percentChange(overview.totalDiscount, prevOverview.totalDiscount) : undefined}
           />

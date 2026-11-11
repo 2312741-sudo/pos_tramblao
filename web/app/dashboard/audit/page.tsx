@@ -50,7 +50,7 @@ const ACTION_CONFIGS: Record<string, ActionConfig> = {
     label: "Thêm món vào bàn",
     shortLabel: "+ Nhập món",
     icon: PlusCircle,
-    color: "#146A65",
+    color: "var(--success)",
     bg: "#E6F4F2",
     border: "#A3D9D2",
     category: "ORDER",
@@ -68,7 +68,7 @@ const ACTION_CONFIGS: Record<string, ActionConfig> = {
     label: "Thanh toán hóa đơn",
     shortLabel: "Thanh toán",
     icon: CreditCard,
-    color: "#1B4D3E",
+    color: "var(--text-brand)",
     bg: "#FBECEE",
     border: "#E8A2A8",
     category: "PAYMENT",
@@ -77,7 +77,7 @@ const ACTION_CONFIGS: Record<string, ActionConfig> = {
     label: "Thanh toán hóa đơn",
     shortLabel: "Thanh toán",
     icon: CreditCard,
-    color: "#1B4D3E",
+    color: "var(--text-brand)",
     bg: "#FBECEE",
     border: "#E8A2A8",
     category: "PAYMENT",
@@ -104,7 +104,7 @@ const ACTION_CONFIGS: Record<string, ActionConfig> = {
     label: "Tách hóa đơn",
     shortLabel: "Tách đơn",
     icon: Scissors,
-    color: "#4F46E5",
+    color: "var(--info)",
     bg: "#EEF2FF",
     border: "#C7D2FE",
     category: "TABLE_MGMT",
@@ -122,7 +122,7 @@ const ACTION_CONFIGS: Record<string, ActionConfig> = {
     label: "Xóa món khỏi đơn",
     shortLabel: "Xóa món",
     icon: Trash2,
-    color: "#BE123C",
+    color: "var(--danger)",
     bg: "#FFE4E6",
     border: "#FDA4AF",
     category: "DELETE_ITEM",
@@ -167,7 +167,7 @@ const ACTION_CONFIGS: Record<string, ActionConfig> = {
     label: "Đăng nhập POS",
     shortLabel: "Đăng nhập",
     icon: LogIn,
-    color: "#475569",
+    color: "var(--subtext)",
     bg: "#F1F5F9",
     border: "#CBD5E1",
     category: "AUTH",
@@ -521,10 +521,10 @@ export default function AuditPage() {
             background: categoryFilter === "DELETE_ITEM" ? "#FFE4E6" : "var(--surface)",
           }}
         >
-          <div style={{ fontSize: "12px", color: "#BE123C", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
+          <div style={{ fontSize: "12px", color: "var(--danger)", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
             <Trash2 size={14} /> Xóa món
           </div>
-          <div style={{ fontSize: "20px", fontWeight: "800", color: "#BE123C", marginTop: "4px" }}>{stats.deleteItemCount}</div>
+          <div style={{ fontSize: "20px", fontWeight: "800", color: "var(--danger)", marginTop: "4px" }}>{stats.deleteItemCount}</div>
         </div>
 
         <div
@@ -562,7 +562,7 @@ export default function AuditPage() {
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <AlertTriangle size={20} color="#DC2626" />
             <div>
-              <div style={{ fontWeight: "700", color: "#991B1B", fontSize: "14px" }}>
+              <div style={{ fontWeight: "700", color: "var(--danger)", fontSize: "14px" }}>
                 Kiểm toán Thất thoát: {cancellationReport.cancelledBillsCount} hóa đơn bị hủy
               </div>
               <div style={{ fontSize: "12px", color: "var(--danger)" }}>
@@ -810,8 +810,8 @@ export default function AuditPage() {
                               alignItems: "center",
                               gap: "4px",
                               background: "var(--warning-bg)",
-                              color: "#B45309",
-                              border: "1px solid #FDE68A",
+                              color: "var(--warning)",
+                              border: "1px solid var(--border-light)",
                               padding: "3px 8px",
                               borderRadius: "6px",
                               fontWeight: "700",
