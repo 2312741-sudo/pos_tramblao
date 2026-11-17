@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import '../../core/services/sync_status.dart';
 import '../../core/domain/order_integrity.dart';
 import '../../core/domain/deleted_items.dart';
 import '../../core/domain/item_options.dart';
@@ -98,6 +99,7 @@ class OrderRepository {
   ///   Firebase SDK sẽ tự đồng bộ (nguyên tử) khi có mạng lại.
   /// - Lỗi thật (VD: permission-denied) được ném ra dạng [DataWriteException].
   Future<bool> _commitWrite(Future<void> write, String what) async {
+    SyncStatus.instance.track(write);
     try {
       await write.timeout(_writeAckTimeout);
       return true;
@@ -359,6 +361,18 @@ class OrderRepository {
       return <TableModel>[];
     });
   }
+
+  /// Một bàn realtime (null = bàn đã bị xóa). Dùng cho màn giỏ món để thấy món máy khác vừa thêm.
+  Stream<TableModel?> tableStream(String firebaseKey) {
+    return tablesRef.child(firebaseKey).onValue.map<TableModel?>((event) {
+      final v = event.snapshot.value;
+      if (!event.snapshot.exists || v is! Map) return null;
+      return TableModel.fromMap(v, firebaseKey);
+    });
+  }
+
+  /// Chép trạng thái đơn của [src] sang [dst] (giữ nguyên đối tượng [dst] mà màn hình đang dùng).
+  void applyTableState(TableModel dst, TableModel src) => _applyTableState(dst, src);
 
   void _tryRemoveInactiveSplitTable(TableModel table) {
     if (table.isAutoSplit && !table.inUse && !table.isReserved && !table.isActivelyOrdering()) {

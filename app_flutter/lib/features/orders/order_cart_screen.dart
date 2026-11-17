@@ -39,6 +39,7 @@ import 'widgets/cart_tree_group_card.dart';
 import 'widgets/delete_reason_dialog.dart';
 import 'widgets/cart_panels.dart';
 import '../../core/domain/table_customer.dart';
+import '../../core/domain/remote_table_sync.dart';
 import 'widgets/payment_widgets.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/manager_pin_dialogs.dart';
@@ -97,8 +98,23 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
   // Huỷ các listener Firebase khi rời màn hình (trước đây bị rò rỉ listener)
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
+  // ===== Đồng bộ đơn với máy khác (xem RemoteTableSync) =====
+  /// Đơn đã lưu gần nhất mà màn này biết (chữ ký danh sách món)
+  String _baseSignature = '';
+  /// Mã hóa đơn của bàn khi mở màn
+  String? _openBillId;
+  ScaffoldMessengerState? _messenger;
+  bool _remoteBannerShown = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _messenger = ScaffoldMessenger.maybeOf(context);
+  }
+
   @override
   void dispose() {
+    if (_remoteBannerShown) _messenger?.hideCurrentMaterialBanner();
     _earnFailSub?.cancel();
     for (final sub in _subscriptions) {
       sub.cancel();
@@ -135,6 +151,14 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     _loadStoreAndPromotions();
     _loadAutoPrintSetting();
     _loadTreeViewSetting();
+
+    // Theo dõi bàn này trên Firebase: máy khác thêm / sửa món thì màn này cập nhật theo,
+    // tránh ghi đè đơn mới bằng bản cũ đang hiển thị.
+    _baseSignature = RemoteTableSync.signature(widget.table.currentItems);
+    _openBillId = widget.table.currentBillId;
+    if (widget.table.name.isNotEmpty) {
+      _subscriptions.add(_fb.tableStream(widget.table.firebaseKey).listen(_onRemoteTable, onError: (_) {}));
+    }
 
     final storeCode = _fb.currentStoreCode;
     _subscriptions.add(_fb.productsStream(storeCode: storeCode).listen((products) {
@@ -1320,6 +1344,99 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     widget.table.discountsJson = _appliedDiscounts.isEmpty
         ? null
         : jsonEncode(_appliedDiscounts.map((e) => e.toMap()).toList());
+  }
+
+  void _onRemoteTable(TableModel? remote) {
+    if (!mounted || remote == null) return;
+    final localSig = RemoteTableSync.signature(_cart);
+    final remoteSig = RemoteTableSync.signature(remote.currentItems);
+    final ownSig = RemoteTableSync.signature(widget.table.currentItems);
+    final change = RemoteTableSync.classify(
+      baseSignature: _baseSignature,
+      localSignature: localSig,
+      ownTableSignature: ownSig,
+      localBillId: _openBillId,
+      remote: remote,
+    );
+    switch (change) {
+      case RemoteTableChange.none:
+        if (remoteSig == localSig || remoteSig == ownSig) {
+          // Bản ghi của chính máy này đã lên Firebase (hoặc hai bên đã trùng)
+          _baseSignature = remoteSig;
+          _hideRemoteBanner();
+        }
+        return;
+      case RemoteTableChange.applySilently:
+        final before = _cart.fold<int>(0, (s, i) => s + i.quantity);
+        _applyRemoteTable(remote);
+        final after = _cart.fold<int>(0, (s, i) => s + i.quantity);
+        _messenger?.showSnackBar(SnackBar(
+          content: Text('Đơn ${widget.table.name} vừa được cập nhật từ máy khác ($before → $after phần).'),
+          backgroundColor: AppColors.primary,
+        ));
+        return;
+      case RemoteTableChange.conflict:
+        _showRemoteBanner(
+          'Máy khác vừa thay đổi đơn của ${widget.table.name}. Tải đơn mới nhất trước khi thao tác tiếp '
+          '(thay đổi chưa lưu trên máy này sẽ bị bỏ).',
+          [
+            TextButton(
+              onPressed: () {
+                _hideRemoteBanner();
+                _baseSignature = remoteSig; // giữ đơn trên máy này, không hỏi lại thay đổi vừa rồi
+              },
+              child: const Text('Giữ đơn máy này'),
+            ),
+            TextButton(onPressed: () => _applyRemoteTable(remote), child: const Text('Tải đơn mới nhất')),
+          ],
+        );
+        return;
+      case RemoteTableChange.closedElsewhere:
+        _showRemoteBanner(
+          'Đơn của ${widget.table.name} vừa được thanh toán / hủy trên máy khác.',
+          [
+            TextButton(
+              onPressed: () {
+                _hideRemoteBanner();
+                if (mounted) Navigator.of(context).maybePop();
+              },
+              child: const Text('Thoát'),
+            ),
+          ],
+        );
+        return;
+    }
+  }
+
+  void _applyRemoteTable(TableModel remote) {
+    if (!mounted) return;
+    setState(() {
+      _fb.applyTableState(widget.table, remote);
+      _cart = List.from(widget.table.currentItems);
+      _appliedDiscounts = List.from(widget.table.currentDiscounts);
+      _guestCount = widget.table.guestCount ?? _guestCount;
+    });
+    _baseSignature = RemoteTableSync.signature(_cart);
+    _hideRemoteBanner();
+    _recalculateDiscounts();
+  }
+
+  void _showRemoteBanner(String message, List<Widget> actions) {
+    final m = _messenger;
+    if (m == null) return;
+    m.hideCurrentMaterialBanner();
+    _remoteBannerShown = true;
+    m.showMaterialBanner(MaterialBanner(
+      content: Text(message),
+      leading: const Icon(Icons.sync_problem, color: Colors.orange),
+      actions: actions,
+    ));
+  }
+
+  void _hideRemoteBanner() {
+    if (!_remoteBannerShown) return;
+    _remoteBannerShown = false;
+    _messenger?.hideCurrentMaterialBanner();
   }
 
   void _recalculateDiscounts() {
