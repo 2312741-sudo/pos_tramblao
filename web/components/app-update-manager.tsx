@@ -18,9 +18,9 @@ interface AppUpdateConfig {
 
 export function AppUpdateManager({ isOwner }: { isOwner: boolean }) {
   const [config, setConfig] = useState<AppUpdateConfig>({
-    versionCode: 9,
-    versionName: "1.0.7",
-    minVersionCode: 8,
+    versionCode: 10,
+    versionName: "1.0.8",
+    minVersionCode: 9,
     apkUrl: "",
     releaseNotes: "- Cập nhật tính năng mới\n- Sửa lỗi và cải thiện hiệu năng",
     apkSize: "45 MB",
@@ -149,7 +149,7 @@ export function AppUpdateManager({ isOwner }: { isOwner: boolean }) {
               className="input-field"
               value={config.versionName}
               onChange={(e) => setConfig({ ...config, versionName: e.target.value })}
-              placeholder="VD: 1.0.7"
+              placeholder="VD: 1.0.8"
               required
               disabled={!isOwner}
             />
