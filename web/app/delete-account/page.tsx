@@ -28,7 +28,7 @@ export default function DeleteAccountPage() {
           items={[
             <><strong>Bước 1:</strong> Mở ứng dụng <strong>{LEGAL.appName}</strong> trên thiết bị và đăng nhập vào tài khoản của bạn.</>,
             <><strong>Bước 2:</strong> Nhấn vào biểu tượng <strong>Menu chức năng (⋮)</strong> (ở góc trên màn hình Sơ đồ bàn đối với Thu ngân, hoặc màn hình Trung tâm Quản trị đối với Quản lý/Chủ quán).</>,
-            <><strong>Bước 3:</strong> Chọn mục <strong>"Xóa tài khoản của tôi"</strong> (biểu tượng thẻ đỏ cảnh báo).</>,
+            <><strong>Bước 3:</strong> Chọn mục <strong>&quot;Xóa tài khoản của tôi&quot;</strong> (biểu tượng thẻ đỏ cảnh báo).</>,
             <><strong>Bước 4:</strong> Hộp thoại giải thích sẽ hiện ra. Bạn gõ chính xác chữ <code>XOA</code> vào ô xác nhận để tránh bấm nhầm.</>,
             <><strong>Bước 5:</strong> Nhấn nút <strong>Xóa tài khoản</strong>. Hệ thống sẽ ngay lập tức xóa dữ liệu tài khoản xác thực Firebase Auth, hủy phiên đăng nhập và xóa toàn bộ thông tin nhạy cảm của bạn khỏi máy chủ.</>,
           ]}

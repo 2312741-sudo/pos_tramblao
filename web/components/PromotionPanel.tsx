@@ -107,6 +107,8 @@ export function usePromotions(args: {
   const savedSig = typeof savedDiscounts === "string" ? savedDiscounts : JSON.stringify(savedDiscounts ?? null);
   const saved = useMemo(() => splitTableDiscounts(parseTableDiscounts(savedDiscounts)), [savedSig]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
+    // Đồng bộ có chủ đích: lựa chọn của web luôn theo bản khuyến mãi lưu trên bàn
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelection({ key: tableKey, list: saved.campaigns });
   }, [tableKey, saved]);
   const extras = saved.extras;
