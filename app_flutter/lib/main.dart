@@ -9,6 +9,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_mode_controller.dart';
 import 'core/router/app_router.dart';
 import 'core/services/auth_service.dart';
+import 'core/services/sync_status.dart';
 import 'core/reports/report_export_service.dart';
 import 'data/services/firebase_service.dart';
 import 'widgets/keyboard_dismiss_wrapper.dart';
@@ -142,7 +143,7 @@ class TramApp extends ConsumerWidget {
               systemNavigationBarColor: context.tc.background,
               systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
             ),
-            child: KeyboardDismissWrapper(child: child ?? const SizedBox.shrink()),
+            child: SyncStatusFrame(child: KeyboardDismissWrapper(child: child ?? const SizedBox.shrink())),
           );
         },
       ),

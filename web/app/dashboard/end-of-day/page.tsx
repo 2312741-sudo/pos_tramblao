@@ -27,6 +27,9 @@ import {
   User,
 } from "lucide-react";
 
+/** Giá trị bộ lọc: món không thuộc nhân viên nào trong danh sách */
+const UNASSIGNED_STAFF = "__UNASSIGNED__";
+
 export default function EndOfDayReportPage() {
   const { stores, currentStoreCode, setCurrentStoreCode, historyData, tables, usersList, cashShifts, products } = useDashboardData();
 
@@ -242,13 +245,38 @@ export default function EndOfDayReportPage() {
     return Array.from(byKey.values()).sort((a, b) => a.localeCompare(b, "vi"));
   }, [usersList, soldRows]);
 
+  /**
+   * Món KHÔNG thuộc nhân viên nào trong bộ lọc: không ghi người order ("Không rõ" — vd. khách tự đặt qua QR),
+   * tài khoản đã xóa / ngưng hoạt động / chi nhánh khác, hoặc chỉ lưu username không khớp tài khoản hiện có.
+   * Trước đây các món này không chọn được ở bộ lọc → tổng các nhân viên thấp hơn tổng doanh số.
+   */
+  const isUnassignedRow = useMemo(() => {
+    const listed = new Set(availableStaffList.map((n) => n.toLocaleLowerCase("vi")));
+    return (raw: string) => !splitStaff(raw).some((n) => listed.has(n.toLocaleLowerCase("vi")));
+  }, [availableStaffList]);
+  const unassignedSummary = useMemo(() => {
+    let qty = 0;
+    let amount = 0;
+    const names = new Set<string>();
+    for (const r of soldRows) {
+      if (!isUnassignedRow(r.orderStaffName)) continue;
+      qty += r.quantity;
+      amount += r.netAmount;
+      names.add(r.orderStaffName || "Không rõ");
+    }
+    return { qty, amount, names: Array.from(names) };
+  }, [soldRows, isUnassignedRow]);
+
   // Hàng hóa theo nhân viên: gộp các dòng món do nhân viên đó order
   const staffProductList = useMemo<ProductReportItem[] | null>(() => {
     if (productStaffFilter === "ALL") return null;
     const want = productStaffFilter.toLocaleLowerCase("vi");
     const map = new Map<string, ProductReportItem>();
     for (const r of soldRows) {
-      if (!splitStaff(r.orderStaffName).some((n) => n.toLocaleLowerCase("vi") === want)) continue;
+      const match = productStaffFilter === UNASSIGNED_STAFF
+        ? isUnassignedRow(r.orderStaffName)
+        : splitStaff(r.orderStaffName).some((n) => n.toLocaleLowerCase("vi") === want);
+      if (!match) continue;
       const key = r.productCode || r.productName;
       let e = map.get(key);
       if (!e) {
@@ -265,7 +293,7 @@ export default function EndOfDayReportPage() {
       e.netRevenue += r.netAmount;
     }
     return Array.from(map.values()).map((e) => ({ ...e, basePrice: e.quantity > 0 ? Math.round(e.grossRevenue / e.quantity) : 0 }));
-  }, [productStaffFilter, soldRows, productsMap]);
+  }, [productStaffFilter, soldRows, productsMap, isUnassignedRow]);
 
   // Tab 3: Filtered Product list
   const productSalesList = useMemo(() => {
@@ -509,7 +537,7 @@ export default function EndOfDayReportPage() {
                 padding: "6px 12px",
               }}
             >
-              <Calendar size={16} color="#7E2930" />
+              <Calendar size={16} color="var(--text-accent)" />
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value as typeof dateRange)}
@@ -572,7 +600,7 @@ export default function EndOfDayReportPage() {
                 padding: "6px 12px",
               }}
             >
-              <Store size={16} color="#7E2930" />
+              <Store size={16} color="var(--text-accent)" />
               <select
                 value={currentStoreCode}
                 onChange={(e) => setCurrentStoreCode(e.target.value)}
@@ -637,7 +665,7 @@ export default function EndOfDayReportPage() {
           {/* Ô DOANH THU ƯỚC TÍNH NGÀY */}
           <div
             style={{
-              background: "linear-gradient(135deg, #FFF9F5 0%, var(--surface) 100%)",
+              background: "linear-gradient(135deg, var(--card-warm) 0%, var(--surface) 100%)",
               borderRadius: "16px",
               border: "2px solid var(--primary)",
               padding: "20px 24px",
@@ -701,7 +729,7 @@ export default function EndOfDayReportPage() {
                   label="Doanh thu tổng (thực nhận)"
                   value={formatVND(zReport.tab1_tongHop.netRevenue)}
                   subtitle={`Đã trừ mọi giảm giá / khuyến mãi • gồm ${formatVND(zReport.tab1_tongHop.vatTotal)} tiền thuế VAT`}
-                  valueColor="#7E2930"
+                  valueColor="var(--text-accent)"
                   isBold
                 />
                 <ReportRow label="Tổng tiền hàng (trước giảm giá)" value={formatVND(zReport.tab1_tongHop.grossRevenue)} />
@@ -723,7 +751,7 @@ export default function EndOfDayReportPage() {
                   subtitle="Doanh thu thuần trừ tiền hoàn trả"
                   value={formatVND(zReport.tab1_tongHop.netRevenueWithoutRefund)}
                   isBold
-                  valueColor="#146A65"
+                  valueColor="var(--success)"
                 />
               </div>
             </div>
@@ -839,14 +867,14 @@ export default function EndOfDayReportPage() {
             <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--subtext)", textTransform: "uppercase", marginBottom: "14px" }}>
               PHƯƠNG THỨC THANH TOÁN BÁN HÀNG
             </div>
-            <ReportRow label="Tiền mặt (CASH)" value={formatVND(zReport.tab2_thuChi.cashSales)} isBold valueColor="#146A65" />
+            <ReportRow label="Tiền mặt (CASH)" value={formatVND(zReport.tab2_thuChi.cashSales)} isBold valueColor="var(--success)" />
             <ReportRow label="Chuyển khoản VietQR" value={formatVND(zReport.tab2_thuChi.transferSales)} isBold valueColor="#1877F2" />
             <ReportRow label="Thẻ ngân hàng / POS" value={formatVND(zReport.tab2_thuChi.cardSales)} isBold valueColor="#D97706" />
             <ReportRow
               label="TỔNG THỰC THU BÁN HÀNG"
               value={formatVND(zReport.tab2_thuChi.totalRevenue)}
               isBold
-              valueColor="#7E2930"
+              valueColor="var(--text-accent)"
             />
           </div>
 
@@ -1031,7 +1059,7 @@ export default function EndOfDayReportPage() {
                       </tr>
                     ) : (
                       servingProductsList.map((p, idx) => (
-                        <tr key={p.productName + '-' + idx} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                        <tr key={p.productName + '-' + idx} style={{ borderBottom: "1px solid var(--border-light)" }}>
                           <td style={{ padding: "10px 12px", fontWeight: "700", color: idx < 3 ? "var(--primary)" : "var(--subtext)" }}>
                             #{idx + 1}
                           </td>
@@ -1180,7 +1208,7 @@ export default function EndOfDayReportPage() {
                   padding: "6px 10px",
                 }}
               >
-                <User size={15} color="#7E2930" />
+                <User size={15} color="var(--text-accent)" />
                 <select
                   value={productStaffFilter}
                   onChange={(e) => setProductStaffFilter(e.target.value)}
@@ -1200,6 +1228,9 @@ export default function EndOfDayReportPage() {
                       {st}
                     </option>
                   ))}
+                  {unassignedSummary.qty > 0 && (
+                    <option value={UNASSIGNED_STAFF}>Chưa rõ nhân viên / tài khoản khác</option>
+                  )}
                 </select>
               </div>
 
@@ -1265,6 +1296,18 @@ export default function EndOfDayReportPage() {
             </div>
           </div>
 
+          {productStaffFilter !== UNASSIGNED_STAFF && unassignedSummary.qty > 0 && (
+            <div
+              role="note"
+              style={{ padding: "10px 14px", borderRadius: "10px", marginBottom: "16px", fontSize: "12px", lineHeight: 1.5, background: "#FFF4D6", color: "#7A5200" }}
+            >
+              Có <strong>{unassignedSummary.qty} phần · {formatVND(unassignedSummary.amount)}</strong> không thuộc nhân viên nào trong bộ lọc
+              {" "}(người order: {unassignedSummary.names.slice(0, 5).join(", ")}{unassignedSummary.names.length > 5 ? "…" : ""}) — thường là món khách tự đặt
+              qua QR, tài khoản đã xóa/ngưng hoạt động hoặc chi nhánh khác. Chọn &quot;Chưa rõ nhân viên / tài khoản khác&quot; để xem chi tiết.
+              Lưu ý: doanh số theo nhân viên là tiền món (chưa trừ giảm giá cả hóa đơn, gồm mọi hình thức thanh toán) nên có thể khác tiền mặt thu được.
+            </div>
+          )}
+
           {/* Table */}
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
@@ -1315,7 +1358,7 @@ export default function EndOfDayReportPage() {
                       : (totalProductQty > 0 ? ((p.quantity / totalProductQty) * 100).toFixed(1) : "0.0");
 
                     return (
-                      <tr key={String(p.productId) + '-' + idx} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                      <tr key={String(p.productId) + '-' + idx} style={{ borderBottom: "1px solid var(--border-light)" }}>
                         <td style={{ padding: "10px 12px", fontWeight: "700", color: idx < 3 ? "var(--primary)" : "var(--subtext)" }}>
                           #{idx + 1}
                         </td>
@@ -1395,7 +1438,7 @@ export default function EndOfDayReportPage() {
                     const totalZRev = zReport.tab1_tongHop.netRevenue;
                     const pct = totalZRev > 0 ? ((z.netRevenue / totalZRev) * 100).toFixed(1) : "0.0";
                     return (
-                      <tr key={z.zone} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                      <tr key={z.zone} style={{ borderBottom: "1px solid var(--border-light)" }}>
                         <td style={{ padding: "10px 12px" }}>
                           <span style={{ padding: "3px 10px", background: "var(--primary-light)", color: "var(--primary)", borderRadius: "6px", fontSize: "12px", fontWeight: "700" }}>
                             {z.zone}
@@ -1518,7 +1561,7 @@ function ReportRow({
   value,
   subtitle,
   isBold = false,
-  valueColor = "#1C1A2D",
+  valueColor = "var(--text)",
 }: {
   label: string;
   value: string;
@@ -1533,7 +1576,7 @@ function ReportRow({
         alignItems: "center",
         justifyContent: "space-between",
         padding: "10px 0",
-        borderBottom: "1px solid #F5F1E9",
+        borderBottom: "1px solid var(--border-light)",
       }}
     >
       <div>

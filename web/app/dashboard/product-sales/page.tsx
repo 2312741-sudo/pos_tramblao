@@ -301,7 +301,7 @@ export default function ProductSalesReportPage() {
                 padding: "6px 12px",
               }}
             >
-              <Calendar size={16} color="#1B4D3E" />
+              <Calendar size={16} color="var(--text-brand)" />
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value as typeof dateRange)}
@@ -364,7 +364,7 @@ export default function ProductSalesReportPage() {
                 padding: "6px 12px",
               }}
             >
-              <Store size={16} color="#1B4D3E" />
+              <Store size={16} color="var(--text-brand)" />
               <select
                 value={currentStoreCode}
                 onChange={(e) => setCurrentStoreCode(e.target.value)}
@@ -583,7 +583,7 @@ export default function ProductSalesReportPage() {
                   </tr>
                 ) : (
                   productReports.map((p, idx) => (
-                    <tr key={String(p.productId) + '-' + idx} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                    <tr key={String(p.productId) + '-' + idx} style={{ borderBottom: "1px solid var(--border-light)" }}>
                       <td style={{ padding: "10px 12px", fontFamily: "monospace", color: "var(--muted)" }}>
                         {p.productCode || "—"}
                       </td>
@@ -658,7 +658,7 @@ export default function ProductSalesReportPage() {
                   </tr>
                 ) : (
                   categoryReports.map((cat, idx) => (
-                    <tr key={cat.category} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                    <tr key={cat.category} style={{ borderBottom: "1px solid var(--border-light)" }}>
                       <td style={{ padding: "10px 12px", color: "var(--muted)" }}>{idx + 1}</td>
                       <td style={{ padding: "10px 12px", fontWeight: "700", color: "var(--text)" }}>{cat.category}</td>
                       <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: "600" }}>{cat.quantity}</td>
@@ -725,7 +725,7 @@ export default function ProductSalesReportPage() {
                   </tr>
                 ) : (
                   grossProfitReport.items.map((it, idx) => (
-                    <tr key={String(it.productId) + '-' + idx} style={{ borderBottom: "1px solid #F0ECE1" }}>
+                    <tr key={String(it.productId) + '-' + idx} style={{ borderBottom: "1px solid var(--border-light)" }}>
                       <td style={{ padding: "10px 12px", color: "var(--subtext)", fontFamily: "monospace" }}>{it.productCode || "—"}</td>
                       <td style={{ padding: "10px 12px", fontWeight: "700", color: "var(--text)" }}>{it.productName}</td>
                       <td style={{ padding: "10px 12px", color: "var(--subtext)" }}>{it.category}</td>

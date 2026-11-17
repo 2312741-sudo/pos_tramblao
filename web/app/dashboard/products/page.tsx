@@ -36,6 +36,8 @@ import { syncCategoryToppingGroup } from "@/lib/category-topping-sync";
 import { canManageNoteCatalog } from "@/lib/note-catalog-access";
 import { isLegacyCatalog } from "@/lib/item-options";
 import GroupAttachmentPicker from "@/components/GroupAttachmentPicker";
+import { rowsToSizes, sizesToRows, type SizeRow } from "@/lib/product-sizes";
+import { isDrinkProduct } from "@/lib/product-options";
 import MenuDedupeDialog from "@/components/MenuDedupeDialog";
 import { planToppingGroupFixes, planToppingRefFixes, toppingGroupFixUpdates, toppingRefFixUpdates, toppingRefsToNames } from "@/lib/topping-refs";
 
@@ -56,6 +58,8 @@ interface ProductFormData {
   /** Gắn danh mục note/topping: undefined = kế thừa nhóm món (xem item-options.ts) */
   noteGroupIds?: string[];
   toppingGroupIds?: string[];
+  /** Size & phụ thu (xem lib/product-sizes.ts) */
+  sizes: SizeRow[];
 }
 
 const emptyProductForm: ProductFormData = {
@@ -68,6 +72,7 @@ const emptyProductForm: ProductFormData = {
   imageBase64: "",
   storeCode: "",
   isTopping: false,
+  sizes: [],
 };
 
 interface CategoryFormData {
@@ -280,6 +285,7 @@ export default function ProductsPage() {
       isTopping: Boolean(p.isTopping || p.category?.toLowerCase() === "topping"),
       noteGroupIds: p.noteGroupIds,
       toppingGroupIds: p.toppingGroupIds,
+      sizes: sizesToRows(p.sizes),
     });
     setProductError("");
     setQuickAddCatOpen(false);
@@ -323,6 +329,11 @@ export default function ProductsPage() {
       setProductError("Giá vốn không hợp lệ (phải >= 0)");
       return;
     }
+    const sizeResult = rowsToSizes(productForm.isTopping ? [] : productForm.sizes);
+    if (sizeResult.error) {
+      setProductError(sizeResult.error);
+      return;
+    }
     setProductSaving(true);
     setProductError("");
     try {
@@ -339,6 +350,7 @@ export default function ProductsPage() {
           category: productForm.category.trim(),
           imageBase64: productForm.imageBase64,
           isTopping: productForm.isTopping,
+          sizes: sizeResult.sizes,
           // Chỉ người có quyền quản lý danh mục mới đổi phần gắn; null = quay về kế thừa nhóm món
           ...(allowCatalog ? { noteGroupIds: productForm.noteGroupIds ?? null, toppingGroupIds: productForm.toppingGroupIds ?? null } : {}),
         },
@@ -1832,10 +1844,19 @@ export default function ProductsPage() {
                   onChange={(e) => setProductForm((f) => ({ ...f, isTopping: e.target.checked }))}
                   style={{ width: "18px", height: "18px", cursor: "pointer", accentColor: "#D97706" }}
                 />
-                <label htmlFor="isToppingCheckbox" style={{ fontSize: "13px", fontWeight: "600", color: "#92400E", cursor: "pointer", margin: 0 }}>
+                <label htmlFor="isToppingCheckbox" style={{ fontSize: "13px", fontWeight: "600", color: "var(--warning)", cursor: "pointer", margin: 0 }}>
                   Đây là món Topping (có thể đính kèm khi gọi các món chính trên POS)
                 </label>
               </div>
+
+              {!productForm.isTopping && (
+                <SizeEditor
+                  rows={productForm.sizes}
+                  basePrice={Number(productForm.price) || 0}
+                  isDrink={isDrinkProduct({ category: productForm.category })}
+                  onChange={(rows) => setProductForm((f) => ({ ...f, sizes: rows }))}
+                />
+              )}
 
               {allowCatalog && !productForm.isTopping && (
                 <>
@@ -2094,7 +2115,7 @@ export default function ProductsPage() {
                     border: "1px solid rgba(59,130,246,0.2)",
                     borderRadius: "8px",
                     padding: "10px 14px",
-                    color: "#1E40AF",
+                    color: "var(--info)",
                     fontSize: "12px",
                   }}
                 >
@@ -2319,6 +2340,76 @@ export default function ProductsPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Chỉnh size & phụ thu của món (giá size = giá gốc + phụ thu) */
+function SizeEditor({ rows, basePrice, isDrink, onChange }: { rows: SizeRow[]; basePrice: number; isDrink: boolean; onChange: (rows: SizeRow[]) => void }) {
+  const setRow = (i: number, patch: Partial<SizeRow>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(n) + " đ";
+  const small: React.CSSProperties = { background: "none", border: "none", color: "var(--info)", fontSize: "12px", fontWeight: 600, cursor: "pointer", padding: 0 };
+  return (
+    <div style={{ padding: "12px 14px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--surface-muted)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>Size &amp; phụ thu</span>
+        <div style={{ display: "flex", gap: "12px" }}>
+          {rows.length === 0 && (
+            <button type="button" style={small} onClick={() => onChange([{ name: "Nhỏ", extra: "0" }, { name: "Lớn", extra: "5000" }])}>
+              + Nhỏ / Lớn
+            </button>
+          )}
+          <button type="button" style={small} onClick={() => onChange([...rows, { name: "", extra: "" }])}>
+            <Plus size={12} style={{ verticalAlign: "-2px" }} /> Thêm size
+          </button>
+        </div>
+      </div>
+      {isDrink && rows.length > 0 && (
+        <div style={{ fontSize: "12px", color: "var(--warning)", marginBottom: "8px" }}>
+          Món thuộc nhóm đồ uống: khi gọi món sẽ không hỏi size (đồ uống bán một cỡ).
+        </div>
+      )}
+      {rows.length === 0 ? (
+        <div style={{ fontSize: "12px", color: "var(--muted)" }}>Món chỉ có một cỡ. Thêm size nếu món có nhiều cỡ (vd. bánh Nhỏ / Lớn).</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {rows.map((r, i) => {
+            const extra = Number(r.extra.replace(/[.,\s]/g, "")) || 0;
+            return (
+              <div key={i} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
+                <input
+                  className="input-field"
+                  style={{ flex: "1 1 90px", minWidth: 0 }}
+                  placeholder="Tên size (vd. Lớn)"
+                  value={r.name}
+                  maxLength={20}
+                  onChange={(e) => setRow(i, { name: e.target.value })}
+                  aria-label="Tên size"
+                />
+                <input
+                  className="input-field"
+                  style={{ flex: "1 1 110px", minWidth: 0 }}
+                  placeholder="Phụ thu (đ)"
+                  inputMode="numeric"
+                  value={r.extra}
+                  onChange={(e) => setRow(i, { extra: e.target.value })}
+                  aria-label="Phụ thu"
+                />
+                <span style={{ fontSize: "12px", color: "var(--subtext)", whiteSpace: "nowrap", minWidth: "90px" }}>= {fmt(basePrice + extra)}</span>
+                <button
+                  type="button"
+                  onClick={() => onChange(rows.filter((_, j) => j !== i))}
+                  aria-label="Xóa size"
+                  style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", padding: "4px" }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            );
+          })}
+          <div style={{ fontSize: "11px", color: "var(--muted)" }}>Phụ thu là tiền cộng thêm vào giá bán. Đổi xong áp dụng ngay cho app POS và web, không cần cài lại app.</div>
         </div>
       )}
     </div>

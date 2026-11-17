@@ -720,7 +720,7 @@ export default function UsersPage() {
               gap: "6px",
             }}
           >
-            <Users size={16} color="#1B4D3E" /> Tổng nhân viên
+            <Users size={16} color="var(--text-brand)" /> Tổng nhân viên
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--text)", marginTop: "8px" }}>
             {stats.totalStaff}
@@ -1338,7 +1338,7 @@ export default function UsersPage() {
                           onChange={() => {
                             if (!isRoot) setForm((f) => ({ ...f, role: r.id }));
                           }}
-                          style={{ accentColor: "#1B4D3E", cursor: "pointer" }}
+                          style={{ accentColor: "var(--text-brand)", cursor: "pointer" }}
                         />
                       </div>
                     );
@@ -1384,7 +1384,7 @@ export default function UsersPage() {
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleCustomPermission(perm.id)}
-                          style={{ marginTop: "2px", accentColor: "#1B4D3E" }}
+                          style={{ marginTop: "2px", accentColor: "var(--text-brand)" }}
                         />
                         <div>
                           <div style={{ fontWeight: "600", color: "var(--text)" }}>{perm.label}</div>
@@ -1404,7 +1404,7 @@ export default function UsersPage() {
                   checked={form.isActive}
                   disabled={editUser?.isRootOwner === true}
                   onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-                  style={{ width: "18px", height: "18px", accentColor: "#1B4D3E", cursor: "pointer" }}
+                  style={{ width: "18px", height: "18px", accentColor: "var(--text-brand)", cursor: "pointer" }}
                 />
                 <label
                   htmlFor="user_is_active_form"
@@ -1542,12 +1542,12 @@ export default function UsersPage() {
                   {resetPasswordTarget.fullName} <span style={{ color: "var(--muted)", fontWeight: "500" }}>@{resetPasswordTarget.username}</span>
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>
-                  Chi nhánh: <strong style={{ color: "#0F172A" }}>{resetPasswordTarget.storeCode || activeStoreCode}</strong>
+                  Chi nhánh: <strong style={{ color: "var(--text)" }}>{resetPasswordTarget.storeCode || activeStoreCode}</strong>
                 </div>
               </div>
 
               <div style={{ marginBottom: "16px" }}>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#334155", marginBottom: "6px" }}>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "var(--subtext)", marginBottom: "6px" }}>
                   Mật khẩu mới <span style={{ color: "#EF4444" }}>*</span>
                 </label>
                 <div style={{ position: "relative" }}>

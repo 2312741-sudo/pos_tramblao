@@ -506,7 +506,7 @@ export default function DailyStockPage() {
         </div>
       )}
       {locked && !isManager && (
-        <div style={{ padding: "10px 14px", borderRadius: "10px", marginBottom: "12px", fontSize: "13px", background: "#ef444415", color: "#b91c1c" }}>
+        <div style={{ padding: "10px 14px", borderRadius: "10px", marginBottom: "12px", fontSize: "13px", background: "#ef444415", color: "var(--danger)" }}>
           Phiếu ngày này đã được chốt — chỉ Chủ quán / Quản lý mới sửa được.
         </div>
       )}

@@ -44,7 +44,7 @@ const thStyle: React.CSSProperties = {
   color: "#666", textTransform: "uppercase", letterSpacing: "0.03em",
 };
 const tdStyle: React.CSSProperties = {
-  padding: "12px 14px", fontSize: "13px", color: "#333",
+  padding: "12px 14px", fontSize: "13px", color: "var(--text)",
 };
 const badgeStyle = (color: string): React.CSSProperties => ({
   display: "inline-block", padding: "2px 8px", borderRadius: "6px", fontSize: "11px",
@@ -191,28 +191,28 @@ export default function InventoryReportPage() {
 
       {/* Summary Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: "16px", marginBottom: "32px" }}>
-        <div style={{ background: "var(--surface)", padding: "20px", borderRadius: "12px", border: "1px solid #eee", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+        <div style={{ background: "var(--surface)", padding: "20px", borderRadius: "12px", border: "1px solid var(--border-light)", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
             <div style={{ padding: "8px", background: "#1B4D3E15", borderRadius: "8px", color: "var(--primary)" }}><Box size={20} /></div>
             <div style={{ fontSize: "13px", color: "var(--subtext)", fontWeight: "600" }}>Tổng giá trị tồn</div>
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--text)" }}>{formatVND(totalValue)}</div>
         </div>
-        <div style={{ background: "var(--surface)", padding: "20px", borderRadius: "12px", border: "1px solid #eee", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+        <div style={{ background: "var(--surface)", padding: "20px", borderRadius: "12px", border: "1px solid var(--border-light)", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
             <div style={{ padding: "8px", background: "#3b82f615", borderRadius: "8px", color: "#3b82f6" }}><Package size={20} /></div>
             <div style={{ fontSize: "13px", color: "var(--subtext)", fontWeight: "600" }}>Số SKU theo dõi</div>
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--text)" }}>{trackedCount}</div>
         </div>
-        <div style={{ background: "var(--surface)", padding: "20px", borderRadius: "12px", border: "1px solid #eee", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+        <div style={{ background: "var(--surface)", padding: "20px", borderRadius: "12px", border: "1px solid var(--border-light)", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
             <div style={{ padding: "8px", background: "#f59e0b15", borderRadius: "8px", color: "#f59e0b" }}><TrendingDown size={20} /></div>
             <div style={{ fontSize: "13px", color: "var(--subtext)", fontWeight: "600" }}>Dưới định mức</div>
           </div>
           <div style={{ fontSize: "24px", fontWeight: "800", color: "var(--text)" }}>{lowStockCount}</div>
         </div>
-        <div style={{ background: "var(--surface)", padding: "20px", borderRadius: "12px", border: "1px solid #eee", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+        <div style={{ background: "var(--surface)", padding: "20px", borderRadius: "12px", border: "1px solid var(--border-light)", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
             <div style={{ padding: "8px", background: "#ef444415", borderRadius: "8px", color: "#ef4444" }}><AlertTriangle size={20} /></div>
             <div style={{ fontSize: "13px", color: "var(--subtext)", fontWeight: "600" }}>Hết hàng</div>
@@ -223,9 +223,9 @@ export default function InventoryReportPage() {
 
       {/* Low Stock Alerts */}
       <h2 style={{ fontSize: "16px", fontWeight: "700", marginBottom: "16px", color: "var(--text)" }}>Cảnh báo tồn kho</h2>
-      <div style={{ background: "var(--surface)", borderRadius: "12px", border: "1px solid #eee", overflowX: "auto", marginBottom: "32px" }}>
+      <div style={{ background: "var(--surface)", borderRadius: "12px", border: "1px solid var(--border-light)", overflowX: "auto", marginBottom: "32px" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead style={{ background: "var(--surface-muted)", borderBottom: "2px solid #eee" }}>
+          <thead style={{ background: "var(--surface-muted)", borderBottom: "2px solid var(--border-light)" }}>
             <tr>
               <th style={thStyle}>SKU</th>
               <th style={thStyle}>Tên hàng</th>
@@ -241,7 +241,7 @@ export default function InventoryReportPage() {
             ) : alerts.map((alert, idx) => {
               const isOut = alert.balance.onHandQty <= 0;
               return (
-                <tr key={idx} style={{ borderBottom: "1px solid #eee" }}>
+                <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)" }}>
                   <td style={tdStyle}>{alert.item.sku || "—"}</td>
                   <td style={{ ...tdStyle, fontWeight: "600" }}>{alert.item.name}</td>
                   <td style={tdStyle}>{alert.balance.onHandQty}</td>
@@ -261,9 +261,9 @@ export default function InventoryReportPage() {
 
       {/* Recent Events */}
       <h2 style={{ fontSize: "16px", fontWeight: "700", marginBottom: "16px", color: "var(--text)" }}>Biến động kho gần đây (50 giao dịch)</h2>
-      <div style={{ background: "var(--surface)", borderRadius: "12px", border: "1px solid #eee", overflowX: "auto" }}>
+      <div style={{ background: "var(--surface)", borderRadius: "12px", border: "1px solid var(--border-light)", overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead style={{ background: "var(--surface-muted)", borderBottom: "2px solid #eee" }}>
+          <thead style={{ background: "var(--surface-muted)", borderBottom: "2px solid var(--border-light)" }}>
             <tr>
               <th style={thStyle}>Thời gian</th>
               <th style={thStyle}>Loại phiếu</th>
@@ -290,7 +290,7 @@ export default function InventoryReportPage() {
               }
 
               return (
-                <tr key={evt.eventId} style={{ borderBottom: "1px solid #eee" }}>
+                <tr key={evt.eventId} style={{ borderBottom: "1px solid var(--border-light)" }}>
                   <td style={tdStyle}>{formatDate(ts)}</td>
                   <td style={tdStyle}>
                     <span style={badgeStyle(isPos ? "#10b981" : "#ef4444")}>

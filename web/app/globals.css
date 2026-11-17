@@ -26,6 +26,10 @@
   --sidebar-bg-bottom: #0E2B22;
   /* Chữ */
   --text: #1C1A2D;
+  /* Chữ màu thương hiệu (xanh đậm trên nền sáng, xanh mint trên nền tối) */
+  --text-brand: #143A2F;
+  /* Màu nhấn đỏ đô (biểu tượng, số tổng) */
+  --text-accent: #7E2930;
   --subtext: #5D5B63;
   --muted: #6B6E82; /* trước đây #8B8FA8 – không đạt tương phản 4.5:1 trên nền trắng */
   --placeholder: #8E8C94;
@@ -85,6 +89,8 @@
     --table-in-use: #7FE3C7;
     --table-in-use-bg: #16362C;
     --text: #F1EEF4;
+    --text-brand: #7FE3C7;
+    --text-accent: #F2A0A6;
     --subtext: #C6C2CE;
     --muted: #A29FAE;
     --placeholder: #8A8796;
@@ -126,6 +132,8 @@
   --table-in-use: #7FE3C7;
   --table-in-use-bg: #16362C;
   --text: #F1EEF4;
+  --text-brand: #7FE3C7;
+  --text-accent: #F2A0A6;
   --subtext: #C6C2CE;
   --muted: #A29FAE;
   --placeholder: #8A8796;

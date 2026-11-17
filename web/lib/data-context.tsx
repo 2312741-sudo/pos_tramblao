@@ -393,7 +393,7 @@ interface DashboardContextType {
   /** Đánh dấu bàn đã in phiếu tạm tính (prePrintedAt/prePrintedBy) */
   markTablePrePrinted: (table: TableItem, username?: string) => Promise<{ success: boolean; error?: string }>;
   saveProduct: (
-    productData: { id?: string; name: string; code?: string; price: number; costPrice?: number; unit?: string; category?: string; imageBase64?: string; isTopping?: boolean; noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null },
+    productData: { id?: string; name: string; code?: string; price: number; costPrice?: number; unit?: string; category?: string; imageBase64?: string; isTopping?: boolean; noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null; sizes?: Record<string, number> | null },
     storeCode?: string
   ) => Promise<{ success: boolean; error?: string }>;
   deleteProduct: (productId: string, storeCode?: string) => Promise<{ success: boolean; error?: string }>;
@@ -2067,7 +2067,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
   const saveProduct = useCallback(
     async (
-      productData: { id?: string; name: string; code?: string; price: number; costPrice?: number; unit?: string; category?: string; imageBase64?: string; isTopping?: boolean; noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null },
+      productData: { id?: string; name: string; code?: string; price: number; costPrice?: number; unit?: string; category?: string; imageBase64?: string; isTopping?: boolean; noteGroupIds?: string[] | null; toppingGroupIds?: string[] | null; sizes?: Record<string, number> | null },
       storeCode?: string
     ) => {
       try {
@@ -2087,6 +2087,8 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         if (productData.imageBase64 !== undefined) {
           payload.imageBase64 = productData.imageBase64;
         }
+        // Size & phụ thu: undefined = không đụng; null = xóa size; object = thay toàn bộ (xem lib/product-sizes.ts)
+        if (productData.sizes !== undefined) payload.sizes = productData.sizes;
 
         // Mỗi món phải có id SỐ riêng: app lưu productId theo id số; món thiếu id bị coi là 0 và dùng chung
         // → tra nhầm món (combo, phiếu bếp, báo cáo...). Món mới hoặc món cũ chưa có id: cấp id = lớn nhất + 1.

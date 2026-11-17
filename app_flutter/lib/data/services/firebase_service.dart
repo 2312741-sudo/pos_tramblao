@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart' hide FirebaseService;
 import 'package:firebase_database/firebase_database.dart';
 import '../models/app_models.dart';
+import '../../core/services/sync_status.dart';
 import '../models/staff_call_model.dart';
 import '../repositories/seed_data.dart';
 import '../repositories/auth_repository.dart';
@@ -100,6 +101,10 @@ class FirebaseService {
     } catch (_) {
       _root = FirebaseDatabase.instance.ref();
     }
+    // Báo mất kết nối / chưa đồng bộ cho nhân viên (xem SyncStatusFrame)
+    try {
+      SyncStatus.instance.attach(_root.child('.info/connected'));
+    } catch (_) {}
     _initialized = true;
     try {
       _authSub ??= FirebaseAuth.instance.authStateChanges().listen((u) {
@@ -203,8 +208,9 @@ class FirebaseService {
   Stream<List<TableModel>> tablesStream() => _orderRepo.tablesStream();
 
   Future<void> saveTable(TableModel table) => _orderRepo.saveTable(table);
-
   Stream<TableModel?> tableStream(String firebaseKey) => _orderRepo.tableStream(firebaseKey);
+  void applyTableState(TableModel dst, TableModel src) => _orderRepo.applyTableState(dst, src);
+
 
   Future<({TableModel targetTable, bool wasSplit, String? occupiedBy})> claimOrSplitTableForOrdering(
     TableModel requestedTable, {
