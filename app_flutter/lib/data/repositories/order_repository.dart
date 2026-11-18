@@ -434,9 +434,11 @@ class OrderRepository {
       table.isSplitTable = true;
     }
     // Bàn đang có khách và máy này biết bản đơn đã đọc từ server → GỘP vào đơn mới nhất (không ghi đè món
-    // máy khác vừa thêm). Mất mạng: transaction không chạy được → ghi như cũ để còn đồng bộ sau.
+    // máy khác vừa thêm). Mất mạng cũng gộp: transaction chờ tới khi có mạng rồi mới chạy trên bản mới nhất.
+    // (Trước đây mất mạng thì ghi đè cả bàn; lệnh ghi nằm chờ rồi đẩy lên lúc có mạng lại → xóa món / miễn phí /
+    // giảm giá mà máy khác làm trong lúc máy này mất mạng — "đơn hiện lại từ đầu".)
     final base = table.syncedOrderJson;
-    if (base != null && table.inUse && _isOnline) {
+    if (base != null && table.inUse) {
       await _saveTableMerged(table, base);
     } else {
       await _commitWrite(
@@ -840,6 +842,16 @@ class OrderRepository {
     }
   }
 
+  /// Tách món ghi thẳng phần còn lại của bàn: nếu server đang có món mà máy này chưa thấy (máy khác vừa
+  /// thêm) thì dừng lại, giống chốt chặn khi thanh toán — tránh xóa mất món đó.
+  Future<void> _guardSplitAgainstServer(TableModel table, List<OrderItemModel> knownItems) async {
+    final missing = OrderGuards.missingFromBill(await _readServerTable(table), knownItems);
+    if (missing.isNotEmpty) {
+      throw DataWriteException(
+          'Đơn của ${table.name} vừa có thêm món từ máy khác: ${missing.join(", ")}. Vui lòng mở lại bàn để xem đơn mới nhất rồi thao tác lại.');
+    }
+  }
+
   Future<void> transferTable(TableModel sourceTable, TableModel targetTable, {String? staffName, String? staffUsername}) async {
     if (sourceTable.firebaseKey == targetTable.firebaseKey) return;
     // Lấy đơn MỚI NHẤT của bàn nguồn (gồm món máy khác vừa thêm). Chỉ chặn khi chắc chắn: bàn nguồn hết món
@@ -1114,6 +1126,7 @@ class OrderRepository {
     int? pointRedeemRate,
   }) async {
     final storeCode = _currentStoreCode;
+    await _guardSplitAgainstServer(sourceTable, [...splitItems, ...remainingItems]);
     final splitBillCode = await allocateBillCode(storeCode: storeCode);
     final planned = planPaySplitItemsNow(
       sourceTable: sourceTable,
@@ -1190,6 +1203,8 @@ class OrderRepository {
     String? staffName,
     String? staffRole,
   }) async {
+    await _guardSplitAgainstServer(sourceTable, [...splitItems, ...remainingItems]);
+    if (mergeIntoTarget) await _guardSplitAgainstServer(targetTable, targetTable.currentItems);
     final planned = planSplitTableItems(
       sourceTable: sourceTable,
       splitItems: splitItems,
@@ -2937,7 +2952,7 @@ class OrderRepository {
       final tableSnap = await tablesRef.child(tableKey).get();
       TableModel table;
       if (tableSnap.exists && tableSnap.value != null) {
-        table = TableModel.fromMap(tableSnap.value as Map, tableKey);
+        table = TableModel.fromServer(tableSnap.value as Map, tableKey);
       } else {
         // Tìm bàn theo tên & khu vực phòng trường hợp định dạng key lệch
         final allSnap = await tablesRef.get();
@@ -2946,7 +2961,7 @@ class OrderRepository {
           final allMap = allSnap.value as Map;
           for (final e in allMap.entries) {
             if (e.value is Map) {
-              final t = TableModel.fromMap(e.value as Map, e.key.toString());
+              final t = TableModel.fromServer(e.value as Map, e.key.toString());
               if (t.name == order.tableName && t.zone == order.tableZone) {
                 found = t;
                 break;
@@ -2959,28 +2974,12 @@ class OrderRepository {
 
       final newItems = order.items;
       if (newItems.isNotEmpty) {
-        final currentItems = table.currentItems;
-        final Map<String, OrderItemModel> map = {};
-        for (final item in currentItems) {
-          final k = '${item.productId}_${item.selectedSize}_${item.selectedSugar}_${item.selectedIce}_${item.selectedToppings.join(',')}';
-          map[k] = item;
-        }
-        for (final item in newItems) {
-          final k = '${item.productId}_${item.selectedSize}_${item.selectedSugar}_${item.selectedIce}_${item.selectedToppings.join(',')}';
-          if (map.containsKey(k)) {
-            final exist = map[k]!;
-            map[k] = exist.copyWith(
-              quantity: exist.quantity + item.quantity,
-              note: '${exist.note} ${item.note}'.trim(),
-            );
-          } else {
-            map[k] = item;
-          }
-        }
-
+        // Giữ nguyên mọi dòng đang có (kể cả 2 dòng cùng món khác giảm giá / đã gửi bếp); chỉ cộng dồn vào dòng
+        // trùng hoàn toàn cấu hình. Trước đây gom theo món+size+đường+đá → mất dòng (vd. dòng được miễn phí).
+        final mergedItems = OrderLineMerger.merge(table.currentItems, newItems);
         table.inUse = true;
         table.openedAt ??= DateTime.now().millisecondsSinceEpoch;
-        table.currentOrderJson = jsonEncode(map.values.map((e) => e.toMap()).toList());
+        table.currentOrderJson = jsonEncode(mergedItems.map((e) => e.toMap()).toList());
         table.addActionLog(OrderActionLogModel(
           timestamp: DateTime.now().millisecondsSinceEpoch,
           staffUsername: staffUsername ?? 'staff',

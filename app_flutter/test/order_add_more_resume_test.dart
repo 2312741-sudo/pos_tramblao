@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tram_flutter/core/domain/order_integrity.dart';
 import 'package:tram_flutter/core/domain/order_merge.dart';
 import 'package:tram_flutter/data/models/order_item_model.dart';
 
@@ -39,5 +40,15 @@ void main() {
     final oldCart = js([a, choco]); // giỏ màn giỏ món lúc trước khi mở màn Thêm món
     final wrong = OrderMerge.mergeJson(base: addLocal, local: oldCart, server: serverAfterAdd);
     expect(names(wrong), isNot(contains('Matcha')), reason: 'món vừa gọi bị coi là "máy này đã xóa"');
+  });
+
+  test('duyệt đơn QR vào bàn có 2 dòng cùng món (1 dòng miễn phí): giữ đủ 2 dòng, món mới không cộng vào dòng miễn phí', () {
+    final free = OrderItemModel(productId: 2, name: 'Choco chip nhỏ', price: 20000, quantity: 1, discountPercent: 100, discountReason: 'Free', discountedQuantity: 1);
+    final normal = OrderItemModel(productId: 2, name: 'Choco chip nhỏ', price: 20000, quantity: 1);
+    final incoming = OrderItemModel(productId: 2, name: 'Choco chip nhỏ', price: 20000, quantity: 2);
+    final merged = OrderLineMerger.merge([free, normal], [incoming]);
+    expect(merged.length, 2);
+    expect(merged.where((i) => i.discountPercent == 100).single.quantity, 1);
+    expect(merged.where((i) => i.discountPercent == 0).single.quantity, 3);
   });
 }
