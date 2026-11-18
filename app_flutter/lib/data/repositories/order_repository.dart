@@ -513,6 +513,7 @@ class OrderRepository {
       }
       return Transaction.success(out);
     }, applyLocally: true);
+    SyncStatus.instance.track(fut.then<void>((_) {}));
     try {
       final res = await fut.timeout(_txnTimeout);
       if (!res.committed) {
@@ -535,8 +536,12 @@ class OrderRepository {
       }
     } on TimeoutException {
       debugPrint('[OrderRepository] Chưa có xác nhận lưu bàn ${table.name} - đang chờ đồng bộ.');
-      unawaited(fut.then<void>((_) {}, onError: (Object e) {
-        debugPrint('[OrderRepository] Lưu bàn ${table.name} thất bại khi đồng bộ: $e');
+      // Bản gốc đã được đặt = bản máy này (lạc quan). Nếu lần lưu này rốt cuộc KHÔNG thành công mà không xử lý,
+      // các lần lưu sau coi món đó là "đã có trên server" và không bao giờ gửi lại → món mất.
+      unawaited(fut.then<void>((r) {
+        if (!r.committed) _lateMergeFailed(table, base, baseMeta, localJson, r.snapshot.value, 'bị từ chối');
+      }, onError: (Object e) {
+        _lateMergeFailed(table, base, baseMeta, localJson, null, e);
       }));
     } on DataWriteException {
       table.syncedOrderJson = base;
@@ -547,6 +552,42 @@ class OrderRepository {
       table.syncedMeta = baseMeta;
       throw DataWriteException('Không lưu được bàn ${table.name}: $e', e);
     }
+  }
+
+  /// Bàn đang chờ lưu lại sau khi một lần lưu gộp thất bại muộn (chặn lặp vô hạn)
+  final Set<String> _lateRetrying = <String>{};
+
+  /// Lần lưu gộp đã quá thời gian chờ rồi mới thất bại: trả bản gốc về bản server trước đó và lưu lại một lần,
+  /// để thay đổi của máy này (món vừa thêm, miễn phí, giảm giá...) được gộp lại thay vì mất im lặng.
+  void _lateMergeFailed(TableModel table, String base, Map<String, Object?>? baseMeta, String localJson, Object? serverValue, Object reason) {
+    debugPrint('[OrderRepository] Lưu bàn ${table.name} thất bại khi đồng bộ: $reason');
+    if (serverValue is Map) {
+      final closedId = serverValue['closedBillId']?.toString();
+      _rememberClosedId(table.firebaseKey, closedId);
+      final rawInUse = serverValue['inUse'];
+      final srvInUse = rawInUse == true || rawInUse == 1 || rawInUse?.toString().toLowerCase() == 'true';
+      if (!srvInUse || (closedId != null && closedId == table.currentBillId)) return; // bàn đã đóng trên server
+    }
+    if (_isClosedOrder(table) || !table.inUse) return;
+    // Chỉ khi chưa có lần lưu mới hơn (lần mới hơn đã mang bản gốc khác)
+    if (table.syncedOrderJson != localJson) return;
+    table.syncedOrderJson = base;
+    table.syncedMeta = baseMeta;
+    final key = table.firebaseKey;
+    if (!_lateRetrying.add(key)) return;
+    unawaited(saveTable(table).catchError((Object e) {
+      _safeLog(AuditLogModel(
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        username: 'system',
+        userFullName: 'Hệ thống',
+        userRole: 'SYSTEM',
+        action: 'SYNC_WRITE_FAILED',
+        targetType: 'DATA',
+        targetId: 'bàn ${table.name}',
+        details: 'Lưu lại bàn ${table.name} sau khi đồng bộ thất bại vẫn lỗi: $e',
+        isSuspicious: true,
+      ));
+    }).whenComplete(() => _lateRetrying.remove(key)));
   }
 
   /// Theo dõi một bàn (màn giỏ hàng tự cập nhật khi máy khác thêm / sửa món)

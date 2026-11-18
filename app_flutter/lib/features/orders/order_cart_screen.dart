@@ -5151,12 +5151,17 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       'isAddingMore': true,
     });
     if (!mounted) return;
-    _resumeRemote();
-    if (_orderClosed) return;
-    if (res is List<OrderItemModel>) {
+    // Lấy giỏ từ màn Thêm món TRƯỚC (màn đó đã ghi giỏ vào bàn và lưu gộp), RỒI mới áp cập nhật từ máy khác
+    // đang giữ lại. Làm ngược lại thì cập nhật bị gộp vào giỏ CŨ (chưa có món vừa gọi) → món mới bị coi là
+    // "máy này đã xóa" và mất ở lần lưu kế tiếp (lỗi "gọi thêm xong lúc sau mất món").
+    if (res is List<OrderItemModel> && !_orderClosed) {
       setState(() {
         _cart = List.from(res);
       });
+    }
+    _resumeRemote();
+    if (_orderClosed) return;
+    if (res is List<OrderItemModel>) {
       _recalculateDiscounts();
     } else {
       final refreshed = await _fb.tablesStream().first;
@@ -5165,6 +5170,9 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       if (currentT != null && mounted) {
         setState(() {
           _cart = List.from(currentT.currentItems);
+          // Giỏ = đúng bản trên server → bản gốc để gộp lần lưu sau cũng phải là bản này
+          widget.table.currentOrderJson = currentT.currentOrderJson;
+          widget.table.syncedOrderJson = currentT.syncedOrderJson ?? currentT.currentOrderJson;
         });
         _recalculateDiscounts();
       }
