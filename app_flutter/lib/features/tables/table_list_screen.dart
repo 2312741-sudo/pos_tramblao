@@ -23,6 +23,7 @@ import 'widgets/table_card.dart';
 import 'widgets/ready_kitchen_orders_banner.dart';
 import '../../data/models/staff_call_model.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../chamcong_blao/chamcong_blao_screen.dart';
 
 class TableListScreen extends StatefulWidget {
   const TableListScreen({super.key});
@@ -511,6 +512,12 @@ class _TableListScreenState extends State<TableListScreen> {
                 ),
               );
             },
+          ),
+          // Chấm công (mô-đun Chấm Công Trạm BLAO)
+          IconButton(
+            tooltip: 'Chấm công',
+            icon: const Icon(LucideIcons.clock, color: Colors.white),
+            onPressed: () => ChamCongBlaoScreen.open(context),
           ),
           if (_readyOrders.isNotEmpty)
             IconButton(

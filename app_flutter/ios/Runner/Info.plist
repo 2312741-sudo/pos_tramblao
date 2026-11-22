@@ -45,8 +45,10 @@
 	<string>POS Trạm BLAO cần quyền truy cập Bluetooth để tìm và kết nối máy in hóa đơn/phiếu bếp nhiệt.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>POS Trạm BLAO cần kết nối Bluetooth với máy in nhiệt để in hóa đơn bán hàng.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>POS Trạm BLAO cần vị trí khi bạn bấm chấm công để xác thực bạn đang có mặt tại cửa hàng.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>POS Trạm BLAO cần truy cập máy ảnh để chụp ảnh sản phẩm đưa vào menu hoặc quét mã QR.</string>
+	<string>POS Trạm BLAO cần truy cập máy ảnh để chụp ảnh sản phẩm đưa vào menu, quét mã QR và quét mã QR tham gia cửa hàng khi chấm công.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>POS Trạm BLAO cần truy cập mạng nội bộ Wi-Fi để kết nối máy in hóa đơn và phiếu bếp qua cổng mạng LAN.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

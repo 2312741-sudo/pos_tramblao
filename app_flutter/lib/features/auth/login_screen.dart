@@ -7,6 +7,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/theme_mode_selector.dart';
 import 'change_password_dialog.dart';
+import '../../chamcong_blao/chamcong_blao_screen.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -457,6 +458,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                           fontWeight: FontWeight.bold,
                                           color: const Color(0xFF143A2F)),
                                     ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          // Chấm công vào ca (mô-đun Chấm Công Trạm BLAO) — không cần đăng nhập POS
+                          SizedBox(
+                            height: 46,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: context.tc.primary.withValues(alpha: 0.6)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () => ChamCongBlaoScreen.open(context),
+                              icon: Icon(LucideIcons.clock, size: 18, color: context.tc.primary),
+                              label: Text(
+                                'CHẤM CÔNG',
+                                style: GoogleFonts.beVietnamPro(
+                                    fontSize: 14, fontWeight: FontWeight.w700, color: context.tc.primary),
+                              ),
                             ),
                           ),
                         ],

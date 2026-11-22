@@ -18,6 +18,7 @@ import 'tabs/audit_tab.dart';
 import '../reports/reports_hub_screen.dart';
 import '../crm/customer_management_screen.dart';
 import '../chamcong/chamcong_link_screen.dart';
+import '../../chamcong_blao/chamcong_blao_screen.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ManagerHubScreen extends StatefulWidget {
@@ -297,6 +298,8 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> {
                     context.push('/store-settings');
                   } else if (val == 'STORE') {
                     _showStoreSwitcherDialog();
+                  } else if (val == 'CHAMCONG_BLAO') {
+                    await ChamCongBlaoScreen.open(context);
                   } else if (val == 'CHAMCONG_LINK') {
                     Navigator.push(
                       context,
@@ -395,6 +398,16 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> {
                       ),
                     ),
                   // Chỉ Chủ quán được liên kết cửa hàng với ứng dụng Chấm Công Trạm
+                  PopupMenuItem(
+                    value: 'CHAMCONG_BLAO',
+                    child: Row(
+                      children: [
+                        Icon(LucideIcons.clock, size: 18, color: context.tc.primary),
+                        const SizedBox(width: 8),
+                        const Text('Chấm công'),
+                      ],
+                    ),
+                  ),
                   if (_auth.isOwner || _auth.can(AppPermissions.manageChamcongLink))
                     PopupMenuItem(
                       value: 'CHAMCONG_LINK',
