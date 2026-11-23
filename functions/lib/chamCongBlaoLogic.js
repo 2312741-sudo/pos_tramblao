@@ -1,22 +1,12 @@
 "use strict";
 /**
- * Đăng nhập Chấm Công Trạm BLAO bằng TÀI KHOẢN POS — logic thuần (không phụ thuộc Firebase), kiểm thử được.
- *
- * Mô-đun chấm công (trong app POS) và web quản lý chấm công đều đổi phiên đăng nhập POS lấy phiên đăng nhập
- * dự án chấm công `chamcongtramblao` qua hàm chamCongBlaoSignIn (chamCongBlao.ts).
- *
- * Tài khoản chấm công tương ứng của một tài khoản POS:
- *  1. Đã liên kết trước đó → dùng lại.
- *  2. Chưa liên kết: tìm thành viên chấm công CÙNG TÊN (bỏ dấu, không phân biệt hoa thường, gộp khoảng trắng)
- *     chưa thuộc tài khoản POS nào và chưa bị xóa khỏi cửa hàng. Đúng MỘT người → nối vào (giữ lịch sử chấm công,
- *     lương). Không có / nhiều người trùng tên → tạo tài khoản chấm công mới (tránh nối nhầm).
+ * Chấm Công Trạm BLAO trên Firebase POS (`postramblao`) — logic thuần, kiểm thử được.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizeName = normalizeName;
 exports.mapPosRoleToCc = mapPosRoleToCc;
-exports.newCcUid = newCcUid;
-exports.decideCcAccount = decideCcAccount;
 exports.memberAction = memberAction;
+exports.pickStoreOwnerUid = pickStoreOwnerUid;
 exports.buildNewMember = buildNewMember;
 /** Chuẩn hóa tên để so khớp: bỏ dấu tiếng Việt (kể cả đ), chữ thường, gộp khoảng trắng */
 function normalizeName(name) {
@@ -24,7 +14,7 @@ function normalizeName(name) {
         return "";
     return name
         .normalize("NFD")
-        .replace(/[̀-ͯ]/g, "")
+        .replace(/[\u0300-\u036f]/g, "")
         .replace(/đ/g, "d")
         .replace(/Đ/g, "D")
         .toLowerCase()
@@ -42,24 +32,6 @@ function mapPosRoleToCc(roleId, isRootOwner) {
         return "manager_1";
     return "employee";
 }
-/** uid chấm công cho tài khoản tạo mới từ POS (ổn định, hợp lệ cho Firebase Auth / Firestore) */
-function newCcUid(storeCode, posUid) {
-    const clean = (s) => s.replace(/[^A-Za-z0-9_-]/g, "_");
-    return `pos_${clean(storeCode)}_${clean(posUid)}`.slice(0, 128);
-}
-function decideCcAccount(args) {
-    if (args.existingLink)
-        return { kind: "LINKED", ccUid: args.existingLink };
-    const want = normalizeName(args.posFullName);
-    const candidates = want
-        ? args.members.filter((m) => normalizeName(m.name) === want &&
-            !args.takenCcUids.has(m.uid) &&
-            (m.status || "").toLowerCase() !== "kicked")
-        : [];
-    if (candidates.length === 1)
-        return { kind: "MATCHED", ccUid: candidates[0].uid };
-    return { kind: "NEW", ccUid: newCcUid(args.storeCode, args.posUid), ambiguous: candidates.length > 1 };
-}
 /** Trạng thái thành viên chấm công hiện có → việc cần làm khi đăng nhập bằng POS */
 function memberAction(existing) {
     if (!existing)
@@ -70,6 +42,19 @@ function memberAction(existing) {
     if (s === "active")
         return "OK";
     return "ACTIVATE"; // pending / thiếu trạng thái: tài khoản POS hợp lệ nên coi như đã được duyệt
+}
+/** Tìm UID Chủ cửa hàng trong map users của RTDB để gán ownerId khi khởi tạo store Firestore */
+function pickStoreOwnerUid(usersMap, fallbackUid) {
+    if (!usersMap || typeof usersMap !== "object")
+        return fallbackUid;
+    const entries = Object.entries(usersMap).filter(([, u]) => u && u.isActive !== false);
+    const rootOwner = entries.find(([, u]) => u.isRootOwner === true);
+    if (rootOwner)
+        return rootOwner[0];
+    const anyOwner = entries.find(([, u]) => mapPosRoleToCc(u.roleId, u.isRootOwner) === "owner");
+    if (anyOwner)
+        return anyOwner[0];
+    return fallbackUid;
 }
 /** Hồ sơ thành viên chấm công cho tài khoản tạo mới (joinedAt do tầng I/O gắn Timestamp) */
 function buildNewMember(args) {
