@@ -9,7 +9,6 @@ import '../../models/member_model.dart';
 import '../../models/attendance_model.dart';
 import '../../features/store/providers/store_provider.dart';
 import '../../features/auth/providers/auth_provider.dart';
-import '../../features/auth/providers/auth_notifier.dart';
 import '../../features/attendance/providers/attendance_provider.dart';
 import '../../core/widgets/store_drawer.dart';
 import '../../core/widgets/notification_bell_icon.dart';
@@ -57,7 +56,7 @@ class _OwnerDashboardState extends ConsumerState<OwnerDashboard> {
         return const Scaffold(backgroundColor: AppColors.surface, body: Center(child: CircularProgressIndicator()));
       } else if (currentMember.status == MemberStatus.kicked) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) context.go(AppRoutes.welcome);
+          if (mounted) context.go(AppRoutes.splash);
         });
         return const Scaffold(backgroundColor: AppColors.surface, body: Center(child: CircularProgressIndicator()));
       } else if (currentMember.isManager) {
@@ -82,7 +81,7 @@ class _OwnerDashboardState extends ConsumerState<OwnerDashboard> {
         return;
       }
       if (next.status == MemberStatus.kicked) {
-        context.go(AppRoutes.welcome);
+        context.go(AppRoutes.splash);
         return;
       }
       if (next.isManager) {
@@ -738,21 +737,7 @@ class _OwnerSettingsTab extends ConsumerWidget {
           const SizedBox(height: 12),
           _SettingsSection(title: 'Tài khoản', items: [
             _SettingsItem(icon: LucideIcons.user, label: 'Hồ sơ cá nhân', onTap: () => GoRouter.of(context).push(AppRoutes.profileSettings)),
-            _SettingsItem(icon: LucideIcons.logOut, label: 'Đăng xuất', color: Colors.red, onTap: () async {
-              final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
-                title: const Text('Đăng xuất?'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Hủy')),
-                  TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Đăng xuất', style: TextStyle(color: Colors.red))),
-                ],
-              ));
-              if (confirm == true) {
-                await ref.read(authNotifierProvider.notifier).signOut();
-                if (context.mounted) {
-                  context.go(AppRoutes.login);
-                }
-              }
-            }),
+            _SettingsItem(icon: LucideIcons.arrowLeft, label: 'Đóng Chấm công (Về POS)', color: AppColors.primary, onTap: () => CcFirebase.exitModule(context)),
           ]),
         ],
       ),

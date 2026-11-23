@@ -148,7 +148,7 @@ class AttendanceRepository {
 
           if (reportsQuery.docs.isEmpty) {
             try {
-              await CcFirebase.functions(region: 'asia-east2').httpsCallable('requestChecklistNotification').call({
+              await CcFirebase.functions().httpsCallable('requestChecklistNotification').call({
                 'storeId': storeId, 'attendanceId': doc.id,
               });
             } catch (_) {}

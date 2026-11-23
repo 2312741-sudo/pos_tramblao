@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/app_models.dart';
 import '../../data/services/firebase_service.dart';
 import '../../core/permissions/app_permissions.dart';
-import '../../chamcong_blao/pos_sso.dart';
+import '../../chamcong_blao/core/services/notification_service.dart' as cc_notif;
 
 class AuthException implements Exception {
   final String message;
@@ -232,6 +232,7 @@ class AuthService extends ChangeNotifier {
         _currentUser = user;
         await refreshRolesAndStoreInfo();
         notifyListeners();
+        unawaited(_registerPushNotifications(fbUser.uid));
         return true;
       }
     } catch (_) {
@@ -457,8 +458,16 @@ class AuthService extends ChangeNotifier {
     _currentUser = userProfile.copyWith(lastLoginAt: now);
     await refreshRolesAndStoreInfo();
     notifyListeners();
+    unawaited(_registerPushNotifications(userProfile.uid));
 
     return _currentUser!;
+  }
+
+  Future<void> _registerPushNotifications(String uid) async {
+    try {
+      await cc_notif.NotificationService().initialize();
+      await cc_notif.NotificationService().saveTokenForUser(uid);
+    } catch (_) {}
   }
 
   /// Đổi mật khẩu tài khoản
@@ -528,7 +537,11 @@ class AuthService extends ChangeNotifier {
 
   /// Kết thúc phiên sau khi tài khoản đã bị xóa. KHÔNG ghi audit LOGOUT vì tài khoản không còn tồn tại.
   Future<void> endSessionAfterAccountDeletion() async {
-    await ChamCongBlaoSso.signOut();
+    final uid = _firebaseAuth.currentUser?.uid ?? _currentUser?.uid;
+    if (uid != null && uid.isNotEmpty) {
+      await cc_notif.NotificationService().clearTokenForUser(uid).timeout(const Duration(seconds: 2)).catchError((_) {});
+    }
+
     try {
       await _firebaseAuth.signOut();
     } catch (_) {}
@@ -557,6 +570,11 @@ class AuthService extends ChangeNotifier {
         targetId: _currentUser!.username,
         details: 'Đăng xuất khỏi ca làm việc tại $_currentStoreCode',
       )).catchError((_) {});
+    }
+
+    final uid = _firebaseAuth.currentUser?.uid ?? _currentUser?.uid;
+    if (uid != null && uid.isNotEmpty) {
+      await cc_notif.NotificationService().clearTokenForUser(uid).timeout(const Duration(seconds: 2)).catchError((_) {});
     }
 
     try {

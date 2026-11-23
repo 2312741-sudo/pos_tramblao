@@ -238,30 +238,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  // ── Sign Out ────────────────────────────────────────────────────────────
+  // ── Đóng mô-đun (quay về POS, KHÔNG đăng xuất tài khoản POS) ──────────
 
   Future<void> signOut() async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      final uid = CcFirebase.auth.currentUser?.uid;
-      if (uid != null && uid.isNotEmpty) {
-        try {
-          await NotificationService().clearTokenForUser(uid).timeout(
-            const Duration(seconds: 2),
-            onTimeout: () {},
-          );
-        } catch (_) {}
-      }
-      await _repository.signOut();
-      _invalidateAllUserData();
-      state = const AuthState();
-    } catch (e) {
-      _invalidateAllUserData();
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Có lỗi khi đăng xuất',
-      );
-    }
+    _invalidateAllUserData();
+    state = const AuthState();
+    CcFirebase.exitModule();
   }
 
   // ── Update Profile ──────────────────────────────────────────────────────

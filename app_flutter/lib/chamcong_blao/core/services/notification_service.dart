@@ -118,10 +118,8 @@ class NotificationService {
   }
 
   Future<void> initialize() => _initializing ??= _initialize().whenComplete(() => _initializing = null);
-  /// Thông báo đẩy từ máy chủ chấm công (FCM). TẮT khi chạy trong app POS: mã FCM của app thuộc dự án
-  /// Firebase mặc định (postramblao) nên máy chủ chamcongtramblao không gửi tới được. Bật lại khi đã chuyển
-  /// việc gửi thông báo chấm công sang dự án POS. Thông báo cục bộ (nhắc ca...) vẫn hoạt động.
-  static const bool remotePushEnabled = false;
+  /// Thông báo đẩy FCM qua dự án Firebase mặc định (`postramblao`, vùng `asia-southeast1`).
+  static const bool remotePushEnabled = true;
 
   Future<void> _initialize() async {
     if (_initialized) return;
@@ -165,7 +163,7 @@ class NotificationService {
   Future<void> _register(String uid, String token, int session) async {
     if (session != _session || CcFirebase.auth.currentUser?.uid != uid) return;
     try {
-      await CcFirebase.functions(region: 'asia-east2').httpsCallable('registerNotificationDevice').call({'token': token});
+      await CcFirebase.functions().httpsCallable('registerNotificationDevice').call({'token': token});
     } catch (e) {
       debugPrint('Cloud Function registerNotificationDevice fallback: $e');
       final tokenDigest = sha256.convert(utf8.encode(token)).toString();
@@ -209,7 +207,7 @@ class NotificationService {
       final token = await _fcm?.getToken();
       if (token != null && CcFirebase.auth.currentUser?.uid == uid) {
         try {
-          await CcFirebase.functions(region: 'asia-east2').httpsCallable('registerNotificationDevice').call({'token': token, 'remove': true});
+          await CcFirebase.functions().httpsCallable('registerNotificationDevice').call({'token': token, 'remove': true});
         } catch (e) {
           final tokenDigest = sha256.convert(utf8.encode(token)).toString();
           await CcFirebase.firestore.collection('notificationDevices').doc(tokenDigest).delete().catchError((_) {});

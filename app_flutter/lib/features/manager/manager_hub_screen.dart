@@ -19,7 +19,6 @@ import '../reports/reports_hub_screen.dart';
 import '../crm/customer_management_screen.dart';
 import '../chamcong/chamcong_link_screen.dart';
 import '../../chamcong_blao/chamcong_blao_screen.dart';
-import '../../chamcong_blao/link_store_dialog.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ManagerHubScreen extends StatefulWidget {
@@ -301,8 +300,6 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> {
                     _showStoreSwitcherDialog();
                   } else if (val == 'CHAMCONG_BLAO') {
                     await ChamCongBlaoScreen.open(context);
-                  } else if (val == 'CHAMCONG_BLAO_LINK') {
-                    await ChamCongBlaoLinkDialog.show(context);
                   } else if (val == 'CHAMCONG_LINK') {
                     Navigator.push(
                       context,
@@ -411,17 +408,6 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> {
                       ],
                     ),
                   ),
-                  if (_auth.isOwner)
-                    PopupMenuItem(
-                      value: 'CHAMCONG_BLAO_LINK',
-                      child: Row(
-                        children: [
-                          Icon(LucideIcons.link, size: 18, color: context.tc.primary),
-                          const SizedBox(width: 8),
-                          const Text('Liên kết Chấm Công BLAO'),
-                        ],
-                      ),
-                    ),
                   if (_auth.isOwner || _auth.can(AppPermissions.manageChamcongLink))
                     PopupMenuItem(
                       value: 'CHAMCONG_LINK',

@@ -8,7 +8,6 @@ import '../../models/member_model.dart';
 import '../../models/store_model.dart';
 import '../../features/store/providers/store_provider.dart';
 import '../../features/auth/providers/auth_provider.dart';
-import '../../features/auth/providers/auth_notifier.dart';
 import '../../features/attendance/providers/attendance_provider.dart';
 import '../../features/schedule/providers/schedule_provider.dart';
 import '../../models/attendance_model.dart';
@@ -81,7 +80,7 @@ class _EmployeeDashboardState extends ConsumerState<EmployeeDashboard>
         return const Scaffold(backgroundColor: AppColors.surface, body: Center(child: CircularProgressIndicator()));
       } else if (currentMember.status == MemberStatus.kicked) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) context.go(AppRoutes.welcome);
+          if (mounted) context.go(AppRoutes.splash);
         });
         return const Scaffold(backgroundColor: AppColors.surface, body: Center(child: CircularProgressIndicator()));
       } else if (currentMember.isOwner) {
@@ -106,7 +105,7 @@ class _EmployeeDashboardState extends ConsumerState<EmployeeDashboard>
         return;
       }
       if (next.status == MemberStatus.kicked) {
-        context.go(AppRoutes.welcome);
+        context.go(AppRoutes.splash);
         return;
       }
       if (next.isOwner) {
@@ -838,21 +837,7 @@ class _ProfileTab extends ConsumerWidget {
           _ProfileMenuItem(icon: LucideIcons.dollarSign, label: 'Xem lương tháng này', color: AppColors.success, onTap: () => context.push(AppRoutes.salary)),
           _ProfileMenuItem(icon: LucideIcons.history, label: 'Lịch sử chấm công', color: AppColors.info, onTap: () => context.push(Uri(path: AppRoutes.attendanceHistory, queryParameters: {'userId': uid}).toString())),
           _ProfileMenuItem(icon: LucideIcons.wallet, label: 'Tạm ứng lương', color: AppColors.accentInk, onTap: () => context.push(AppRoutes.salary)),
-          _ProfileMenuItem(icon: LucideIcons.logOut, label: 'Đăng xuất', color: Colors.red, onTap: () async {
-            final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
-              title: const Text('Đăng xuất?', style: TextStyle(fontFamily: 'BeVietnamPro')),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Hủy')),
-                TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Đăng xuất', style: TextStyle(color: Colors.red))),
-              ],
-            ));
-            if (confirm == true) {
-              await ref.read(authNotifierProvider.notifier).signOut();
-              if (context.mounted) {
-                context.go(AppRoutes.login);
-              }
-            }
-          }),
+          _ProfileMenuItem(icon: LucideIcons.arrowLeft, label: 'Đóng Chấm công (Về POS)', color: AppColors.primary, onTap: () => CcFirebase.exitModule(context)),
         ],
       ),
     );

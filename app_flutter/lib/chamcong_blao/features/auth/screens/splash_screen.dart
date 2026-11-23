@@ -24,6 +24,7 @@ class SplashScreen extends ConsumerStatefulWidget {
 class _SplashScreenState extends ConsumerState<SplashScreen> {
   bool _hasNavigated = false;
   bool _timedOut = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -38,13 +39,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   /// khi mạng yếu / Firestore không phản hồi.
   Future<void> _checkAuthAndNavigate() async {
     if (_hasNavigated || !mounted) return;
-    if (_timedOut) setState(() => _timedOut = false);
+    if (_timedOut || _errorMessage != null) {
+      setState(() {
+        _timedOut = false;
+        _errorMessage = null;
+      });
+    }
     try {
       await _runStartupFlow().timeout(const Duration(seconds: 15));
     } on TimeoutException {
       debugPrint('SplashScreen: startup flow timed out');
       if (mounted && !_hasNavigated) setState(() => _timedOut = true);
     }
+  }
+
+  void _showModuleError(String message) {
+    if (!mounted || _hasNavigated) return;
+    setState(() {
+      _timedOut = false;
+      _errorMessage = message;
+    });
   }
 
   Future<void> _runStartupFlow() async {
@@ -67,10 +81,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         debugPrint('Version check error on splash: $e');
       }
 
-      // 1. Check current auth state
+      // 1. Check current auth state (dùng Auth của POS)
       final authUser = CcFirebase.auth.currentUser;
       if (authUser == null) {
-        _navigateTo(AppRoutes.login);
+        _showModuleError('Phiên đăng nhập POS đã kết thúc. Vui lòng quay lại POS để đăng nhập lại.');
         return;
       }
 
@@ -91,7 +105,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (!mounted || _hasNavigated) return;
 
       if (!userDoc.exists || userDoc.data() == null) {
-        _navigateTo(AppRoutes.profileSetup);
+        _showModuleError('Chưa khởi tạo được hồ sơ chấm công. Vui lòng bấm Thử lại.');
         return;
       }
 
@@ -112,7 +126,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             'storeIds': stores.map((s) => s.id).toList(),
           }, SetOptions(merge: true));
         } else {
-          _navigateTo(AppRoutes.welcome);
+          _showModuleError('Tài khoản chưa thuộc cửa hàng chấm công nào. Liên hệ Chủ quán để kiểm tra.');
           return;
         }
       }
@@ -202,11 +216,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         'storeIds': [],
       }, SetOptions(merge: true));
 
-      _navigateTo(AppRoutes.welcome);
+      _showModuleError('Tài khoản của bạn đã bị xóa khỏi cửa hàng chấm công hoặc cửa hàng không còn hoạt động.');
     } catch (e) {
       debugPrint('SplashScreen auth error: $e');
       if (mounted && !_hasNavigated) {
-        _navigateTo(AppRoutes.login);
+        _showModuleError('Không tải được dữ liệu Chấm Công. Kiểm tra kết nối mạng rồi thử lại.');
       }
     }
   }
@@ -291,18 +305,27 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
               const SizedBox(height: 48),
 
-              if (_timedOut) ...[
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 32),
+              if (_timedOut || _errorMessage != null) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
                   child: Text(
-                    'Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại.',
+                    _errorMessage ?? 'Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại.',
                     textAlign: TextAlign.center,
                   ),
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _checkAuthAndNavigate,
-                  child: const Text('Thử lại'),
+                Wrap(
+                  spacing: 12,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => CcFirebase.exitModule(context),
+                      child: const Text('Về POS'),
+                    ),
+                    ElevatedButton(
+                      onPressed: _checkAuthAndNavigate,
+                      child: const Text('Thử lại'),
+                    ),
+                  ],
                 ),
               ] else
                 // Loading Indicator

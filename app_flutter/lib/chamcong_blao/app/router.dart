@@ -124,24 +124,25 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Public screens (unauthenticated)
       final publicScreens = [
-        AppRoutes.login,
-        AppRoutes.register,
         AppRoutes.blaoStationSop,
       ];
       final isOnPublicScreen = publicScreens.contains(currentPath);
 
-      // Auth screens only
-      final authScreens = [
+      // Các màn hình Auth/onboarding độc lập không dùng khi nhúng trong POS
+      final embeddedBlockedScreens = [
+        AppRoutes.welcome,
         AppRoutes.login,
         AppRoutes.register,
+        AppRoutes.profileSetup,
+        AppRoutes.createStore,
+        AppRoutes.joinStore,
       ];
-      final isOnAuthScreen = authScreens.contains(currentPath);
 
       if (!isAuthenticated && !isOnPublicScreen) {
-        return AppRoutes.login;
+        return AppRoutes.splash;
       }
 
-      if (isAuthenticated && isOnAuthScreen) {
+      if (embeddedBlockedScreens.contains(currentPath)) {
         return AppRoutes.splash;
       }
 

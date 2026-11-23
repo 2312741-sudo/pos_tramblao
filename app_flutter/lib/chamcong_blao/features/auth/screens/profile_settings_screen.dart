@@ -9,7 +9,6 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/avatar_widget.dart';
 import '../../../models/member_model.dart';
 import '../../../models/user_model.dart';
-import '../../../models/store_model.dart';
 import '../providers/auth_notifier.dart';
 import '../providers/auth_provider.dart';
 import '../../store/providers/store_provider.dart';
@@ -877,150 +876,54 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
               ),
             ),
           ),
-          // ── 5.5 STORE MANAGEMENT (LEAVE STORE) ─────────────────────────────
-          if (storeAsync.valueOrNull != null) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(LucideIcons.store, color: AppColors.primary, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Cửa hàng hiện tại',
-                        style: GoogleFonts.beVietnamPro(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    storeAsync.valueOrNull!.name,
-                    style: GoogleFonts.beVietnamPro(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.neutral,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        'Vai trò của bạn: ',
-                        style: GoogleFonts.beVietnamPro(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          currentMember?.role.label ?? 'Nhân viên',
-                          style: GoogleFonts.beVietnamPro(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => _confirmLeaveStore(
-                      context,
-                      storeAsync.valueOrNull!,
-                      currentMember,
-                    ),
-                    icon: const Icon(LucideIcons.logOut, color: AppColors.warning, size: 18),
-                    label: Text(
-                      'Rời cửa hàng này',
-                      style: GoogleFonts.beVietnamPro(
-                        color: AppColors.warning,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.warning),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-
-          // ── 6. ACCOUNT MANAGEMENT ───────────────────────────────────────────
-
+          // ── 6. ACCOUNT MANAGEMENT (QUẢN LÝ QUA POS) ─────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+              border: Border.all(color: AppColors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(LucideIcons.triangleAlert, color: AppColors.danger, size: 20),
+                    const Icon(LucideIcons.shieldCheck, color: AppColors.primary, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Quản lý tài khoản',
+                      'Tài khoản dùng chung với POS Trạm BLAO',
                       style: GoogleFonts.beVietnamPro(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.danger,
+                        color: AppColors.neutral,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Xóa tài khoản vĩnh viễn khỏi hệ thống. Hành động này không thể hoàn tác.',
+                  'Mọi thao tác đổi mật khẩu, đăng xuất hoặc xóa tài khoản được thực hiện trực tiếp tại màn hình chính của app POS Trạm BLAO.',
                   style: GoogleFonts.beVietnamPro(
                     fontSize: 12,
                     color: AppColors.textSecondary,
+                    height: 1.45,
                   ),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  onPressed: () => _showDeleteAccountDialog(context),
-                  icon: const Icon(LucideIcons.trash2, color: AppColors.danger, size: 18),
+                  onPressed: () => CcFirebase.exitModule(context),
+                  icon: const Icon(LucideIcons.arrowLeft, color: AppColors.primary, size: 18),
                   label: Text(
-                    'Xóa tài khoản',
+                    'Đóng Chấm công (Về POS)',
                     style: GoogleFonts.beVietnamPro(
-                      color: AppColors.danger,
+                      color: AppColors.primary,
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.danger),
+                    side: const BorderSide(color: AppColors.primary),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
@@ -1031,240 +934,6 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _showDeleteAccountDialog(BuildContext context) async {
-    final passwordController = TextEditingController();
-    bool obscurePassword = true;
-    bool isDeleting = false;
-    String? localError;
-
-    // Detect login provider to show correct re-auth UI
-    final currentUser = CcFirebase.auth.currentUser;
-    final providerIds =
-        currentUser?.providerData.map((p) => p.providerId).toList() ?? [];
-    final isGoogleUser = providerIds.contains('google.com');
-    final isAppleUser = providerIds.contains('apple.com');
-    final isEmailUser = !isGoogleUser && !isAppleUser;
-
-    await showDialog(
-      context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (dialogCtx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            'Xác nhận xóa tài khoản',
-            style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w700, color: AppColors.danger),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isGoogleUser
-                    ? 'Tất cả dữ liệu sẽ bị xóa hoàn toàn.\nBạn sẽ được yêu cầu đăng nhập lại Google để xác nhận.'
-                    : isAppleUser
-                        ? 'Tất cả dữ liệu sẽ bị xóa hoàn toàn.\nBạn sẽ được yêu cầu xác nhận qua Apple ID.'
-                        : 'Tất cả dữ liệu tài khoản sẽ bị xóa hoàn toàn. Nhập mật khẩu để xác nhận:',
-                style: GoogleFonts.beVietnamPro(fontSize: 13, color: AppColors.neutral),
-              ),
-              // Chỉ hiển thị password field cho email/password users
-              if (isEmailUser) ...[
-                const SizedBox(height: 16),
-                TextField(
-                  controller: passwordController,
-                  obscureText: obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Mật khẩu',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    suffixIcon: IconButton(
-                      icon: Icon(obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff),
-                      onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
-                    ),
-                  ),
-                ),
-              ],
-              if (localError != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  localError!,
-                  style: GoogleFonts.beVietnamPro(fontSize: 12, color: AppColors.danger),
-                ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: isDeleting ? null : () => Navigator.pop(dialogCtx),
-              child: Text('Hủy', style: GoogleFonts.beVietnamPro(color: AppColors.neutral)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger, foregroundColor: Colors.white),
-              onPressed: isDeleting
-                  ? null
-                  : () async {
-                      // Email users phải nhập password
-                      if (isEmailUser && passwordController.text.trim().isEmpty) {
-                        setDialogState(() => localError = 'Vui lòng nhập mật khẩu');
-                        return;
-                      }
-
-                      setDialogState(() {
-                        isDeleting = true;
-                        localError = null;
-                      });
-
-                      final success = await ref
-                          .read(authNotifierProvider.notifier)
-                          .deleteAccount(
-                            password: isEmailUser
-                                ? passwordController.text.trim()
-                                : null,
-                          );
-
-                      if (!dialogCtx.mounted) return;
-
-                      if (success) {
-                        Navigator.pop(dialogCtx);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Tài khoản đã được xóa vĩnh viễn'),
-                              backgroundColor: AppColors.success,
-                            ),
-                          );
-                          context.go(AppRoutes.login);
-                        }
-                      } else {
-                        final errMsg = ref.read(authNotifierProvider).errorMessage ?? 'Không thể xóa tài khoản';
-                        setDialogState(() {
-                          isDeleting = false;
-                          localError = errMsg;
-                        });
-                      }
-                    },
-              child: isDeleting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : Text(
-                      isGoogleUser
-                          ? 'Tiếp tục với Google'
-                          : isAppleUser
-                              ? 'Tiếp tục với Apple'
-                              : 'Xóa vĩnh viễn',
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _confirmLeaveStore(
-    BuildContext context,
-    StoreModel store,
-    MemberModel? currentMember,
-  ) async {
-    final repo = ref.read(storeRepositoryProvider);
-    final isOwner = currentMember?.isOwner ?? false;
-
-    String? successorName;
-    bool isAlone = false;
-
-    if (isOwner) {
-      final currentUserId = CcFirebase.auth.currentUser?.uid ?? '';
-      final nextOwnerId = await repo.findNextOwnerId(store.id, currentUserId);
-      if (nextOwnerId != null) {
-        final memberDoc = await CcFirebase.firestore
-            .collection('stores')
-            .doc(store.id)
-            .collection('members')
-            .doc(nextOwnerId)
-            .get();
-        successorName = memberDoc.data()?['name'] as String? ?? 'Quản lý 1';
-      } else {
-        isAlone = true;
-      }
-    }
-
-    if (!context.mounted) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(LucideIcons.triangleAlert, color: AppColors.warning, size: 24),
-            const SizedBox(width: 8),
-            Text(
-              'Rời cửa hàng',
-              style: GoogleFonts.beVietnamPro(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        content: Text(
-          isOwner
-              ? (isAlone
-                  ? 'Bạn là thành viên duy nhất của "${store.name}".\n\nKhi bạn rời đi, cửa hàng sẽ tự động đóng và không thể hoàn tác. Bạn có chắc chắn muốn rời cửa hàng?'
-                  : 'Bạn đang là Chủ cửa hàng "${store.name}".\n\nKhi bạn rời đi, quyền Chủ cửa hàng sẽ được TỰ ĐỘNG CHUYỂN GIAO cho: $successorName.\n\nBạn có chắc chắn muốn rời cửa hàng?')
-              : 'Bạn có chắc chắn muốn rời khỏi cửa hàng "${store.name}"?',
-          style: GoogleFonts.beVietnamPro(fontSize: 13, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, false),
-            child: Text('Hủy', style: GoogleFonts.beVietnamPro(color: AppColors.neutral)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.warning,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(dialogCtx, true),
-            child: const Text('Xác nhận rời'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && context.mounted) {
-      try {
-        await repo.leaveStore(store.id);
-
-        if (!context.mounted) return;
-
-        // Invalidate providers
-        ref.invalidate(userStoresProvider);
-        ref.invalidate(currentUserProvider);
-        ref.invalidate(currentStoreProvider);
-        ref.invalidate(currentMemberStreamProvider);
-        ref.invalidate(currentMemberProvider);
-        ref.invalidate(storeMembersProvider);
-        ref.invalidate(activeMembersProvider);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Bạn đã rời khỏi cửa hàng "${store.name}"'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-
-        context.go(AppRoutes.splash);
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Rời cửa hàng thất bại: $e'),
-              backgroundColor: AppColors.primary,
-            ),
-          );
-        }
-      }
-    }
   }
 }
 

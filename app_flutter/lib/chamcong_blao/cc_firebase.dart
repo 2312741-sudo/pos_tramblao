@@ -1,55 +1,43 @@
 // lib/chamcong_blao/cc_firebase.dart
 //
-// Mô-đun Chấm Công Trạm BLAO chạy TRONG app POS nhưng giữ nguyên dữ liệu ở dự án Firebase riêng
-// `chamcongtramblao` (Firestore, Auth, Storage, Functions). App POS dùng Firebase mặc định
-// (`postramblao`), nên mô-đun này dùng một Firebase app PHỤ tên [CcFirebase.appName].
-//
-// Mọi chỗ trong mô-đun phải lấy Firebase qua lớp này (không dùng `FirebaseAuth.instance`,
-// `FirebaseFirestore.instance`... vì đó là dự án POS).
+// Điểm truy cập Firebase duy nhất của mô-đun Chấm Công Trạm BLAO bên trong app POS.
+// Chấm công đã được chuyển sang chính dự án Firebase mặc định của POS (`postramblao`),
+// vùng Cloud Functions `asia-southeast1`.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-
-import 'cc_firebase_options.dart';
+import 'package:flutter/widgets.dart';
 
 class CcFirebase {
   CcFirebase._();
 
-  /// Tên Firebase app phụ của mô-đun chấm công
-  static const String appName = 'chamcong_blao';
+  /// Vùng Cloud Functions của dự án postramblao
+  static const String functionsRegion = 'asia-southeast1';
 
-  /// Vùng Cloud Functions của dự án chamcongtramblao
-  static const String functionsRegion = 'asia-east2';
+  /// Callback do ChamCongBlaoScreen gắn để đóng mô-đun và quay về POS từ bất kỳ màn hình con nào.
+  static VoidCallback? onExitModule;
 
-  static FirebaseApp? _app;
-  static Future<FirebaseApp>? _initializing;
-
-  /// Khởi tạo (một lần) Firebase app phụ. Gọi trước khi mở mô-đun chấm công.
-  static Future<FirebaseApp> ensureInitialized() {
-    final existing = _app;
-    if (existing != null) return Future.value(existing);
-    return _initializing ??= () async {
-      try {
-        _app = Firebase.app(appName);
-      } catch (_) {
-        _app = await Firebase.initializeApp(name: appName, options: CcFirebaseOptions.currentPlatform);
-      }
-      return _app!;
-    }();
+  static void exitModule([BuildContext? fallbackContext]) {
+    final cb = onExitModule;
+    if (cb != null) {
+      cb();
+      return;
+    }
+    if (fallbackContext != null && fallbackContext.mounted) {
+      Navigator.of(fallbackContext, rootNavigator: true).maybePop();
+    }
   }
 
-  static FirebaseApp get app {
-    final a = _app;
-    if (a != null) return a;
-    // Đã khởi tạo ở nơi khác (vd. hot restart) → lấy theo tên
-    return _app = Firebase.app(appName);
-  }
+  /// Firebase app mặc định của POS đã được khởi tạo ở main.dart.
+  static Future<FirebaseApp> ensureInitialized() => Future.value(Firebase.app());
 
-  static FirebaseAuth get auth => FirebaseAuth.instanceFor(app: app);
-  static FirebaseFirestore get firestore => FirebaseFirestore.instanceFor(app: app);
-  static FirebaseStorage get storage => FirebaseStorage.instanceFor(app: app);
+  static FirebaseApp get app => Firebase.app();
+
+  static FirebaseAuth get auth => FirebaseAuth.instance;
+  static FirebaseFirestore get firestore => FirebaseFirestore.instance;
+  static FirebaseStorage get storage => FirebaseStorage.instance;
   static FirebaseFunctions functions({String region = functionsRegion}) =>
-      FirebaseFunctions.instanceFor(app: app, region: region);
+      FirebaseFunctions.instanceFor(region: region);
 }

@@ -5,7 +5,6 @@ import '../../app/router.dart';
 import '../../features/store/providers/store_provider.dart';
 import '../../features/store/providers/user_repository.dart';
 import '../../features/auth/providers/auth_provider.dart';
-import '../../features/auth/providers/auth_notifier.dart';
 import '../../models/member_model.dart';
 import '../constants/app_colors.dart';
 
@@ -214,14 +213,11 @@ class StoreDrawer extends ConsumerWidget {
             },
           ),
           ListTile(
-            leading: const Icon(LucideIcons.logOut, color: AppColors.danger),
-            title: const Text('Đăng xuất', style: TextStyle(color: AppColors.danger, fontFamily: 'BeVietnamPro')),
-            onTap: () async {
+            leading: const Icon(LucideIcons.arrowLeft, color: AppColors.primary),
+            title: const Text('Về POS', style: TextStyle(color: AppColors.primary, fontFamily: 'BeVietnamPro', fontWeight: FontWeight.w600)),
+            onTap: () {
               Navigator.of(context).pop(); // Close drawer
-              await ref.read(authNotifierProvider.notifier).signOut();
-              if (context.mounted) {
-                context.go(AppRoutes.login);
-              }
+              CcFirebase.exitModule(context);
             },
           ),
           const SizedBox(height: 24),

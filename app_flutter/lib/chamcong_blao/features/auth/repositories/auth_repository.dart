@@ -4,7 +4,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../../models/user_model.dart';
-import '../../store/services/store_inheritance_service.dart';
 import '../../../cc_firebase.dart';
 
 class AuthRepository {
@@ -177,16 +176,10 @@ class AuthRepository {
     );
   }
 
-  // ── Sign Out ──────────────────────────────────────────────────────────────
+  // ── Sign Out (chỉ đóng mô-đun về POS, KHÔNG đăng xuất Firebase Auth của POS) ─
 
   Future<void> signOut() async {
-    try {
-      final googleSignIn = GoogleSignIn();
-      if (await googleSignIn.isSignedIn()) {
-        await googleSignIn.signOut();
-      }
-    } catch (_) {}
-    await _auth.signOut();
+    CcFirebase.exitModule();
   }
 
   // ── Profile Update ────────────────────────────────────────────────────────
@@ -373,165 +366,21 @@ class AuthRepository {
     });
   }
 
-  // ── Password Reset ────────────────────────────────────────────────────────
+  // ── Password Reset / Change Password / Delete Account (quản lý qua POS) ───
 
   Future<void> sendPasswordResetEmail(String email) async {
-    final cleanEmail = email.trim().toLowerCase();
-    if (cleanEmail.isEmpty) {
-      throw FirebaseAuthException(
-        code: 'missing-email',
-        message: 'Vui lòng nhập địa chỉ email',
-      );
-    }
-    await _auth.sendPasswordResetEmail(email: cleanEmail);
+    throw Exception('Tài khoản dùng chung với hệ thống POS. Liên hệ Chủ quán để đặt lại mật khẩu trên POS.');
   }
-
-  // ── Change Password ───────────────────────────────────────────────────────
 
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
   }) async {
-    final user = _auth.currentUser;
-    if (user == null || user.email == null) {
-      throw Exception('Không có người dùng đang đăng nhập');
-    }
-
-    final credential = EmailAuthProvider.credential(
-      email: user.email!,
-      password: currentPassword,
-    );
-
-    await user.reauthenticateWithCredential(credential);
-    await user.updatePassword(newPassword);
+    throw Exception('Tài khoản dùng chung với hệ thống POS. Vui lòng đổi mật khẩu tại màn hình POS.');
   }
 
-  // ── Delete Account ────────────────────────────────────────────────────────
-
-  /// Xóa tài khoản hoàn toàn. Thứ tự thực hiện:
-  /// 1. Re-authenticate (email/Google/Apple)
-  /// 2. Mark tất cả member docs là 'kicked' trong mọi cửa hàng
-  ///    → tránh ghost members còn hiện trong danh sách Chủ
-  /// 3. Xóa document /users/{uid}
-  /// 4. Xóa Firebase Auth account
   Future<void> deleteAccount({String? password}) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw Exception('Không có người dùng đang đăng nhập');
-    }
-
-    // ── Step 1: Re-authenticate theo provider ───────────────────────────────
-    final providerIds = user.providerData.map((p) => p.providerId).toList();
-
-    if (providerIds.contains('google.com')) {
-      // Google re-auth — không cần password
-      try {
-        final googleSignIn = GoogleSignIn();
-        final googleUser = await googleSignIn.signIn();
-        if (googleUser == null) {
-          throw Exception('Đăng nhập Google bị hủy');
-        }
-        final googleAuth = await googleUser.authentication;
-        final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
-        );
-        await user.reauthenticateWithCredential(credential);
-      } catch (e) {
-        if (e.toString().contains('Đăng nhập Google bị hủy')) rethrow;
-        throw Exception('Không thể xác thực lại Google: $e');
-      }
-    } else if (providerIds.contains('apple.com')) {
-      // Apple re-auth — sử dụng provider flow
-      try {
-        final appleProvider = AppleAuthProvider();
-        appleProvider.addScope('email');
-        appleProvider.addScope('name');
-        await user.reauthenticateWithProvider(appleProvider);
-      } catch (e) {
-        throw Exception('Không thể xác thực lại Apple: $e');
-      }
-    } else {
-      // Email/password re-auth
-      if (user.email == null) {
-        throw Exception('Không thể xác định phương thức đăng nhập');
-      }
-      if (password == null || password.isEmpty) {
-        throw Exception('Vui lòng nhập mật khẩu để xóa tài khoản');
-      }
-      final credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: password,
-      );
-      await user.reauthenticateWithCredential(credential);
-    }
-
-    // ── Step 2: Mark member docs là 'kicked' trong TẤT CẢ cửa hàng ────────
-    // Đảm bảo nhân viên tự động biến mất khỏi danh sách của Chủ,
-    // không để lại ghost members, và dọn dẹp memberOrder / hiddenSchedule.
-    try {
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      final storeIds = <String>{};
-
-      if (userDoc.exists) {
-        final userData = userDoc.data() ?? {};
-        final rawStoreIds = List<String>.from(userData['storeIds'] ?? []);
-        storeIds.addAll(rawStoreIds.where((id) => id.isNotEmpty));
-
-        final currentStoreId = userData['currentStoreId'] as String?;
-        if (currentStoreId != null && currentStoreId.isNotEmpty) {
-          storeIds.add(currentStoreId);
-        }
-      }
-
-      // Fallback discovery: tìm các cửa hàng user sở hữu hoặc có member doc
-      try {
-        final ownedSnap = await _firestore
-            .collection('stores')
-            .where('ownerId', isEqualTo: user.uid)
-            .get();
-        for (final doc in ownedSnap.docs) {
-          storeIds.add(doc.id);
-        }
-      } catch (_) {}
-
-      try {
-        final memberSnap = await _firestore
-            .collectionGroup('members')
-            .where('userId', isEqualTo: user.uid)
-            .get();
-        for (final doc in memberSnap.docs) {
-          final storeRef = doc.reference.parent.parent;
-          if (storeRef != null && storeRef.id.isNotEmpty) {
-            storeIds.add(storeRef.id);
-          }
-        }
-      } catch (_) {}
-
-      final inheritanceService =
-          StoreInheritanceService(firestore: _firestore);
-      for (final storeId in storeIds) {
-        try {
-          await inheritanceService.executeInheritance(
-            storeId: storeId,
-            leavingUserId: user.uid,
-            reason: 'account_deleted',
-          );
-        } catch (_) {
-          // Bỏ qua lỗi từng store, không chặn quá trình xóa TK
-        }
-      }
-    } catch (_) {
-      // Bỏ qua lỗi bước cleanup, tiếp tục xóa tài khoản
-    }
-
-    // ── Step 3: Xóa document /users/{uid} ──────────────────────────────────
-    try {
-      await _firestore.collection('users').doc(user.uid).delete();
-    } catch (_) {}
-
-    // ── Step 4: Xóa Firebase Auth account ──────────────────────────────────
-    await user.delete();
+    throw Exception('Tài khoản dùng chung với hệ thống POS. Vui lòng quản lý tài khoản tại màn hình POS.');
   }
 
   // ── Error Handling Helper ─────────────────────────────────────────────────

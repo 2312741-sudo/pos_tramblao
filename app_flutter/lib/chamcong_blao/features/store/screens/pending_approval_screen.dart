@@ -6,9 +6,9 @@ import '../../../models/member_model.dart';
 import '../../../app/router.dart';
 import '../../../core/widgets/notification_bell_icon.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../auth/providers/auth_notifier.dart';
 import '../providers/store_provider.dart';
 import '../providers/user_repository.dart';
+import '../../../cc_firebase.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class PendingApprovalScreen extends ConsumerStatefulWidget {
@@ -55,12 +55,9 @@ class _PendingApprovalScreenState
         actions: [
           const NotificationBellIcon(iconColor: AppColors.primary),
           IconButton(
-            icon: const Icon(LucideIcons.logOut, color: AppColors.primary),
-            tooltip: 'Đăng xuất',
-            onPressed: () async {
-              await ref.read(authNotifierProvider.notifier).signOut();
-              if (context.mounted) context.go(AppRoutes.login);
-            },
+            icon: const Icon(LucideIcons.arrowLeft, color: AppColors.primary),
+            tooltip: 'Về POS',
+            onPressed: () => CcFirebase.exitModule(context),
           ),
         ],
       ),
@@ -260,7 +257,7 @@ class _PendingApprovalScreenState
       }
       ref.invalidate(userStoresProvider);
       ref.invalidate(currentStoreIdProvider);
-      if (mounted) context.go(AppRoutes.welcome);
+      if (mounted) context.go(AppRoutes.splash);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
