@@ -33,9 +33,10 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteCustomer = exports.pullPooledPoints = exports.mirrorLedgerToHistory = exports.linkBranchCustomer = exports.mirrorMemberToBranches = exports.setLoyaltyConfig = exports.listLoyaltyLedger = exports.getMemberLedger = exports.lookupMember = exports.adjustLoyaltyPoints = exports.refundLoyaltyPoints = exports.redeemLoyaltyPoints = exports.applyLoyaltyEarn = exports.createStore = exports.deleteMyAccount = exports.getChamCongLinkStatus = exports.unlinkChamCongStore = exports.linkChamCongStore = exports.chamCongSignIn = exports.setManagerPin = exports.verifyManagerPin = exports.mirrorCustomerToFirestore = exports.importCustomerToStore = exports.staffSignIn = exports.assignStaffToStore = exports.setStaffDisabled = exports.resetStaffPassword = exports.createStaffAccount = void 0;
+exports.productDedupe = exports.deleteCustomer = exports.pullPooledPoints = exports.mirrorLedgerToHistory = exports.linkBranchCustomer = exports.mirrorMemberToBranches = exports.setLoyaltyConfig = exports.listLoyaltyLedger = exports.getMemberLedger = exports.lookupMember = exports.adjustLoyaltyPoints = exports.refundLoyaltyPoints = exports.redeemLoyaltyPoints = exports.applyLoyaltyEarn = exports.createStore = exports.deleteMyAccount = exports.chamCongBlaoLinkStore = exports.chamCongBlaoListStores = exports.chamCongBlaoSignIn = exports.getChamCongLinkStatus = exports.unlinkChamCongStore = exports.linkChamCongStore = exports.chamCongSignIn = exports.setManagerPin = exports.verifyManagerPin = exports.mirrorCustomerToFirestore = exports.importCustomerToStore = exports.staffSignIn = exports.assignStaffToStore = exports.setStaffDisabled = exports.resetStaffPassword = exports.createStaffAccount = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const database_1 = require("firebase-functions/v2/database");
+const productDedupeLogic_1 = require("./productDedupeLogic");
 const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
 const multiStore_1 = require("./multiStore");
@@ -44,7 +45,7 @@ const customerSync_1 = require("./customerSync");
 const loginLockout_1 = require("./loginLockout");
 if (!admin.apps.length) {
     admin.initializeApp({
-        databaseURL: process.env.DATABASE_URL || "https://postramblao-default-rtdb.asia-southeast1.firebasedatabase.app",
+        databaseURL: process.env.DATABASE_URL || "https://tramapp-36f53-default-rtdb.asia-southeast1.firebasedatabase.app",
     });
 }
 const db = admin.database();
@@ -687,6 +688,11 @@ Object.defineProperty(exports, "chamCongSignIn", { enumerable: true, get: functi
 Object.defineProperty(exports, "linkChamCongStore", { enumerable: true, get: function () { return chamCong_1.linkChamCongStore; } });
 Object.defineProperty(exports, "unlinkChamCongStore", { enumerable: true, get: function () { return chamCong_1.unlinkChamCongStore; } });
 Object.defineProperty(exports, "getChamCongLinkStatus", { enumerable: true, get: function () { return chamCong_1.getChamCongLinkStatus; } });
+// Chấm Công Trạm BLAO: đăng nhập bằng tài khoản POS (xem chamCongBlao.ts, docs/CHAMCONG_BLAO_SSO.md)
+var chamCongBlao_1 = require("./chamCongBlao");
+Object.defineProperty(exports, "chamCongBlaoSignIn", { enumerable: true, get: function () { return chamCongBlao_1.chamCongBlaoSignIn; } });
+Object.defineProperty(exports, "chamCongBlaoListStores", { enumerable: true, get: function () { return chamCongBlao_1.chamCongBlaoListStores; } });
+Object.defineProperty(exports, "chamCongBlaoLinkStore", { enumerable: true, get: function () { return chamCongBlao_1.chamCongBlaoLinkStore; } });
 // Tự xóa tài khoản (Apple 5.1.1(v)) — xem deleteMyAccount.ts, docs/APP_REVIEW.md
 var deleteMyAccount_1 = require("./deleteMyAccount");
 Object.defineProperty(exports, "deleteMyAccount", { enumerable: true, get: function () { return deleteMyAccount_1.deleteMyAccount; } });
@@ -720,4 +726,20 @@ exports.pullPooledPoints = (0, https_1.onCall)({ region: FUNCTION_REGION }, asyn
 // Xóa khách hàng (Chủ quán/Quản lý) — xem deleteCustomer.ts, deleteCustomerLogic.ts
 var deleteCustomer_1 = require("./deleteCustomer");
 Object.defineProperty(exports, "deleteCustomer", { enumerable: true, get: function () { return deleteCustomer_1.deleteCustomer; } });
+// Gộp món trùng do app bản cũ lưu món sao chép theo tên — xem productDedupeLogic.ts
+exports.productDedupe = (0, database_1.onValueCreated)({ ref: "/stores/{storeCode}/products/{productKey}", region: FUNCTION_REGION }, async (event) => {
+    const { storeCode, productKey } = event.params;
+    const created = event.data.val();
+    if (!created || typeof created !== "object")
+        return;
+    const productsRef = admin.database().ref(`stores/${storeCode}/products`);
+    const all = ((await productsRef.get()).val() ?? {});
+    const target = (0, productDedupeLogic_1.findDuplicateTarget)(productKey, created, all);
+    if (!target)
+        return;
+    await productsRef.update({
+        [target]: (0, productDedupeLogic_1.mergedProduct)(all[target], created),
+        [productKey]: null,
+    });
+});
 //# sourceMappingURL=index.js.map

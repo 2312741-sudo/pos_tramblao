@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/app_models.dart';
 import '../../data/services/firebase_service.dart';
 import '../../core/permissions/app_permissions.dart';
+import '../../chamcong_blao/pos_sso.dart';
 
 class AuthException implements Exception {
   final String message;
@@ -527,6 +528,7 @@ class AuthService extends ChangeNotifier {
 
   /// Kết thúc phiên sau khi tài khoản đã bị xóa. KHÔNG ghi audit LOGOUT vì tài khoản không còn tồn tại.
   Future<void> endSessionAfterAccountDeletion() async {
+    await ChamCongBlaoSso.signOut();
     try {
       await _firebaseAuth.signOut();
     } catch (_) {}

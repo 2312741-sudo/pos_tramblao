@@ -97,7 +97,12 @@ class AppUpdateService {
   }
 
   /// Fetches version control configuration from Firestore collection `app_config`, doc `version_control`
+  /// Chạy trong app POS: TẮT kiểm tra cập nhật riêng của app chấm công. Cấu hình phiên bản (app_config/version_control)
+  /// là của app chấm công cũ, so với số phiên bản POS sẽ báo sai / chặn màn khởi động. POS có trình cập nhật riêng.
+  static const bool embeddedInPos = true;
+
   Future<AppVersionControlModel?> fetchVersionConfig() async {
+    if (embeddedInPos) return null;
     try {
       final doc = await CcFirebase.firestore
           .collection('app_config')
@@ -120,6 +125,7 @@ class AppUpdateService {
     BuildContext context, {
     bool isManualCheck = false,
   }) async {
+    if (embeddedInPos) return;
     if (_isDialogShowing) return;
     if (!isManualCheck && !kIsWeb && Platform.isIOS) return;
 

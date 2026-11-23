@@ -784,6 +784,8 @@ export { verifyManagerPin, setManagerPin } from "./managerPin";
 
 // Đăng nhập bằng Chấm Công Trạm (xem chamCong.ts, docs/CHAMCONG_SSO.md)
 export { chamCongSignIn, linkChamCongStore, unlinkChamCongStore, getChamCongLinkStatus } from "./chamCong";
+// Chấm Công Trạm BLAO: đăng nhập bằng tài khoản POS (xem chamCongBlao.ts, docs/CHAMCONG_BLAO_SSO.md)
+export { chamCongBlaoSignIn, chamCongBlaoListStores, chamCongBlaoLinkStore } from "./chamCongBlao";
 
 // Tự xóa tài khoản (Apple 5.1.1(v)) — xem deleteMyAccount.ts, docs/APP_REVIEW.md
 export { deleteMyAccount } from "./deleteMyAccount";

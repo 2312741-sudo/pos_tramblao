@@ -3,12 +3,16 @@
 // Cổng vào mô-đun Chấm Công Trạm BLAO bên trong app POS (gộp từ app chamcong_tramblao).
 // Mô-đun chạy trong một "app con" riêng (MaterialApp.router + Riverpod container riêng) để giữ nguyên
 // giao diện, điều hướng, phiên đăng nhập và dữ liệu Firebase (dự án chamcongtramblao) như app cũ.
-// Không cần đăng nhập POS: nhân viên mở được từ màn hình đăng nhập để chấm công vào ca.
+// Đăng nhập bằng CHÍNH tài khoản POS (pos_sso.dart): không có màn đăng nhập / đăng ký riêng của chấm công.
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
 import 'cc_firebase.dart';
+import 'pos_sso.dart';
 
 class ChamCongBlaoScreen extends StatefulWidget {
   const ChamCongBlaoScreen({super.key});
@@ -25,12 +29,25 @@ class ChamCongBlaoScreen extends StatefulWidget {
 }
 
 class _ChamCongBlaoScreenState extends State<ChamCongBlaoScreen> {
-  late final Future<void> _ready = CcFirebase.ensureInitialized();
+  late Future<void> _ready = _signIn();
   // Container riêng cho mô-đun (không dùng chung với POS) → mở lại là trạng thái mới, đóng là dọn sạch
   final ProviderContainer _container = ProviderContainer();
+  StreamSubscription<User?>? _authSub;
+
+  Future<void> _signIn() async {
+    await ChamCongBlaoSso.signInWithPos();
+    // Đăng xuất bên trong mô-đun (nút đăng xuất của chấm công) → đóng mô-đun, không hiện màn đăng nhập riêng
+    await _authSub?.cancel();
+    _authSub = CcFirebase.auth.authStateChanges().skip(1).listen((u) {
+      if (u == null && mounted) Navigator.of(context).maybePop();
+    });
+  }
+
+  void _retry() => setState(() => _ready = _signIn());
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _container.dispose();
     super.dispose();
   }
@@ -76,7 +93,7 @@ class _ChamCongBlaoScreenState extends State<ChamCongBlaoScreen> {
                 future: _ready,
                 builder: (context, snap) {
                   if (snap.hasError) {
-                    return _InitError(error: snap.error!);
+                    return _InitError(error: snap.error!, onRetry: _retry);
                   }
                   if (snap.connectionState != ConnectionState.done) {
                     return const ColoredBox(
@@ -96,8 +113,9 @@ class _ChamCongBlaoScreenState extends State<ChamCongBlaoScreen> {
 }
 
 class _InitError extends StatelessWidget {
-  const _InitError({required this.error});
+  const _InitError({required this.error, required this.onRetry});
   final Object error;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -106,9 +124,18 @@ class _InitError extends StatelessWidget {
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(
-            'Không khởi động được Chấm Công.\nKiểm tra kết nối mạng rồi mở lại.\n\n$error',
-            textAlign: TextAlign.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off, size: 40, color: Colors.black45),
+              const SizedBox(height: 12),
+              Text(
+                error is ChamCongBlaoSsoException ? '$error' : 'Không mở được Chấm Công.\nKiểm tra kết nối mạng rồi thử lại.\n\n$error',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(onPressed: onRetry, child: const Text('Thử lại')),
+            ],
           ),
         ),
       ),
