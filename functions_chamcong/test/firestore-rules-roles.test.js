@@ -387,3 +387,28 @@ test('cross-store isolation: members of store 1 cannot access store 2 private co
   await assertSucceeds(getDoc(doc(client('owner2'), 'stores/s2/schedules/2026-09-14')));
   await assertSucceeds(getDoc(doc(client('owner2'), 'performance_sessions/sess_s2')));
 });
+
+// ============================================================================
+// 8. KHÁCH HÀNG KHUYẾN MÃI TRẠM (kmt_customers) & NHÂN VIÊN POS THƯỜNG
+// ============================================================================
+test('kmt_customers and POS regular employee permissions: signed-in POS staff can read kmt_customers and only read/write own attendance', async () => {
+  await db.doc('kmt_customers/KH001').set({ ma_khach_hang: 'KH001', ho_ten: 'Nguyen Van A', so_dien_thoai: '0901234567', diem: 50 });
+
+  // Signed-in POS employee can read kmt_customers, unauthenticated user cannot
+  await assertSucceeds(getDoc(doc(client('e1'), 'kmt_customers/KH001')));
+  await assertSucceeds(getDocs(query(collection(client('e1'), 'kmt_customers'), where('so_dien_thoai', '==', '0901234567'))));
+  await assertFails(getDoc(doc(anonClient(), 'kmt_customers/KH001')));
+
+  // Regular POS uid e1 only reads/writes own attendance & own schedule slot
+  await assertSucceeds(setDoc(doc(client('e1'), 'stores/s1/attendances/pos_att_e1'), {
+    userId: 'e1',
+    storeId: 's1',
+    date: '2026-11-24',
+  }));
+  await assertSucceeds(getDoc(doc(client('e1'), 'stores/s1/attendances/pos_att_e1')));
+  await assertFails(setDoc(doc(client('e1'), 'stores/s1/attendances/pos_att_e2'), {
+    userId: 'e2',
+    storeId: 's1',
+    date: '2026-11-24',
+  }));
+});

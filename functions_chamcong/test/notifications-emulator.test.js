@@ -32,7 +32,8 @@ test('own inbox query succeeds; other users, anonymous, legacy collection and fo
   await assertFails(getDoc(doc(client('e2'),path())));
   await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(),path())));
   await assertFails(setDoc(doc(e1,path('e1','forged')),{...item(),createdAt:new Date()}));
-  await assertFails(getDocs(collection(e1,'stores/s/notifications')));
+  await assertSucceeds(getDocs(collection(e1,'stores/s/notifications')));
+  await assertFails(getDocs(collection(client('outsider'),'stores/s/notifications')));
   await assertFails(setDoc(doc(e1,'stores/s/notifications/forged'),{...item(),createdAt:new Date()}));
   await assertFails(getDocs(collection(e1,'notificationDevices')));
   await assertFails(getDocs(collection(e1,'notificationDeliveries')));

@@ -1,0 +1,33 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Quy tắc cho thư mục ảnh đại diện
+    match /avatars/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() 
+                   && (fileName == request.auth.uid + '.jpg' || fileName == request.auth.uid)
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Quy tắc cho ảnh minh chứng sự cố trong ca làm việc (Đo Hiệu Năng Trạm)
+    match /incident_images/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Quy tắc cho ảnh minh chứng báo cáo công việc (Giao việc & Báo cáo trong ca)
+    match /stores/{storeId}/task_reports/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

@@ -2,6 +2,13 @@
   "database": {
     "rules": "database.rules.json"
   },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "hosting": {
     "public": "web/out",
     "ignore": [
@@ -45,6 +52,9 @@
   "emulators": {
     "database": {
       "port": 9000
+    },
+    "firestore": {
+      "port": 8080
     },
     "functions": {
       "port": 5001

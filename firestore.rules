@@ -1,0 +1,391 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // =========================================================================
+    // 1. CÁC HÀM BẢO MẬT & PHÂN QUYỀN DÙNG CHUNG (COMMON HELPERS)
+    // =========================================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getStoreData(storeId) {
+      return get(/databases/$(database)/documents/stores/$(storeId)).data;
+    }
+
+    function memberDocPath(storeId, uid) {
+      return /databases/$(database)/documents/stores/$(storeId)/members/$(uid);
+    }
+
+    function isStoreOwner(storeId) {
+      return isSignedIn() && (
+        getStoreData(storeId).ownerId == request.auth.uid ||
+        (exists(memberDocPath(storeId, request.auth.uid)) &&
+         get(memberDocPath(storeId, request.auth.uid)).data.status == 'active' &&
+         get(memberDocPath(storeId, request.auth.uid)).data.role in ['owner', 'chu'])
+      );
+    }
+
+    function isStoreManager1(storeId) {
+      return isSignedIn() &&
+        exists(memberDocPath(storeId, request.auth.uid)) &&
+        get(memberDocPath(storeId, request.auth.uid)).data.status == 'active' &&
+        get(memberDocPath(storeId, request.auth.uid)).data.role in ['manager_1', 'manager1', 'manager', 'ql1', 'quan_ly_1', 'legacyManager'];
+    }
+
+    function isStoreManager2(storeId) {
+      return isSignedIn() &&
+        exists(memberDocPath(storeId, request.auth.uid)) &&
+        get(memberDocPath(storeId, request.auth.uid)).data.status == 'active' &&
+        get(memberDocPath(storeId, request.auth.uid)).data.role in ['manager_2', 'manager2', 'ql2', 'quan_ly_2'];
+    }
+
+    function isOwnerOrManager1(storeId) {
+      return isStoreOwner(storeId) || isStoreManager1(storeId);
+    }
+
+    function isAnyManagerOrOwner(storeId) {
+      return isOwnerOrManager1(storeId) || isStoreManager2(storeId);
+    }
+
+    function isActiveMember(storeId) {
+      return isSignedIn() && (
+        isStoreOwner(storeId) ||
+        (exists(memberDocPath(storeId, request.auth.uid)) &&
+         get(memberDocPath(storeId, request.auth.uid)).data.status == 'active')
+      );
+    }
+
+    function canAccessPerformance(storeId) {
+      return isSignedIn() && isAnyManagerOrOwner(storeId);
+    }
+
+    function getPerformanceSessionData(sessionId) {
+      return get(/databases/$(database)/documents/performance_sessions/$(sessionId)).data;
+    }
+
+    // =========================================================================
+    // 2. CẤU HÌNH HỆ THỐNG & NGƯỜI DÙNG TOÀN CỤC
+    // =========================================================================
+    match /app_config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSelf(userId);
+    }
+
+    // =========================================================================
+    // 3. HỘP THƯ THÔNG BÁO CÁ NHÂN & THIẾT BỊ FCM
+    // =========================================================================
+    match /notificationInboxes/{userId} {
+      allow read: if isSelf(userId);
+      allow write: if false;
+
+      match /accountItems/{itemId} {
+        allow read: if isSelf(userId);
+        // Chỉ cho phép user tự cập nhật trạng thái đã đọc của chính mình
+        allow update: if isSelf(userId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']) &&
+          request.resource.data.readAt == request.time;
+        allow create, delete: if false;
+      }
+
+      match /stores/{storeId}/items/{itemId} {
+        allow read: if isSelf(userId) &&
+          exists(/databases/$(database)/documents/stores/$(storeId)) &&
+          getStoreData(storeId).status != 'deleted' &&
+          exists(memberDocPath(storeId, userId)) &&
+          get(memberDocPath(storeId, userId)).data.status == 'active' &&
+          (
+            resource.data.scope == 'member' ||
+            (resource.data.scope in ['manager', 'attendance'] && (
+              get(memberDocPath(storeId, userId)).data.role in ['owner', 'manager_1', 'manager', 'legacyManager']
+            )) ||
+            (resource.data.scope == 'owner' && (
+              getStoreData(storeId).ownerId == userId ||
+              get(memberDocPath(storeId, userId)).data.role in ['owner', 'chu']
+            ))
+          );
+
+        allow update: if isSelf(userId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']) &&
+          request.resource.data.readAt == request.time;
+
+        allow create, delete: if false;
+      }
+    }
+
+    match /notificationDevices/{deviceId} {
+      allow get: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow list: if false;
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    match /notificationEvents/{id} { allow read, write: if false; }
+    match /notificationDeliveries/{id} { allow read, write: if false; }
+
+    // =========================================================================
+    // 4. BẢO MẬT BẢNG CỬA HÀNG (STORES) VÀ SUBCOLLECTIONS
+    // =========================================================================
+    match /stores/{storeId} {
+      // Đọc thông tin cơ bản: mở cho mọi user đã đăng nhập (cần thiết cho join bằng code/link)
+      allow read: if isSignedIn();
+
+      // Bất kỳ user đã đăng nhập đều có thể tạo cửa hàng mới
+      // (deletePassword KHÔNG được nằm trong tài liệu cửa hàng vì ai đăng nhập cũng đọc được)
+      allow create: if isSignedIn() && !('deletePassword' in request.resource.data);
+
+      // Sửa thông tin cửa hàng / memberOrder: Chủ hoặc Quản lý 1.
+      // Không được ghi deletePassword mới vào đây; chỉ được giữ nguyên giá trị cũ hoặc xóa đi.
+      allow update: if isOwnerOrManager1(storeId) && (
+        !('deletePassword' in request.resource.data) ||
+        request.resource.data.deletePassword == resource.data.get('deletePassword', null)
+      );
+
+      // Cài đặt bảo mật riêng (mật khẩu xác nhận xóa dữ liệu): chỉ Chủ hoặc Quản lý 1
+      match /private/{docId} {
+        allow read, write: if isOwnerOrManager1(storeId);
+      }
+
+      // Xóa cửa hàng: CHỈ Chủ sở hữu
+      allow delete: if isStoreOwner(storeId);
+
+      // 4.1. Danh sách thành viên (members)
+      match /members/{memberId} {
+        allow read: if isActiveMember(storeId) || (isSignedIn() && request.auth.uid == memberId);
+
+        allow create: if isSignedIn() && (
+          isOwnerOrManager1(storeId) ||
+          // Cho phép chủ cửa hàng tạo bản ghi owner của chính mình khi khởi tạo cửa hàng mới
+          (
+            request.auth.uid == memberId &&
+            request.resource.data.userId == memberId &&
+            request.resource.data.role in ['owner', 'chu'] &&
+            request.resource.data.status == 'active' &&
+            (
+              (existsAfter(/databases/$(database)/documents/stores/$(storeId)) &&
+               getAfter(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid) ||
+              (exists(/databases/$(database)/documents/stores/$(storeId)) &&
+               getStoreData(storeId).ownerId == request.auth.uid)
+            )
+          ) ||
+          (request.auth.uid == memberId &&
+           request.resource.data.userId == memberId &&
+           request.resource.data.role == 'employee' &&
+           request.resource.data.status == 'pending' &&
+           request.resource.data.baseMonthlySalary == 0 &&
+           request.resource.data.baseHourlyRate == 0)
+        );
+
+        allow update: if isOwnerOrManager1(storeId) ||
+          (isSignedIn() && request.auth.uid == memberId && (
+            // 1. Thành viên đã bị kick / không active: chỉ được phép nộp đơn xin vào lại (role employee, status pending, lương 0)
+            (resource.data.status != 'active' &&
+             request.resource.data.userId == memberId &&
+             request.resource.data.role == 'employee' &&
+             request.resource.data.status == 'pending' &&
+             request.resource.data.baseMonthlySalary == 0 &&
+             request.resource.data.baseHourlyRate == 0) ||
+            // 2. Tự hủy yêu cầu tham gia (pending -> kicked)
+            (resource.data.status == 'pending' &&
+             request.resource.data.status == 'kicked') ||
+            // 3. Thành viên đang active: được cập nhật thông tin cá nhân hoặc tự rời nhóm nhưng phải giữ nguyên role
+            (resource.data.status == 'active' &&
+             request.resource.data.role == resource.data.role) ||
+            isStoreOwner(storeId)
+          ));
+
+        allow delete: if isOwnerOrManager1(storeId) || (isSignedIn() && request.auth.uid == memberId);
+      }
+
+      function isMemberSelfSchedule() {
+        return isActiveMember(storeId) &&
+          request.auth.uid in request.resource.data.shifts &&
+          (
+            resource == null
+              ? (
+                  request.resource.data.shifts.keys().hasOnly([request.auth.uid]) &&
+                  (!('updatedBy' in request.resource.data) || request.resource.data.updatedBy == request.auth.uid)
+                )
+              : (
+                  request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shifts', 'updatedAt', 'updatedBy']) &&
+                  (!('updatedBy' in request.resource.data.diff(resource.data).affectedKeys()) || request.resource.data.updatedBy == request.auth.uid) &&
+                  (!('shifts' in resource.data)
+                    ? request.resource.data.shifts.keys().hasOnly([request.auth.uid])
+                    : request.resource.data.shifts.diff(resource.data.shifts).affectedKeys().hasOnly([request.auth.uid]))
+                )
+          );
+      }
+
+      // 4.2. Lịch làm việc (schedules)
+      match /schedules/{scheduleId} {
+        allow read: if isActiveMember(storeId);
+
+        allow write: if isAnyManagerOrOwner(storeId) || isMemberSelfSchedule();
+      }
+
+      // 4.3. Chấm công (attendances)
+      match /attendances/{attendanceId} {
+        allow read: if isAnyManagerOrOwner(storeId) ||
+          (isActiveMember(storeId) && resource.data.userId == request.auth.uid);
+
+        allow create: if isOwnerOrManager1(storeId) ||
+          (isActiveMember(storeId) && request.resource.data.userId == request.auth.uid);
+
+        allow update: if isOwnerOrManager1(storeId) ||
+          (isActiveMember(storeId) && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid);
+
+        allow delete: if isOwnerOrManager1(storeId);
+      }
+
+      // 4.4. Tạm ứng (advances)
+      match /advances/{advanceId} {
+        allow read: if isStoreOwner(storeId) ||
+          (isActiveMember(storeId) && resource.data.userId == request.auth.uid);
+
+        allow create: if isStoreOwner(storeId) ||
+          (isActiveMember(storeId) && request.resource.data.userId == request.auth.uid &&
+           request.resource.data.status == 'pending');
+
+        allow update: if isStoreOwner(storeId) ||
+          (isActiveMember(storeId) && resource.data.userId == request.auth.uid &&
+           request.resource.data.userId == request.auth.uid &&
+           resource.data.status == 'pending' &&
+           request.resource.data.status == 'pending');
+
+        allow delete: if isStoreOwner(storeId) ||
+          (isActiveMember(storeId) && resource.data.userId == request.auth.uid && resource.data.status == 'pending');
+      }
+
+      // 4.5. Checklist & Báo cáo sản xuất
+      match /production_tasks/{taskId} {
+        allow read, write: if isActiveMember(storeId);
+      }
+
+      match /production_reports/{reportId} {
+        allow read, write: if isActiveMember(storeId);
+      }
+
+      // 4.6. Thông báo nội bộ cửa hàng
+      // Đọc: mọi thành viên active (QL2, NV cũng nhận thông báo broadcast, sinh nhật, lịch, v.v.)
+      // Lọc theo scope/role được thực hiện ở client (Flutter) — không cần chặn tại Firestore.
+      // Update readBy: mọi thành viên active có thể tự đánh dấu đã đọc (chỉ field readBy, chỉ arrayUnion chính mình).
+      // Tạo/sửa nội dung/xóa: chỉ Chủ + QL1.
+      match /notifications/{notificationId} {
+        allow read: if isActiveMember(storeId);
+        // Cho phép bất kỳ thành viên active nào tự thêm uid mình vào readBy (mark as read)
+        allow update: if isActiveMember(storeId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']) &&
+          request.resource.data.readBy.hasAll(resource.data.readBy) &&
+          request.resource.data.readBy.removeAll(resource.data.readBy).hasOnly([request.auth.uid]);
+        // Tạo/xóa và sửa nội dung: chỉ Chủ + QL1
+        allow create, delete: if isOwnerOrManager1(storeId);
+      }
+
+      // 4.7. Nhật ký kế thừa / chuyển nhượng (audit_logs)
+      match /audit_logs/{logId} {
+        allow read: if isOwnerOrManager1(storeId);
+        allow create: if isAnyManagerOrOwner(storeId) ||
+          (isSignedIn() && request.auth.uid == request.resource.data.actorId);
+        allow update, delete: if false;
+      }
+
+      // 4.8. Giao việc & Báo cáo công việc trong ca (assigned_tasks)
+      match /assigned_tasks/{taskId} {
+        allow read: if isActiveMember(storeId);
+        allow create, update, delete: if isAnyManagerOrOwner(storeId);
+
+        match /submissions/{submissionId} {
+          allow read: if isActiveMember(storeId);
+          allow create, update: if isActiveMember(storeId) &&
+            request.resource.data.userId == request.auth.uid;
+          allow delete: if isAnyManagerOrOwner(storeId) ||
+            (isActiveMember(storeId) && resource.data.userId == request.auth.uid);
+        }
+      }
+    }
+
+    // =========================================================================
+    // 5. TRUY VẤN QUÉT COLLECTION GROUP (MEMBERS)
+    // =========================================================================
+    match /{path=**}/members/{memberId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+
+    // =========================================================================
+    // 6. MODULE: KHUYẾN MÃI TRẠM (kmt_*)
+    // =========================================================================
+    match /kmt_customers/{docId} {
+      allow read, write: if isSignedIn();
+    }
+    match /kmt_point_history/{docId} {
+      allow read, write: if isSignedIn();
+    }
+    match /kmt_stores/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // =========================================================================
+    // 7. MODULE: ĐO HIỆU NĂNG TRẠM (performance_*)
+    // =========================================================================
+    match /performance_sessions/{sessionId} {
+      allow read: if isSignedIn() && canAccessPerformance(resource.data.storeId);
+      allow create: if isSignedIn() &&
+        canAccessPerformance(request.resource.data.storeId) &&
+        request.resource.data.managerId == request.auth.uid &&
+        request.resource.data.id == sessionId &&
+        request.resource.data.status == 'active';
+      allow update: if isSignedIn() &&
+        canAccessPerformance(resource.data.storeId) &&
+        resource.data.managerId == request.auth.uid &&
+        request.resource.data.storeId == resource.data.storeId &&
+        request.resource.data.managerId == resource.data.managerId;
+      allow delete: if isSignedIn() && canAccessPerformance(resource.data.storeId) &&
+        (resource.data.managerId == request.auth.uid || isStoreOwner(resource.data.storeId));
+
+      match /measurements/{measurementId} {
+        allow read: if isSignedIn() &&
+          canAccessPerformance(getPerformanceSessionData(sessionId).storeId);
+        allow create: if isSignedIn() &&
+          getPerformanceSessionData(sessionId).managerId == request.auth.uid &&
+          request.resource.data.id == measurementId &&
+          request.resource.data.sessionId == sessionId &&
+          request.resource.data.storeId == getPerformanceSessionData(sessionId).storeId &&
+          request.resource.data.userId == request.auth.uid;
+        allow update: if isSignedIn() &&
+          getPerformanceSessionData(sessionId).managerId == request.auth.uid &&
+          request.resource.data.id == resource.data.id &&
+          request.resource.data.sessionId == resource.data.sessionId &&
+          request.resource.data.storeId == resource.data.storeId &&
+          request.resource.data.userId == resource.data.userId;
+        allow delete: if isSignedIn() &&
+          canAccessPerformance(getPerformanceSessionData(sessionId).storeId) &&
+          (getPerformanceSessionData(sessionId).managerId == request.auth.uid ||
+           isStoreOwner(getPerformanceSessionData(sessionId).storeId));
+      }
+    }
+
+    match /performance_reports/{reportId} {
+      allow read: if isSignedIn() && canAccessPerformance(resource.data.storeId);
+      allow create: if isSignedIn() &&
+        request.resource.data.id == reportId &&
+        request.resource.data.managerId == request.auth.uid &&
+        request.resource.data.sessionId == reportId &&
+        getPerformanceSessionData(request.resource.data.sessionId).managerId == request.auth.uid &&
+        getPerformanceSessionData(request.resource.data.sessionId).storeId == request.resource.data.storeId;
+      allow update: if isSignedIn() && isStoreOwner(resource.data.storeId) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'viewedAt', 'viewedBy']);
+      allow delete: if isSignedIn() && isStoreOwner(resource.data.storeId);
+    }
+  }
+}
