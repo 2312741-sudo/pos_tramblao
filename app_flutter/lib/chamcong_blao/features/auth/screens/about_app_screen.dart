@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import '../../../app/router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -191,14 +189,6 @@ class _AboutAppScreenState extends State<AboutAppScreen> {
               ),
               child: Column(
                 children: [
-                  _LinkTile(
-                    icon: LucideIcons.flameKindling,
-                    iconColor: const Color(0xFFC77639),
-                    title: 'Sổ tay & Hẹn giờ Quầy Trạm BLAO',
-                    subtitle: 'Tiêu chuẩn lò Bánh Lăn Nướng & ủ cốt Trà Ô Long',
-                    onTap: () => context.push(AppRoutes.blaoStationSop),
-                  ),
-                  const Divider(height: 1, indent: 64, color: Color(0xFFF1F5F9)),
                   _LinkTile(
                     icon: LucideIcons.refreshCw,
                     iconColor: AppColors.primaryDark,

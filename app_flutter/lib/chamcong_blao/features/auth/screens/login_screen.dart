@@ -627,65 +627,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 8),
-
-                  // ── Public Station SOP & Batch Timer Access ───────────
-                  InkWell(
-                    onTap: () => context.push(AppRoutes.blaoStationSop),
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(
-                            LucideIcons.flameKindling,
-                            color: AppColors.primaryDark,
-                            size: 20,
-                          ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Sổ Tay & Bộ Hẹn Giờ Quầy Trạm BLAO',
-                                  style: TextStyle(
-                                    fontFamily: 'BeVietnamPro',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.primaryDark,
-                                  ),
-                                ),
-                                Text(
-                                  'Tiêu chuẩn lò Bánh Lăn Nướng 185°C & ủ Trà Ô Long 92°C',
-                                  style: TextStyle(
-                                    fontFamily: 'BeVietnamPro',
-                                    fontSize: 11.5,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            LucideIcons.chevronRight,
-                            size: 16,
-                            color: AppColors.primaryDark,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
                   const SizedBox(height: 24),
                 ],
               ),
