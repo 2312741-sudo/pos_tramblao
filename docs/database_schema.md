@@ -234,3 +234,29 @@ Web: `Kiểm hàng đầu/cuối ngày` (`/dashboard/daily-stock`, logic `web/li
 - Chênh lệch = Xuất kiểm đếm − Bán hệ thống: dương = thiếu hàng, âm = dư hàng (có dung sai tùy chọn trên giao diện).
 - Rules: thành viên đang hoạt động của cửa hàng đọc/ghi khi phiếu **chưa chốt**; chốt (`locked = true`), sửa phiếu đã chốt và xóa phiếu chỉ Chủ quán / Quản lý.
 - Truy cập trang: `VIEW_INVENTORY` hoặc `VIEW_REPORTS` hoặc `MANAGE_CASH_SHIFT` (nhân viên giữ ca nhập số đếm).
+
+---
+
+## 3. CƠ SỞ DỮ LIỆU CLOUD FIRESTORE (`postramblao` — VÙNG `asia-southeast1`)
+
+Từ khi hợp nhất Chấm Công Trạm BLAO lên dự án `postramblao`, Firestore `(default)` lưu song song dữ liệu khách hàng thân thiết POS và toàn bộ dữ liệu Chấm Công / Vận hành ca.
+
+### 3.1. Nhóm khách hàng POS
+- `kmt_customers/{phone}`: Hồ sơ khách hàng dùng chung giữa các chi nhánh (điểm tích lũy, ngày sinh, tên, SĐT). Đồng bộ hai chiều với RTDB thông qua Cloud Functions `importCustomerToStore` / `mirrorCustomerToFirestore`.
+
+### 3.2. Hồ sơ & cửa hàng Chấm Công (khớp khóa chính POS)
+- `users/{uid}`: Hồ sơ nhân sự trên Firestore với **`uid` trùng 1-1 với UID POS** (`displayName`, `email`, `phone`, `currentStoreId`, `posLinkedAt`).
+- `stores/{storeCode}`: Document cửa hàng lấy `storeCode` POS làm document ID (ví dụ `BLAO`), gồm `name`, `code`, `posStoreCode`, `ownerId`, `coOwnerIds`, `memberOrder`, `hiddenScheduleUserIds`, cấu hình WiFi/GPS/lịch.
+- `stores/{storeCode}/members/{uid}`: Tư cách thành viên Chấm Công trong quán (`userId`, `role`: `owner` | `manager_1` | `manager_2` | `employee`, `status`: `active` | `pending` | `kicked`, `baseMonthlySalary`, `baseHourlyRate`, `posRoleId`, `posUsername`). Được tạo/đồng bộ an toàn qua callable `chamCongEnsureMember`.
+- `stores/{storeCode}/private/{docId}`: Thiết lập nội bộ chỉ Chủ/Quản lý đọc.
+
+### 3.3. Nghiệp vụ Chấm công, Lịch ca, Lương & Thông báo
+- `stores/{storeCode}/attendances/{attendanceId}`: Lịch sử check-in / check-out theo nhân viên (`userId`, `storeId`, `date`, `checkInTime`, `checkOutTime`, `status`, tọa độ/WiFi kiểm chứng).
+- `stores/{storeCode}/schedules/{weekId}`: Lịch ca & đăng ký ca theo tuần (`shifts` map theo `uid`, `registrations`, `lockedUsers`, `updatedBy`).
+- `stores/{storeCode}/advances/{advanceId}`: Yêu cầu & trạng thái duyệt tạm ứng lương.
+- `stores/{storeCode}/production_tasks/{taskId}`, `production_reports/{reportId}`, `assigned_tasks/{taskId}/submissions/{subId}`: Công việc giao, sản xuất quầy và báo cáo hoàn thành.
+- `stores/{storeCode}/notifications/{notifId}`, `stores/{storeCode}/audit_logs/{logId}`: Thông báo nội bộ quán và nhật ký thay đổi Chấm Công.
+- `notificationInboxes/{uid}/accountItems/{itemId}`, `notificationInboxes/{uid}/stores/{storeCode}/items/{itemId}`: Hộp thư thông báo cá nhân & theo cửa hàng của từng nhân sự.
+- `notificationDevices/{deviceId}`, `notificationEvents/{eventId}`, `notificationDeliveries/{deliveryId}`: Quản lý FCM token thiết bị, hàng đợi sự kiện và lịch sử gửi push notification bởi `functions_chamcong`.
+- `performance_sessions/{sessionId}/measurements/{measurementId}`, `performance_reports/{reportId}`: Phiên đo và báo cáo hiệu suất vận hành.
+
