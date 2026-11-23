@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/avatar_widget.dart';
+import '../../../core/widgets/pos_exit_button.dart';
 import '../../../models/member_model.dart';
 import '../../../models/store_model.dart';
 import '../../store/providers/store_provider.dart';
@@ -27,6 +28,9 @@ class MembersListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        automaticallyImplyLeading: Navigator.of(context).canPop(),
+        leadingWidth: PosExitAppBarLeading.leadingWidthFor(context),
+        leading: PosExitAppBarLeading.maybeFor(context),
         title: const Text('Danh sách nhân viên',
             style: TextStyle(
                 fontFamily: 'BeVietnamPro', fontWeight: FontWeight.bold)),

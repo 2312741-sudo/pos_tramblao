@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/widgets/pos_exit_button.dart';
 import '../../store/providers/store_provider.dart';
 import 'schedule_manager_screen.dart';
 import 'schedule_palette.dart';
@@ -37,6 +38,9 @@ class _EmployeeScheduleTabState extends ConsumerState<EmployeeScheduleTab>
     return Scaffold(
       backgroundColor: palette.surface,
       appBar: AppBar(
+        automaticallyImplyLeading: Navigator.of(context).canPop(),
+        leadingWidth: PosExitAppBarLeading.leadingWidthFor(context),
+        leading: PosExitAppBarLeading.maybeFor(context),
         backgroundColor: palette.accent,
         foregroundColor: Colors.white,
         // Theme chung đặt màu chữ/icon AppBar cố định → phải ghi rõ để nền màu dùng chữ trắng

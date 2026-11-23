@@ -16,10 +16,7 @@ import '../../core/widgets/store_drawer.dart';
 import '../../core/widgets/notification_bell_icon.dart';
 import '../../core/widgets/avatar_widget.dart';
 import '../../features/schedule/screens/employee_schedule_tab.dart';
-import '../task_assignment/widgets/shift_tasks_card.dart';
-import '../blao_station/widgets/blao_station_card.dart';
-
-import '../../core/services/app_update_service.dart';
+import '../../core/widgets/pos_exit_button.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../cc_firebase.dart';
 
@@ -51,11 +48,6 @@ class _EmployeeDashboardState extends ConsumerState<EmployeeDashboard>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        AppUpdateService().checkAppVersion(context);
-      }
-    });
   }
 
   @override
@@ -247,10 +239,21 @@ class _HomeTab extends ConsumerWidget {
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        const PosExitPillButton(),
+                        const Spacer(),
+                        const NotificationBellIcon(
+                          iconColor: Colors.white,
+                          backgroundColor: Color(0x26FFFFFF),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
                     Row(
                       children: [
                         Expanded(
@@ -268,41 +271,27 @@ class _HomeTab extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        Flexible(child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const NotificationBellIcon(
-                              iconColor: Colors.white,
-                              backgroundColor: Color(0x26FFFFFF),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            if (store != null) ...[
-                              const SizedBox(width: 8),
-                              Flexible(child: GestureDetector(
-                                onTap: () => Scaffold.of(context).openDrawer(),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(LucideIcons.store, color: Colors.white, size: 14),
-                                      const SizedBox(width: 6),
-                                      Flexible(child: Text(store.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600, fontFamily: 'BeVietnamPro'))),
-                                      const SizedBox(width: 4),
-                                      const Icon(LucideIcons.chevronDown, color: Colors.white, size: 16),
-                                    ],
-                                  ),
-                                ),
-                              )),
-                            ],
-                          ],
-                        )),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(LucideIcons.store, color: Colors.white, size: 14),
+                                const SizedBox(width: 6),
+                                Flexible(child: Text(store.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600, fontFamily: 'BeVietnamPro'))),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
                     // Clock
                     Text(
                       DateFormat('HH:mm').format(now),
@@ -389,26 +378,6 @@ class _HomeTab extends ConsumerWidget {
             ),
           ),
         ),
-
-        // Today's shift tasks
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-            child: ShiftTasksCard(
-              storeId: store.id,
-              userId: uid,
-            ),
-          ),
-        ),
-
-        // Trạm BLAO Station SOP & Timers Card
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: BlaoStationCard(),
-          ),
-        ),
-
 
         // Today's schedule
         SliverToBoxAdapter(
@@ -775,6 +744,9 @@ class _ProfileTab extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
+        automaticallyImplyLeading: Navigator.of(context).canPop(),
+        leadingWidth: PosExitAppBarLeading.leadingWidthFor(context),
+        leading: PosExitAppBarLeading.maybeFor(context, color: AppColors.neutral),
         title: const Text('Hồ sơ cá nhân', style: TextStyle(fontWeight: FontWeight.w700, fontFamily: 'BeVietnamPro')),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.neutral,

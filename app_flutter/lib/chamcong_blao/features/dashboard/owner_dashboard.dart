@@ -17,10 +17,7 @@ import '../../core/utils/attendance_utils.dart';
 import '../../features/schedule/providers/schedule_provider.dart';
 import '../../features/members/screens/members_list_screen.dart';
 import '../../features/attendance/screens/attendance_table_screen.dart';
-import '../../features/task_assignment/widgets/shift_tasks_card.dart';
-import '../../features/blao_station/widgets/blao_station_card.dart';
-
-import '../../core/services/app_update_service.dart';
+import '../../core/widgets/pos_exit_button.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../cc_firebase.dart';
 
@@ -33,16 +30,6 @@ class OwnerDashboard extends ConsumerStatefulWidget {
 
 class _OwnerDashboardState extends ConsumerState<OwnerDashboard> {
   int _selectedIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        AppUpdateService().checkAppVersion(context);
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,21 +89,6 @@ class _OwnerDashboardState extends ConsumerState<OwnerDashboard> {
           const AttendanceTableScreen(),
           _OwnerSettingsTab(),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push(AppRoutes.checkIn),
-        backgroundColor: AppColors.ownerAccent,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        icon: const Icon(LucideIcons.fingerprint, size: 22),
-        label: const Text(
-          'Chấm công',
-          style: TextStyle(
-            fontFamily: 'BeVietnamPro',
-            fontWeight: FontWeight.w700,
-            fontSize: 13.5,
-          ),
-        ),
       ),
       bottomNavigationBar: _buildBottomNav(),
     );
@@ -230,70 +202,65 @@ class _OwnerHomeTab extends ConsumerWidget {
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-                child: Row(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${_getGreeting(now.hour)}, $firstName',
-                            style: const TextStyle(color: Colors.white70, fontSize: 14, fontFamily: 'BeVietnamPro'),
-                          ),
-                          const SizedBox(height: 4),
-                          GestureDetector(
-                            onTap: () => Scaffold.of(context).openDrawer(),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    store.name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, fontFamily: 'BeVietnamPro'),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Icon(LucideIcons.chevronDown, color: Colors.white, size: 24),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.12),
-                              border: Border.all(color: Colors.white54),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(LucideIcons.award, color: AppColors.accent, size: 15),
-                                SizedBox(width: 6),
-                                Text('CHỦ CỬA HÀNG', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5, fontFamily: 'BeVietnamPro')),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            DateFormat('EEEE, dd/MM/yyyy', 'vi').format(now),
-                            style: const TextStyle(color: Colors.white70, fontSize: 13, fontFamily: 'BeVietnamPro'),
-                          ),
-                        ],
-                      ),
-                    ),
                     Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        const PosExitPillButton(),
+                        const Spacer(),
                         const NotificationBellIcon(
                           iconColor: Colors.white,
                           backgroundColor: Color(0x26FFFFFF),
                         ),
-                        const SizedBox(width: 8),
-                        // Store code badge - store is guaranteed non-null here
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${_getGreeting(now.hour)}, $firstName',
+                                style: const TextStyle(color: Colors.white70, fontSize: 14, fontFamily: 'BeVietnamPro'),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                store.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, fontFamily: 'BeVietnamPro'),
+                              ),
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.12),
+                                  border: Border.all(color: Colors.white54),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(LucideIcons.award, color: AppColors.accent, size: 15),
+                                    SizedBox(width: 6),
+                                    Text('CHỦ CỬA HÀNG', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5, fontFamily: 'BeVietnamPro')),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                DateFormat('EEEE, dd/MM/yyyy', 'vi').format(now),
+                                style: const TextStyle(color: Colors.white70, fontSize: 13, fontFamily: 'BeVietnamPro'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
@@ -546,26 +513,6 @@ class _OwnerHomeTab extends ConsumerWidget {
           ),
         ),
 
-        // Công việc trong ca của Chủ
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: ShiftTasksCard(
-              storeId: store.id,
-              userId: userId,
-            ),
-          ),
-        ),
-
-        // Trạm BLAO Station SOP & Timers Card
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: BlaoStationCard(),
-          ),
-        ),
-
-
         // Quick tools
         SliverToBoxAdapter(
           child: Padding(
@@ -575,8 +522,6 @@ class _OwnerHomeTab extends ConsumerWidget {
               children: [
                 const Text('Công cụ quản lý', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, fontFamily: 'BeVietnamPro', color: AppColors.neutral)),
                 const SizedBox(height: 12),
-                _ToolCard(icon: LucideIcons.fingerprint, label: 'Chấm công của tôi', sub: 'Chấm vào/ra ca nhanh', color: AppColors.primary, onTap: () => GoRouter.of(context).push(AppRoutes.checkIn)),
-                const SizedBox(height: 10),
                 _ToolCard(icon: LucideIcons.calendarDays, label: 'Quản lý lịch làm', sub: 'Xem & chỉnh lịch toàn bộ NV', color: AppColors.info, onTap: () => GoRouter.of(context).push(AppRoutes.scheduleManager)),
                 const SizedBox(height: 10),
                 _ToolCard(icon: LucideIcons.banknote, label: 'Báo cáo lương', sub: 'Tổng hợp lương tháng', color: AppColors.success, onTap: () => GoRouter.of(context).push(AppRoutes.salaryOverview)),
@@ -584,8 +529,6 @@ class _OwnerHomeTab extends ConsumerWidget {
                 _ToolCard(icon: LucideIcons.wallet, label: 'Duyệt tạm ứng', sub: 'Xem yêu cầu ứng lương', color: AppColors.accentInk, onTap: () => GoRouter.of(context).push(AppRoutes.manageAdvances)),
                 const SizedBox(height: 10),
                 _ToolCard(icon: LucideIcons.qrCode, label: 'QR chấm công', sub: 'Chia sẻ mã QR cho NV', color: AppColors.primaryDark, onTap: () => GoRouter.of(context).push(AppRoutes.qrDisplay)),
-                const SizedBox(height: 10),
-                _ToolCard(icon: LucideIcons.clipboardList, label: 'Giao việc & Quản lý việc', sub: 'Phân công công việc & theo dõi báo cáo NV', color: AppColors.managerAccent, onTap: () => GoRouter.of(context).push(AppRoutes.taskManagement)),
               ],
             ),
           ),
@@ -651,6 +594,9 @@ class _OwnerSettingsTab extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
+        automaticallyImplyLeading: Navigator.of(context).canPop(),
+        leadingWidth: PosExitAppBarLeading.leadingWidthFor(context),
+        leading: PosExitAppBarLeading.maybeFor(context, color: AppColors.neutral),
         title: const Text('Cài đặt', style: TextStyle(fontWeight: FontWeight.w700, fontFamily: 'BeVietnamPro')),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.neutral,

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/avatar_widget.dart';
+import '../../../core/widgets/pos_exit_button.dart';
 import '../../../core/utils/excel_export_service.dart';
 import '../../../core/widgets/export_modal.dart';
 import '../../../core/auth/app_permissions.dart';
@@ -42,6 +43,9 @@ class AttendanceTableScreen extends ConsumerWidget {
       return Scaffold(
         backgroundColor: AppColors.surface,
         appBar: AppBar(
+          automaticallyImplyLeading: Navigator.of(context).canPop(),
+          leadingWidth: PosExitAppBarLeading.leadingWidthFor(context),
+          leading: PosExitAppBarLeading.maybeFor(context),
           title: const Text('Bảng công', style: TextStyle(fontFamily: 'BeVietnamPro', fontWeight: FontWeight.bold)),
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
@@ -105,6 +109,9 @@ class AttendanceTableScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
+        automaticallyImplyLeading: Navigator.of(context).canPop(),
+        leadingWidth: PosExitAppBarLeading.leadingWidthFor(context),
+        leading: PosExitAppBarLeading.maybeFor(context),
         title: const Text('Bảng công',
             style: TextStyle(
                 fontFamily: 'BeVietnamPro', fontWeight: FontWeight.bold)),

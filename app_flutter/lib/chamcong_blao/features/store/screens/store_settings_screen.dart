@@ -1694,58 +1694,6 @@ class _StoreSettingsScreenState extends ConsumerState<StoreSettingsScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-
-                  // Production Tasks Checklist Management
-                  InkWell(
-                    onTap: () => context.push(AppRoutes.productionTasks),
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1C7ED6).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(LucideIcons.listChecks,
-                                color: Color(0xFF1C7ED6), size: 20),
-                          ),
-                          const SizedBox(width: 14),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Checklist sản xuất & vận hành',
-                                    style: TextStyle(
-                                        fontFamily: 'BeVietnamPro',
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.neutral)),
-                                SizedBox(height: 2),
-                                Text(
-                                    'Sắp xếp thứ tự và quản lý đầu việc checklist',
-                                    style: TextStyle(
-                                        fontFamily: 'BeVietnamPro',
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary)),
-                              ],
-                            ),
-                          ),
-                          const Icon(LucideIcons.chevronRight,
-                              color: AppColors.textSecondary),
-                        ],
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 20),
 
                   // Department Management

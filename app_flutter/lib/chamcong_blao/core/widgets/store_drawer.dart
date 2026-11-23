@@ -173,37 +173,7 @@ class StoreDrawer extends ConsumerWidget {
           ),
           
           const Divider(),
-          
-          ListTile(
-            leading: const Icon(LucideIcons.store, color: AppColors.neutral),
-            title: const Text('Tạo cửa hàng mới', style: TextStyle(fontFamily: 'BeVietnamPro')),
-            onTap: () {
-              Navigator.pop(context);
-              context.push(AppRoutes.createStore);
-            },
-          ),
-          ListTile(
-            leading: const Icon(LucideIcons.userPlus, color: AppColors.neutral),
-            title: const Text('Tham gia cửa hàng', style: TextStyle(fontFamily: 'BeVietnamPro')),
-            onTap: () {
-              Navigator.pop(context);
-              context.push(AppRoutes.joinStore);
-            },
-          ),
-          
-          const Divider(),
-          
-          ListTile(
-            leading: const Icon(LucideIcons.flameKindling, color: AppColors.primaryDark),
-            title: const Text(
-              'Sổ tay & Hẹn giờ Quầy BLAO',
-              style: TextStyle(fontFamily: 'BeVietnamPro', fontWeight: FontWeight.w600),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              context.push(AppRoutes.blaoStationSop);
-            },
-          ),
+
           ListTile(
             leading: const Icon(LucideIcons.info, color: AppColors.neutral),
             title: const Text('Thông tin ứng dụng', style: TextStyle(fontFamily: 'BeVietnamPro')),

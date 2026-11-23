@@ -123,62 +123,73 @@ class _ChamCongBlaoScreenState extends State<ChamCongBlaoScreen> {
   Widget build(BuildContext context) {
     const brand = Color(0xFF143A2F);
     return Scaffold(
-      backgroundColor: brand,
-      body: Column(
-        children: [
-          Material(
-            color: brand,
-            child: SafeArea(
-              bottom: false,
-              child: SizedBox(
-                height: 40,
-                child: Row(
-                  children: [
-                    TextButton.icon(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
-                      label: const Text('Về POS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                    ),
-                    const Expanded(
-                      child: Text(
-                        'Chấm Công Trạm BLAO',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    const SizedBox(width: 96),
-                  ],
-                ),
+      backgroundColor: Colors.white,
+      body: FutureBuilder<void>(
+        future: _ready,
+        builder: (context, snap) {
+          if (snap.hasError) {
+            return _LoadingOrErrorWrapper(
+              brand: brand,
+              child: _InitError(
+                error: snap.error!,
+                onRetry: _retry,
+                onExit: () => Navigator.of(context).maybePop(),
               ),
-            ),
-          ),
-          Expanded(
-            child: MediaQuery.removePadding(
-              context: context,
-              removeTop: true,
-              child: FutureBuilder<void>(
-                future: _ready,
-                builder: (context, snap) {
-                  if (snap.hasError) {
-                    return _InitError(
-                      error: snap.error!,
-                      onRetry: _retry,
-                      onExit: () => Navigator.of(context).maybePop(),
-                    );
-                  }
-                  if (snap.connectionState != ConnectionState.done) {
-                    return const ColoredBox(
-                      color: Colors.white,
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  return UncontrolledProviderScope(container: _container, child: const ChamCongTramApp());
-                },
+            );
+          }
+          if (snap.connectionState != ConnectionState.done) {
+            return const _LoadingOrErrorWrapper(
+              brand: brand,
+              child: ColoredBox(
+                color: Colors.white,
+                child: Center(child: CircularProgressIndicator()),
               ),
-            ),
-          ),
-        ],
+            );
+          }
+          return UncontrolledProviderScope(container: _container, child: const ChamCongTramApp());
+        },
       ),
+    );
+  }
+}
+
+class _LoadingOrErrorWrapper extends StatelessWidget {
+  const _LoadingOrErrorWrapper({required this.brand, required this.child});
+  final Color brand;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Material(
+          color: brand,
+          child: SafeArea(
+            bottom: false,
+            child: SizedBox(
+              height: 44,
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
+                    label: const Text('Về POS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Chấm Công Trạm BLAO',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 96),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Expanded(child: child),
+      ],
     );
   }
 }

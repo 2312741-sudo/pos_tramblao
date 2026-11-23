@@ -16,10 +16,7 @@ import '../../core/utils/attendance_utils.dart';
 import '../../features/attendance/providers/attendance_provider.dart';
 import '../../features/schedule/providers/schedule_provider.dart';
 import '../../features/schedule/screens/employee_schedule_tab.dart';
-import '../task_assignment/widgets/shift_tasks_card.dart';
-import '../blao_station/widgets/blao_station_card.dart';
-
-import '../../core/services/app_update_service.dart';
+import '../../core/widgets/pos_exit_button.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../cc_firebase.dart';
 
@@ -32,16 +29,6 @@ class ManagerDashboard extends ConsumerStatefulWidget {
 
 class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
   int _selectedIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        AppUpdateService().checkAppVersion(context);
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -237,60 +224,47 @@ class _ManagerHomeTab extends ConsumerWidget {
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${_getGreeting(now.hour)}, $firstName', style: const TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'BeVietnamPro')),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(LucideIcons.userCog, color: Colors.white, size: 22),
-                                  const SizedBox(width: 6),
-                                  Flexible(child: Text(roleTitle, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, fontFamily: 'BeVietnamPro'))),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const NotificationBellIcon(
-                              iconColor: Colors.white,
-                              backgroundColor: Color(0x26FFFFFF),
-                            ),
-                          ],
+                        const PosExitPillButton(),
+                        const Spacer(),
+                        const NotificationBellIcon(
+                          iconColor: Colors.white,
+                          backgroundColor: Color(0x26FFFFFF),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
+                    Text('${_getGreeting(now.hour)}, $firstName', style: const TextStyle(color: Colors.white70, fontSize: 14, fontFamily: 'BeVietnamPro')),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(LucideIcons.userCog, color: Colors.white, size: 22),
+                        const SizedBox(width: 6),
+                        Flexible(child: Text(roleTitle, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, fontFamily: 'BeVietnamPro'))),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                     Text(DateFormat('EEEE, dd/MM/yyyy', 'vi').format(now), style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'BeVietnamPro')),
                     const SizedBox(height: 10),
-                    GestureDetector(
-                      onTap: () => Scaffold.of(context).openDrawer(),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
-                          border: Border.all(color: Colors.white54),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.store, color: Colors.white, size: 17),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(store.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700, fontFamily: 'BeVietnamPro'))),
-                            const Icon(LucideIcons.chevronDown, color: Colors.white, size: 18),
-                          ],
-                        ),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.18),
+                        border: Border.all(color: Colors.white54),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(LucideIcons.store, color: Colors.white, size: 17),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(store.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700, fontFamily: 'BeVietnamPro'))),
+                        ],
                       ),
                     ),
                   ],
@@ -334,14 +308,6 @@ class _ManagerHomeTab extends ConsumerWidget {
           ),
         ),
 
-        // Trạm BLAO Station SOP & Timers Card
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
-            child: BlaoStationCard(),
-          ),
-        ),
-
         // Stats Row
         SliverToBoxAdapter(
           child: Padding(
@@ -378,18 +344,6 @@ class _ManagerHomeTab extends ConsumerWidget {
             child: _TodayScheduleCard(uid: uid),
           ),
         ),
-
-        // Công việc trong ca của Quản lý
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: ShiftTasksCard(
-              storeId: store.id,
-              userId: uid,
-            ),
-          ),
-        ),
-
 
         // NV đang làm
         SliverToBoxAdapter(
@@ -540,14 +494,6 @@ class _ManagerHomeTab extends ConsumerWidget {
                     onTap: () => context.push(AppRoutes.attendanceTable),
                   ),
                 ],
-                const SizedBox(height: 10),
-                _MgrToolCard(
-                  icon: LucideIcons.clipboardList,
-                  label: 'Giao việc & Quản lý việc',
-                  sub: 'Phân công công việc & theo dõi báo cáo NV',
-                  color: AppColors.info,
-                  onTap: () => context.push(AppRoutes.taskManagement),
-                ),
               ],
             ),
           ),
@@ -578,6 +524,7 @@ class _ManagerProfileTab extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const PosExitTabHeader(title: 'Hồ sơ cá nhân'),
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -630,8 +577,6 @@ class _ManagerProfileTab extends ConsumerWidget {
           _ProfileMenuItem(icon: LucideIcons.banknote, label: 'Lương & Tiền công của tôi', onTap: () => context.push(AppRoutes.salary)),
           const SizedBox(height: 10),
           _ProfileMenuItem(icon: LucideIcons.history, label: 'Lịch sử chấm công của tôi', onTap: () => context.push(AppRoutes.attendanceHistory)),
-          const SizedBox(height: 10),
-          _ProfileMenuItem(icon: LucideIcons.store, label: 'Đổi cửa hàng', onTap: () => Scaffold.of(context).openDrawer()),
           const SizedBox(height: 10),
           _ProfileMenuItem(icon: LucideIcons.arrowLeft, label: 'Đóng Chấm công (Về POS)', color: AppColors.primary, onTap: () => CcFirebase.exitModule(context)),
         ],
