@@ -47,7 +47,7 @@ class AppVersionControlModel {
     }
 
     return AppVersionControlModel(
-      latestVersion: data['latestVersion'] as String? ?? '1.1.0',
+      latestVersion: data['latestVersion'] as String? ?? '1.1.1',
       minimumRequiredVersion:
           data['minimumRequiredVersion'] as String? ?? '1.0.2',
       updateMessage: data['updateMessage'] as String? ??
