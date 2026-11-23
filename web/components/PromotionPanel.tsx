@@ -1,4 +1,5 @@
 "use client";
+import { promoStaffShares } from "@/lib/promo-attribution";
 import { parseTableDiscounts, serializeTableDiscounts, splitTableDiscounts } from "@/lib/table-discounts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { get, onValue, ref } from "firebase/database";
@@ -70,7 +71,9 @@ export function usePromotions(args: {
 }) {
   const { storeCode, tableKey, items, groupOf, guestCount, allowStack, rewardProducts = [], onAddLines, onRemoveRewardLines, actor, savedDiscounts, onPersist } = args;
   const [loaded, setLoaded] = useState<{ store: string; list: Campaign[] }>({ store: "", list: [] });
-  const [selection, setSelection] = useState<{ key: string; list: AppliedDiscount[] }>({ key: "", list: [] });
+  // Lựa chọn trên web gắn với [bàn + bản khuyến mãi đang lưu trên bàn] lúc chọn: bàn đổi khuyến mãi (app / máy khác,
+  // hoặc chính lần lưu của web) → theo bản trên bàn.
+  const [selection, setSelection] = useState<{ key: string; sig: string; list: AppliedDiscount[] }>({ key: "", sig: "", list: [] });
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -105,15 +108,13 @@ export function usePromotions(args: {
   // Khuyến mãi lưu trên bàn (app hoặc web khác vừa áp): web luôn theo bản trên bàn. Mục không phải chương trình
   // (giảm tay của app, khuyến mãi cũ) giữ nguyên số tiền đã lưu.
   const savedSig = typeof savedDiscounts === "string" ? savedDiscounts : JSON.stringify(savedDiscounts ?? null);
-  const saved = useMemo(() => splitTableDiscounts(parseTableDiscounts(savedDiscounts)), [savedSig]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    // Đồng bộ có chủ đích: lựa chọn của web luôn theo bản khuyến mãi lưu trên bàn
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelection({ key: tableKey, list: saved.campaigns });
-  }, [tableKey, saved]);
+  const saved = useMemo(() => splitTableDiscounts(parseTableDiscounts(savedSig)), [savedSig]);
   const extras = saved.extras;
 
-  const selected = useMemo(() => (selection.key === tableKey ? selection.list : []), [selection, tableKey]);
+  const selected = useMemo(
+    () => (selection.key === tableKey && selection.sig === savedSig ? selection.list : saved.campaigns),
+    [selection, tableKey, savedSig, saved]
+  );
   // Đơn đã có dòng món tặng của chương trình (thêm từ app / lần trước) → chương trình đó coi như đang áp dụng
   const chosen = useMemo(() => {
     const ids = new Set(selected.map((d) => d.campaignId));
@@ -136,7 +137,36 @@ export function usePromotions(args: {
     () => (campaignsLoaded ? recalculateDiscounts(chosen, byId, lines, ctx, { dedicatedOnlyFor: giftOnly }) : { discounts: chosen, dropped: [] as string[] }),
     [chosen, byId, lines, ctx, campaignsLoaded, giftOnly]
   );
-  const effective = useMemo(() => applied.filter((d) => d.amount > 0), [applied]);
+  // Kèm phần của từng NGƯỜI BẤM MÓN được ưu đãi → hóa đơn lưu staffShares (báo cáo combo / khuyến mãi theo nhân viên)
+  const effective = useMemo(() => {
+    const list = applied.filter((d) => d.amount > 0);
+    const camps = list.map((d) => byId[d.campaignId]).filter((c): c is Campaign => !!c);
+    if (camps.length === 0) return list;
+    try {
+      const quotes = quoteStacked(camps, lines, ctx, {
+        ignoreScheduleFor: new Set(camps.map((c) => c.campaignId)),
+        dedicatedOnlyFor: giftOnly,
+      });
+      const staffOf = (lineId: string) => {
+        const it = items[Number(lineId.slice(1))] as { orderedBy?: unknown; orderedByName?: unknown } | undefined;
+        if (!it) return null;
+        const u = String(it.orderedBy ?? "").trim();
+        const n = String(it.orderedByName ?? "").trim();
+        return { u, n: n || u };
+      };
+      const cashier = { u: String(actor?.username ?? ""), n: String(actor?.fullName ?? actor?.username ?? "") };
+      return list.map((d) => {
+        const q = quotes[d.campaignId];
+        if (!q) return d;
+        const staffShares = promoStaffShares(q, lines, d.campaignId, staffOf, cashier, d.amount);
+        // Số combo theo giỏ hiện tại (cùng nguồn với phần chia nhân viên) — không giữ số cũ lưu trên bàn
+        const combo = staffShares.reduce((s, x) => s + x.combo, 0);
+        return { ...d, staffShares, comboCount: combo > 0 ? combo : undefined };
+      });
+    } catch {
+      return list;
+    }
+  }, [applied, byId, lines, ctx, giftOnly, items, actor]);
   // Tổng / danh sách đưa vào hóa đơn gồm cả giảm giá do app áp (không phải chương trình) đang lưu trên bàn
   const withExtras = useMemo(() => [...effective, ...extras.filter((d) => d.amount > 0)], [effective, extras]);
   const total = withExtras.reduce((s, d) => s + d.amount, 0);
@@ -151,13 +181,13 @@ export function usePromotions(args: {
   const add = (campaign: Campaign, amount: number, opts?: { voucherCode?: string; staffNote?: string }): string[] => {
     const incoming = { discount: buildAppliedDiscount(campaign, amount, opts), campaign };
     const r = addWithStacking(effective, incoming, byId, allowStack);
-    setSelection({ key: tableKey, list: r.discounts });
+    setSelection({ key: tableKey, sig: savedSig, list: r.discounts });
     persist(r.discounts);
     return r.removed;
   };
   const remove = (campaignId: string) => {
     const next = selected.filter((d) => d.campaignId !== campaignId);
-    setSelection({ key: tableKey, list: next });
+    setSelection({ key: tableKey, sig: savedSig, list: next });
     persist(next);
     // Bỏ chương trình: gỡ luôn ly tặng chưa gửi bếp (không để thành ly tính tiền)
     if (onRemoveRewardLines && items.some((l) => String(l.rewardCampaignId ?? "") === campaignId && l.isSentKitchen !== true)) {
@@ -183,7 +213,7 @@ export function usePromotions(args: {
     }
   }, [applied, items, byId, campaignsLoaded, onRemoveRewardLines]);
   const clear = () => {
-    setSelection({ key: tableKey, list: [] });
+    setSelection({ key: tableKey, sig: savedSig, list: [] });
     persist([]);
   };
 

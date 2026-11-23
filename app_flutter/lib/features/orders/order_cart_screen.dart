@@ -32,6 +32,7 @@ import '../../data/services/campaign_service.dart';
 import '../../data/services/loyalty_service.dart';
 import '../promotions/voucher_check.dart';
 import 'widgets/campaign_pricing.dart';
+import '../../core/reports/promo_attribution.dart';
 import 'widgets/combo_reward_picker_sheet.dart';
 import '../../core/domain/deleted_items.dart';
 import '../cash_shift/cash_shift_dialog.dart';
@@ -127,9 +128,21 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     if (!mounted || remote == null || _orderClosed) return;
     final t = widget.table;
     final currentBillId = t.currentBillId;
+    // Đơn ĐÃ ĐÓNG thật (thanh toán / hủy / chuyển / xóa hết món ở máy khác): bàn trên server để lại closedBillId = mã đơn.
     final wasClosedOnServer = !remote.inUse &&
-        ((currentBillId != null && currentBillId.isNotEmpty && remote.closedBillId == currentBillId) ||
-            (t.syncedOrderJson != null && t.syncedOrderJson!.trim().isNotEmpty));
+        currentBillId != null && currentBillId.isNotEmpty && remote.closedBillId == currentBillId;
+    // Bàn trên server bị xóa trắng mà đơn này CHƯA đóng (trước đây cũng coi là 'đã thanh toán' → đóng màn, mất đơn):
+    // ghi lại đơn của máy này lên bàn (lần lưu tự gộp / khôi phục; nếu máy khác đang mở đơn mới ở bàn này thì báo lỗi).
+    if (!remote.inUse && !wasClosedOnServer && t.inUse && _cart.isNotEmpty &&
+        t.syncedOrderJson != null && t.syncedOrderJson!.trim().isNotEmpty) {
+      if (_remotePaused) {
+        _pendingRemote = remote;
+        return;
+      }
+      t.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
+      unawaited(_fb.saveTable(t).catchError(_saveFailed));
+      return;
+    }
     if (wasClosedOnServer) {
       if (_remotePaused) {
         _pendingRemote = remote;
@@ -1587,10 +1600,16 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     ));
 
     // Execute network operations with fast failover
+    // Lưu bàn lỗi thì phải báo (trước đây nuốt lỗi → nhân viên thấy 'gửi bếp thành công' nhưng đơn không lưu)
+    var saveOk = true;
     await Future.wait([
       _fb.sendKitchenOrder(kitchenOrder).catchError((_) {}),
-      _fb.saveTable(t).catchError((_) {}),
+      _fb.saveTable(t).catchError((Object e) {
+        saveOk = false;
+        _saveFailed(e);
+      }),
     ]);
+    if (!saveOk) return;
 
     _fb.logAction(AuditLogModel(
       timestamp: DateTime.now().millisecondsSinceEpoch,
@@ -5155,13 +5174,13 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
     // đang giữ lại. Làm ngược lại thì cập nhật bị gộp vào giỏ CŨ (chưa có món vừa gọi) → món mới bị coi là
     // "máy này đã xóa" và mất ở lần lưu kế tiếp (lỗi "gọi thêm xong lúc sau mất món").
     if (res is List<OrderItemModel> && !_orderClosed) {
-      setState(() {
-        _cart = List.from(res);
-      });
+      _cart = List.from(res);
+      widget.table.currentOrderJson = jsonEncode(_cart.map((e) => e.toMap()).toList());
     }
     _resumeRemote();
-    if (_orderClosed) return;
+    if (_orderClosed || !mounted) return;
     if (res is List<OrderItemModel>) {
+      setState(() {});
       _recalculateDiscounts();
     } else {
       final refreshed = await _fb.tablesStream().first;
@@ -5314,7 +5333,18 @@ class _OrderCartScreenState extends State<OrderCartScreen> {
       staffFullName: staffName,
       items: _cart,
       subTotal: _subTotal,
-      discounts: _appliedDiscounts,
+      // Khuyến mãi kèm phần của từng NGƯỜI BẤM MÓN được ưu đãi (báo cáo combo / khuyến mãi theo nhân viên)
+      discounts: CartCampaignPricing.withStaffShares(
+        _appliedDiscounts,
+        _campaignById,
+        cart: _cart,
+        products: _products,
+        branchId: _fb.currentStoreCode,
+        cashier: LineStaff(staffUser, staffName),
+        guestCount: _guestCount,
+        customerBirthday: _selectedCustomer?.birthday,
+        orderTimestampMs: widget.table.openedAt,
+      ),
       totalDiscount: _totalDiscount,
       pointsUsed: _pointsUsed,
       pointsDiscount: _pointsDiscount,

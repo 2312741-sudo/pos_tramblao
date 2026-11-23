@@ -4,14 +4,14 @@ import { normalizeBusinessDayStart, setBusinessDayConfig } from "./business-day"
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { db, auth, functions } from "./firebase";
 import { planKitchenCancel } from "./kitchen";
-import { ref, onValue, set, update, remove, get, push, query, limitToLast } from "firebase/database";
+import { ref, onValue, set, update, remove, get, push, query, limitToLast, orderByChild } from "firebase/database";
 import { hasNumericProductId, nextProductId } from "./product-code";
 import { onAuthStateChanged } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import { buildCreateStorePayload, type CreateStorePayload } from "./create-store-payload";
 import { deduplicateBills, mergeHistoryAndBills } from "./reports";
 import { generateBillCode } from "./bill-code";
-import { recordShiftSale } from "./cash-shift-run";
+import { recordShiftSale, reverseShiftForBill } from "./cash-shift-run";
 import { parseOrderJson, summarizeOrderLines, type RawOrderLine } from "./order-math";
 import { CLEAR_PRE_PRINT, CLEAR_TABLE_CUSTOMER, baseTableName, buildOrderItemsPayload, prePrintPayload, tableCustomerOf } from "./table-status";
 import { errorMessage } from "./errors";
@@ -1020,12 +1020,12 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
           };
 
           const unsubs = STORE_CHILD_NODES.map((child) => {
-            // Giới hạn 150 mục mới nhất cho history và audit_logs để tránh tải hàng chục MB ảnh base64 qua WebSocket
+            // Giới hạn 150 mục MỚI NHẤT THEO THỜI GIAN cho history và audit_logs (tránh tải hàng chục MB ảnh base64).
+            // Phải orderByChild("timestamp"): limitToLast theo khóa lấy nhầm vì app ghi khóa '-O…'/'BILL_…' còn web
+            // ghi 'log_…'/'bill_…' → khóa web luôn xếp sau, thao tác / hóa đơn mới trên app bị bỏ khỏi 150 mục.
             const queryRef =
-              child === "history"
-                ? query(ref(db, `stores/${code}/${child}`), limitToLast(150))
-                : child === "audit_logs"
-                ? query(ref(db, `stores/${code}/${child}`), limitToLast(150))
+              child === "history" || child === "audit_logs"
+                ? query(ref(db, `stores/${code}/${child}`), orderByChild("timestamp"), limitToLast(150))
                 : ref(db, `stores/${code}/${child}`);
 
             return onValue(
@@ -2422,12 +2422,20 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
             updates[`${basePath}/${node}/${orderId}/${field}`] = value;
           }
         }
+        const raw = (billSnap.exists() ? billSnap.val() : historySnap.val()) as Record<string, unknown> | null;
+        const wasPaid = String((raw?.status as string | undefined) ?? order.status ?? "PAID").toUpperCase() === "PAID";
         await update(ref(db), updates);
 
         // Optimistic update
         setAllHistory((prev) =>
           prev.map((h) => (h.id === orderId ? { ...h, ...patch } : h))
         );
+
+        // Trừ tiền ở CA ĐÃ THU TIỀN hóa đơn (kể cả Chủ / Quản lý hủy hộ) — ghi kết quả vào nhật ký thao tác
+        if (wasPaid && actingUser?.uid) {
+          const note = await reverseShiftForBill(db, targetStoreCode, { ...order, ...(raw ?? {}) }, { uid: actingUser.uid, username: actingUser.username });
+          void update(ref(db, `${basePath}/audit_logs/${logId}`), { details: `${auditPayload.details}. Ca két: ${note}` }).catch(() => {});
+        }
 
         return { success: true };
       } catch (e) {
@@ -2464,6 +2472,14 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
           details: `Xóa vĩnh viễn hóa đơn ${order?.billCode || order?.orderCode || orderId} khỏi hệ thống`,
         };
 
+        // Bản ghi gốc (để trừ tiền ở ca đã thu tiền nếu hóa đơn đang đã thanh toán)
+        const [bSnap, hSnap] = await Promise.all([
+          get(ref(db, `stores/${targetStoreCode}/bills/${orderId}`)).catch(() => null),
+          get(ref(db, `stores/${targetStoreCode}/history/${orderId}`)).catch(() => null),
+        ]);
+        const raw = ((bSnap?.exists() ? bSnap.val() : hSnap?.exists() ? hSnap.val() : null) ?? order ?? null) as Record<string, unknown> | null;
+        const wasPaid = !!raw && String((raw.status as string | undefined) ?? "PAID").toUpperCase() === "PAID";
+
         // Xóa history + bills và ghi audit log trong MỘT update() nguyên tử
         await update(ref(db), {
           [`stores/${targetStoreCode}/history/${orderId}`]: null,
@@ -2473,6 +2489,11 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
         // Optimistic update
         setAllHistory((prev) => prev.filter((h) => h.id !== orderId));
+
+        if (wasPaid && raw && actingUser?.uid) {
+          const note = await reverseShiftForBill(db, targetStoreCode, raw as never, { uid: actingUser.uid, username: actingUser.username });
+          void update(ref(db, `stores/${targetStoreCode}/audit_logs/${logId}`), { details: `${auditPayload.details}. Ca két: ${note}` }).catch(() => {});
+        }
 
         return { success: true };
       } catch (e) {

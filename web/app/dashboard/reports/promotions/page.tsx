@@ -1,12 +1,13 @@
 "use client";
 import { Fragment, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { BadgePercent, Calendar, Users, ChevronDown, ChevronRight, Download, Receipt, Store, Ticket, TrendingUp } from "lucide-react";
+import { BadgePercent, Calendar, Filter, Users, ChevronDown, ChevronRight, Download, Receipt, Store, Ticket, TrendingUp } from "lucide-react";
 import { useDashboardData } from "@/lib/data-context";
 import { activeStaffNameSet } from "@/lib/reports-hub";
 import { businessDayStartFor } from "@/lib/business-day";
 import { formatNumber, formatVND, getBusinessBillTimestamp, getUTC7Date } from "@/lib/reports";
-import { calculateCampaignReport, UNKNOWN_PROMO_STAFF } from "@/lib/promotion-report";
+import { calculateCampaignReport, onlyCampaign, UNKNOWN_PROMO_STAFF } from "@/lib/promotion-report";
+import { attributeBillsToStaff } from "@/lib/promo-attribution";
 import { exportCampaignReportExcel, type ReportStoreInfo } from "@/lib/export";
 
 type RangeKey = "TODAY" | "YESTERDAY" | "7DAYS" | "THIS_MONTH" | "LAST_MONTH" | "CUSTOM";
@@ -38,6 +39,7 @@ export default function PromotionReportPage() {
   const [customEnd, setCustomEnd] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [staffFilter, setStaffFilter] = useState("ALL");
+  const [campaignFilter, setCampaignFilter] = useState("ALL");
 
   const currentStore = useMemo(() => {
     if (currentStoreCode === "ALL") return undefined;
@@ -99,14 +101,21 @@ export default function PromotionReportPage() {
     const active = activeStaffNameSet(usersList);
     return names.filter((n) => n === UNKNOWN_PROMO_STAFF || active.has(n.trim().toLowerCase()));
   }, [fullReport, usersList]);
-  const billStaffOf = (b: { cashierName?: string; staffFullName?: string; staffUsername?: string }) =>
-    (b.cashierName || b.staffFullName || b.staffUsername || "").trim() || UNKNOWN_PROMO_STAFF;
-  // Bộ lọc nhân viên (người thanh toán / áp dụng khuyến mãi): tính lại toàn bộ số liệu chỉ với hóa đơn của người đó
+  // Bộ lọc nhân viên: tính cho NGƯỜI BẤM MÓN được ưu đãi (combo tính cho người bấm món được giảm, không phải thu ngân).
+  // Mỗi hóa đơn chỉ giữ phần khuyến mãi của người đó (staffShares; hóa đơn cũ: người bấm duy nhất / thu ngân).
   const activeStaff = staffFilter !== "ALL" && staffOptions.includes(staffFilter) ? staffFilter : "ALL";
-  const report = useMemo(
-    () => (activeStaff === "ALL" ? fullReport : calculateCampaignReport(bills.filter((b) => billStaffOf(b) === activeStaff))),
-    [fullReport, bills, activeStaff]
-  );
+  // Bộ lọc chương trình: tính riêng một chương trình (vd combo bánh + nước) — cả thẻ tổng và bảng theo nhân viên
+  const campaignOptions = useMemo(() => fullReport.campaigns.map((c) => ({ key: c.key, name: c.name })), [fullReport]);
+  const activeCampaign = campaignFilter !== "ALL" && campaignOptions.some((c) => c.key === campaignFilter) ? campaignFilter : "ALL";
+  const report = useMemo(() => {
+    if (activeStaff === "ALL" && activeCampaign === "ALL") return fullReport;
+    const scoped = onlyCampaign(bills, activeCampaign);
+    return calculateCampaignReport(
+      activeStaff === "ALL"
+        ? scoped
+        : attributeBillsToStaff(scoped, (st) => ((st.n || st.u).trim() || UNKNOWN_PROMO_STAFF) === activeStaff),
+    );
+  }, [fullReport, bills, activeStaff, activeCampaign]);
 
   const handleExport = () => {
     const info: ReportStoreInfo = {
@@ -167,6 +176,17 @@ export default function PromotionReportPage() {
             </select>
           </div>
           <div style={selectBox}>
+            <Filter size={16} color="var(--primary)" />
+            <select aria-label="Chương trình" value={activeCampaign} onChange={(e) => setCampaignFilter(e.target.value)} style={selectStyle}>
+              <option value="ALL">Tất cả chương trình</option>
+              {campaignOptions.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={selectBox}>
             <Users size={16} color="var(--primary)" />
             <select aria-label="Nhân viên" value={activeStaff} onChange={(e) => setStaffFilter(e.target.value)} style={selectStyle}>
               <option value="ALL">Tất cả nhân viên</option>
@@ -199,9 +219,11 @@ export default function PromotionReportPage() {
 
       {report.staffTotals.length > 0 && (
         <div>
-          <h2 style={{ fontSize: "15px", fontWeight: 800, margin: "0 0 4px", color: "var(--text)" }}>Khuyến mãi theo nhân viên</h2>
+          <h2 style={{ fontSize: "15px", fontWeight: 800, margin: "0 0 4px", color: "var(--text)" }}>
+            Khuyến mãi theo nhân viên{activeCampaign !== "ALL" ? ` — ${campaignOptions.find((c) => c.key === activeCampaign)?.name ?? ""}` : ""}
+          </h2>
           <p style={{ fontSize: "12px", color: "var(--subtext)", margin: "0 0 8px" }}>
-            Tính theo nhân viên thanh toán và áp dụng khuyến mãi trên hóa đơn. Mỗi hóa đơn chỉ tính một lần vào số HĐ và doanh thu.
+            Tính cho NGƯỜI BẤM MÓN được ưu đãi (combo tính cho người bấm món được giảm, đổi điểm tính cho người thu tiền). Hóa đơn cũ chưa ghi người bấm: cả đơn do 1 người bấm thì tính cho người đó, còn lại tính cho người thu tiền.
           </p>
           <div className="table-wrapper">
             <table>

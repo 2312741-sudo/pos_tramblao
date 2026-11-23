@@ -59,7 +59,7 @@ class FirebaseService {
       getKitchenOrdersRef: () => kitchenOrdersRef,
       getOnlineOrdersRef: () => onlineOrdersRef,
       logAction: (log) => _reportRepo.logAction(log),
-      onDeductCashShift: (method, amount) => _reportRepo.deductCashShiftSale(method, amount),
+      onReverseBillShift: (bill) => _reportRepo.reverseBillFromShift(bill),
     );
   }
 
@@ -79,6 +79,14 @@ class FirebaseService {
   OrderRepository get orderRepo => _orderRepo;
   ReportRepository get reportRepo => _reportRepo;
   ExportService get exportService => _exportService;
+
+  /// Trạng thái kết nối tới Firebase (true = đang kết nối). Chờ tới khi dịch vụ đã khởi tạo.
+  Stream<bool> connectionStream() async* {
+    while (!_initialized) {
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    yield* _root.child('.info/connected').onValue.map((e) => e.snapshot.value == true);
+  }
 
   void init({String? storeCode}) {
     if (storeCode != null && storeCode.isNotEmpty) {
@@ -436,6 +444,7 @@ class FirebaseService {
 
   // ==================== AUDIT LOGS ====================
   Stream<List<AuditLogModel>> auditLogsStream() => _reportRepo.auditLogsStream();
+  Future<List<AuditLogModel>> auditLogsInRange(int fromMs, int toMs) => _reportRepo.auditLogsInRange(fromMs, toMs);
 
   Future<void> logAction(AuditLogModel log) => _reportRepo.logAction(log);
 
