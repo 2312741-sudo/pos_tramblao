@@ -1,0 +1,16 @@
+{
+  "name": "migrate-chamcong-to-pos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chuyen du lieu Cham Cong Tram BLAO tu chamcongtramblao sang postramblao (chay 1 lan, idempotent)",
+  "scripts": {
+    "dry-run": "node index.js --dry-run",
+    "apply": "node index.js --apply"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^7.11.0",
+    "@google-cloud/storage": "^7.15.0",
+    "firebase-admin": "^13.1.0",
+    "google-auth-library": "^9.15.1"
+  }
+}
