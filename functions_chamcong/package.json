@@ -11,7 +11,7 @@
     "test:emulator": "firebase emulators:exec --only firestore --project demo-chamcong-notifications --config ../firebase.json \"node --test test/notifications-emulator.test.js test/firestore-rules-roles.test.js\""
   },
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "dependencies": {
