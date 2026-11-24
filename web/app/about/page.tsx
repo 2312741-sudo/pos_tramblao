@@ -23,7 +23,7 @@ import { LEGAL } from "@/lib/legal-config";
 export const metadata: Metadata = {
   title: "Giới Thiệu & Thông Tin Ứng Dụng • POS Trạm BLAO F&B",
   description:
-    "Thông tin chính thức về hệ thống POS Trạm BLAO: phiên bản 1.1.1, hỗ trợ kỹ thuật, hotline 0865062205, tiêu chuẩn bảo mật và giải pháp quản lý bán hàng cho chuỗi F&B.",
+    "Thông tin chính thức về hệ thống POS Trạm BLAO: phiên bản 1.1.2, hỗ trợ kỹ thuật, hotline 0865062205, tiêu chuẩn bảo mật và giải pháp quản lý bán hàng cho chuỗi F&B.",
 };
 
 export default function PublicAboutPage() {
@@ -113,7 +113,7 @@ export default function PublicAboutPage() {
                 fontSize: 13,
               }}
             >
-              Phiên bản 1.1.1 (Build 16)
+              Phiên bản 1.1.2 (Build 18)
             </span>
             <span style={{ fontSize: 13, color: "var(--subtext)" }}>
               Năm phát hành: <strong>2026</strong>
@@ -305,7 +305,7 @@ export default function PublicAboutPage() {
 
             <div style={{ padding: "12px 16px", background: "var(--surface-muted)", borderRadius: "var(--radius-md)" }}>
               <div style={{ color: "var(--subtext)", marginBottom: 4 }}>Phiên bản hiện tại:</div>
-              <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14 }}>1.1.1 (Build 16)</div>
+              <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14 }}>1.1.2 (Build 18)</div>
             </div>
 
             <div style={{ padding: "12px 16px", background: "var(--surface-muted)", borderRadius: "var(--radius-md)" }}>

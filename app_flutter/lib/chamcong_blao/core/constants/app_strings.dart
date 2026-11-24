@@ -4,7 +4,7 @@ class AppStrings {
   // ── App Info ──────────────────────────────────────────────────────────────
   static const String appName = 'Chấm Công Trạm BLAO';
   static const String appTagline = 'Trạm trà - Trạm bánh';
-  static const String appVersion = 'Phiên bản 1.1.1';
+  static const String appVersion = 'Phiên bản 1.1.2';
   static const String blaoStationRegion = 'Cao nguyên Bảo Lộc • Đà Lạt';
   static const String blaoStationSopTitle = 'Cẩm nang & Hẹn giờ Quầy BLAO';
   static const String blaoStationSopSubtitle = 'Tiêu chuẩn lò Bánh Lăn Nướng & ủ Trà Ô Long';

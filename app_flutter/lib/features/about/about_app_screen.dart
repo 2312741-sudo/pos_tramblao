@@ -17,8 +17,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 class AboutAppScreen extends StatelessWidget {
   const AboutAppScreen({super.key});
 
-  static const String appVersion = '1.1.1';
-  static const String appBuild = '16';
+  static const String appVersion = '1.1.2';
+  static const String appBuild = '18';
   static const String slogan = 'Trạm trà - Trạm bánh';
   static const String bundleId = 'com.tramblao.pos';
   static const String teamId = 'W97CS7VC54';
