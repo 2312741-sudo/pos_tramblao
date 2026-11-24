@@ -78,7 +78,6 @@ class TableCard extends StatelessWidget {
     required this.onMenuSelected,
   });
 
-  @override
   /// Chiều cao một thẻ trong lưới bàn: giãn theo cỡ chữ hệ thống để chữ to vẫn hiện đủ
   /// (khu bàn và "số khách • thời gian ngồi" nằm 2 dòng riêng).
   static double gridExtent(BuildContext context) {
@@ -86,6 +85,7 @@ class TableCard extends StatelessWidget {
     return 172 * scale.clamp(1.0, 1.8);
   }
 
+  @override
   Widget build(BuildContext context) {
     final status = TableStatusStyle.statusOf(table);
     final style = TableStatusStyle.resolve(context, status);
