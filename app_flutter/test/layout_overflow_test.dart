@@ -51,7 +51,7 @@ void main() {
             body: Center(
               child: SizedBox(
                 width: w,
-                height: 156, // mainAxisExtent của lưới bàn
+                height: 172, // TableCard.gridExtent ở cỡ chữ mặc định
                 child: TableCard(table: entry.value(), onTap: () {}, onLongPress: () {}, onMenuSelected: (_) {}),
               ),
             ),
@@ -62,6 +62,28 @@ void main() {
       });
     }
   }
+
+  testWidgets('Thẻ bàn đang dùng: khu bàn 1 dòng, số khách + thời gian ngồi dòng riêng (cỡ chữ lớn không tràn)', (t) async {
+    final table = TableModel(name: 'Bàn 04', zone: 'Sân vườn', inUse: true, currentBillId: 'HD-261124-205613-KKHB', openedAt: now - 31 * 60000, guestCount: 1,
+        currentOrderJson: '[{"productId":1,"name":"Trà","price":15875,"quantity":8}]');
+    await t.pumpWidget(MaterialApp(
+      home: MediaQuery(
+        data: const MediaQueryData(size: Size(360, 800), textScaler: TextScaler.linear(1.3)),
+        child: Scaffold(
+          body: Center(
+            child: SizedBox(width: 160, height: 172 * 1.3, child: TableCard(table: table, onTap: () {}, onLongPress: () {}, onMenuSelected: (_) {})),
+          ),
+        ),
+      ),
+    ));
+    await t.pump();
+    expect(t.takeException(), isNull);
+    expect(find.text('Sân vườn'), findsOneWidget);
+    final stay = find.textContaining(RegExp(r'^1 khách • 3[12] phút$'));
+    expect(stay, findsOneWidget);
+    // Không bị phần tổng tiền che mất
+    expect(t.getRect(stay).bottom, lessThanOrEqualTo(t.getRect(find.text('8 phần')).top));
+  });
 
   for (final w in [320.0, 360.0]) {
     testWidgets('Dòng món trong giỏ rộng $w', (t) async {

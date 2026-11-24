@@ -79,6 +79,13 @@ class TableCard extends StatelessWidget {
   });
 
   @override
+  /// Chiều cao một thẻ trong lưới bàn: giãn theo cỡ chữ hệ thống để chữ to vẫn hiện đủ
+  /// (khu bàn và "số khách • thời gian ngồi" nằm 2 dòng riêng).
+  static double gridExtent(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    return 172 * scale.clamp(1.0, 1.8);
+  }
+
   Widget build(BuildContext context) {
     final status = TableStatusStyle.statusOf(table);
     final style = TableStatusStyle.resolve(context, status);
@@ -195,17 +202,16 @@ class TableCard extends StatelessWidget {
       final code = (table.currentBillId != null && table.currentBillId!.isNotEmpty)
           ? 'HĐ: ${table.currentBillId}'
           : ((table.currentOrderCode != null && table.currentOrderCode!.isNotEmpty) ? 'Đơn: ${table.currentOrderCode}' : null);
-      final meta = [
-        table.zone,
+      // Khu bàn một dòng, số khách + thời gian ngồi một dòng: màn hình nhỏ / cỡ chữ lớn vẫn đọc đủ
+      final metaStyle = GoogleFonts.beVietnamPro(fontSize: 12, color: style.ink, fontWeight: FontWeight.w600);
+      lines.add(Text(table.zone, maxLines: 1, overflow: TextOverflow.ellipsis, style: metaStyle));
+      final stay = [
         if (table.guestCount != null && table.guestCount! > 0) '${table.guestCount} khách',
         if (table.durationInUse != null) '${table.durationInUse!.inMinutes} phút',
       ].join(' • ');
-      lines.add(Text(
-        meta,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.beVietnamPro(fontSize: 12, color: style.ink, fontWeight: FontWeight.w600),
-      ));
+      if (stay.isNotEmpty) {
+        lines.add(Text(stay, maxLines: 1, overflow: TextOverflow.ellipsis, style: metaStyle));
+      }
       if (code != null) {
         lines.add(Text(code, maxLines: 1, overflow: TextOverflow.ellipsis, style: small.copyWith(fontSize: 11)));
       }
