@@ -614,14 +614,22 @@ class ReportCalculator {
         final prodName = (p != null && p.name.isNotEmpty) ? p.name : it.name;
         final category = (p != null && p.category.isNotEmpty) ? p.category : 'Khác';
         final unit = (p != null && p.unit.isNotEmpty) ? p.unit : 'Ly';
-        final basePrice = (p != null && p.price > 0) ? p.price : it.price;
+        // Món KHÔNG phải đồ uống có size (vd. bánh Nhỏ / Lớn): mỗi size một dòng riêng, đơn giá gồm phụ thu size.
+        // Đồ uống không còn chọn size; dữ liệu đồ uống cũ có size vẫn gộp một dòng (khớp web: reports.ts).
+        final rawSize = it.selectedSize.trim();
+        final isDrink = (p?.hasIceSugarOptions ?? false) ||
+            ProductModel.isDrinkCategoryName(category) ||
+            it.selectedSugar.trim().isNotEmpty ||
+            it.selectedIce.trim().isNotEmpty;
+        final size = (rawSize.isNotEmpty && !isDrink) ? rawSize : '';
+        final basePrice = ((p != null && p.price > 0) ? p.price : it.price) + (size.isNotEmpty ? it.sizeExtraPrice : 0);
         // Gom theo mã món: món trùng trong thực đơn và món gọi làm topping cùng về một dòng
-        final accKey = productMergeKey(prodCode, prodName);
+        final accKey = productMergeKey(prodCode, prodName) + (size.isNotEmpty ? '|size:${size.toLowerCase()}' : '');
 
         accMap.putIfAbsent(accKey, () => _ProdAccumulator(
           productId: prodId,
           productCode: prodCode,
-          productName: prodName,
+          productName: size.isNotEmpty ? '$prodName ($size)' : prodName,
           category: category,
           unit: unit,
           basePrice: basePrice,

@@ -530,3 +530,37 @@ describe("hàng hoá bán ra: dòng món productId = 0 (món tạo trên app)", 
     expect(by).toEqual({ "Bánh Flan Vỏ Chanh": 2, "Trà ô long chanh": 4, "Nước suối": 1 });
   });
 });
+
+describe("báo cáo hàng hoá: bánh tách theo size", () => {
+  it("mỗi size một dòng (tên kèm size, đơn giá cộng phụ thu); món không size giữ một dòng", () => {
+    const bills = [
+      { id: "s1", status: "PAID", closedAt: 1, items: [
+        { productId: 9, name: "Bánh Lăn Nướng", price: 15000, quantity: 2, selectedSize: "Nhỏ", sizeExtraPrice: 0 },
+        { productId: 9, name: "Bánh Lăn Nướng", price: 15000, quantity: 1, selectedSize: "Lớn", sizeExtraPrice: 5000 },
+        { productId: 3, name: "Trà Olong", price: 30000, quantity: 1 },
+      ] },
+      { id: "s2", status: "PAID", closedAt: 2, items: [
+        { productId: 9, name: "Bánh Lăn Nướng", price: 15000, quantity: 3, selectedSize: "Lớn", sizeExtraPrice: 5000 },
+      ] },
+    ] as never;
+    const rows = __cpr(bills);
+    const by = Object.fromEntries(rows.map((r) => [r.productName, r]));
+    expect(Object.keys(by).sort()).toEqual(["Bánh Lăn Nướng (Lớn)", "Bánh Lăn Nướng (Nhỏ)", "Trà Olong"]);
+    expect(by["Bánh Lăn Nướng (Nhỏ)"].quantity).toBe(2);
+    expect(by["Bánh Lăn Nướng (Lớn)"].quantity).toBe(4);
+    expect(by["Bánh Lăn Nướng (Lớn)"].basePrice).toBe(20000);
+    expect(by["Bánh Lăn Nướng (Nhỏ)"].basePrice).toBe(15000);
+  });
+
+  it("đồ uống có size cũ (đã bỏ chọn size) vẫn gộp một dòng", () => {
+    const bills = [
+      { id: "d1", status: "PAID", closedAt: 1, items: [
+        { productId: 5, name: "Sinh tố bơ", category: "Sinh Tố", price: 40000, quantity: 1, selectedSize: "M", selectedSugar: "100% đường" },
+        { productId: 5, name: "Sinh tố bơ", category: "Sinh Tố", price: 40000, quantity: 2, selectedSize: "L", sizeExtraPrice: 5000 },
+      ] },
+    ] as never;
+    const rows = __cpr(bills);
+    expect(rows.map((r) => r.productName)).toEqual(["Sinh tố bơ"]);
+    expect(rows[0].quantity).toBe(3);
+  });
+});

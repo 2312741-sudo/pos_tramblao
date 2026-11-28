@@ -8,6 +8,7 @@ import { businessDateOf, businessDayStartFor } from "./business-day";
  */
 import { lineGross as rawLineGross, type RawOrderLine } from "./order-math";
 import { billDeletedItems, deletionReportFromBills, isUnpaidCancelledBill } from "./item-deletion";
+import { isDrinkProduct } from "./product-options";
 
 export interface OrderItem {
   id?: number | string;
@@ -1097,6 +1098,7 @@ export function calculateProductReport(
         let basePrice: number;
         let unit: string;
         let category: string;
+        let size = "";
         if (part.isTopping) {
           pId = part.productId ?? 0;
           pCode = part.code;
@@ -1116,15 +1118,23 @@ export function calculateProductReport(
             if (!basePrice) basePrice = Number(pDef.price || 0);
             if ((!category || category === "Khác") && pDef.category) category = pDef.category;
           }
+          // Món KHÔNG phải đồ uống có size (vd. bánh Nhỏ / Lớn): mỗi size một dòng riêng, đơn giá gồm phụ thu size.
+          // Đồ uống không còn chọn size; dữ liệu đồ uống cũ có size vẫn gộp một dòng như trước.
+          const rawSize = typeof it.selectedSize === "string" ? it.selectedSize.trim() : "";
+          const drink = isDrinkProduct({ category }) || !!String(it.selectedSugar || "").trim() || !!String(it.selectedIce || "").trim();
+          if (rawSize && !drink) {
+            size = rawSize;
+            basePrice += Number(it.sizeExtraPrice || 0);
+          }
         }
 
         // Gom theo mã món: món trùng trong thực đơn và món gọi làm topping cùng về một dòng
-        const key = productMergeKey(pCode, part.name);
+        const key = productMergeKey(pCode, part.name) + (size ? `|size:${size.toLowerCase()}` : "");
         if (!prodMap.has(key)) {
           prodMap.set(key, {
             productId: pId,
             productCode: pCode,
-            productName: part.name,
+            productName: size ? `${part.name} (${size})` : part.name,
             category,
             unit,
             basePrice,
