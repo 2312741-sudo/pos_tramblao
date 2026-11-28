@@ -1066,6 +1066,24 @@ export function calculateCategoryReport(
 /**
  * Báo cáo 4: Hiệu suất Món ăn / Hàng hóa (Product Sales Performance)
  */
+/**
+ * Size dùng để TÁCH DÒNG trong báo cáo hàng hoá: món không phải đồ uống có size (vd. bánh Nhỏ / Lớn) → tên size;
+ * đồ uống (đã bỏ chọn size; dữ liệu cũ có size vẫn gộp) hoặc món không size → "".
+ * Bản Dart song song: ReportCalculator.calculateProductReport (app_flutter/lib/core/reports/report_calculator.dart).
+ */
+export function reportSizeOf(it: { selectedSize?: unknown; selectedSugar?: unknown; selectedIce?: unknown; category?: unknown }, category?: string): string {
+  const size = typeof it.selectedSize === "string" ? it.selectedSize.trim() : "";
+  if (!size) return "";
+  const cat = category ?? (typeof it.category === "string" ? it.category : "");
+  const drink = isDrinkProduct({ category: cat }) || !!String(it.selectedSugar ?? "").trim() || !!String(it.selectedIce ?? "").trim();
+  return drink ? "" : size;
+}
+
+/** Tên món trong báo cáo: kèm size khi món được tách theo size ("Bánh Lăn Nướng (Lớn)") */
+export function reportNameWithSize(name: string, size: string): string {
+  return size ? `${name} (${size})` : name;
+}
+
 export function calculateProductReport(
   bills: HistoryOrder[],
   productsMap?: Record<string | number, ProductLookup>
@@ -1118,14 +1136,8 @@ export function calculateProductReport(
             if (!basePrice) basePrice = Number(pDef.price || 0);
             if ((!category || category === "Khác") && pDef.category) category = pDef.category;
           }
-          // Món KHÔNG phải đồ uống có size (vd. bánh Nhỏ / Lớn): mỗi size một dòng riêng, đơn giá gồm phụ thu size.
-          // Đồ uống không còn chọn size; dữ liệu đồ uống cũ có size vẫn gộp một dòng như trước.
-          const rawSize = typeof it.selectedSize === "string" ? it.selectedSize.trim() : "";
-          const drink = isDrinkProduct({ category }) || !!String(it.selectedSugar || "").trim() || !!String(it.selectedIce || "").trim();
-          if (rawSize && !drink) {
-            size = rawSize;
-            basePrice += Number(it.sizeExtraPrice || 0);
-          }
+          size = reportSizeOf(it, category);
+          if (size) basePrice += Number(it.sizeExtraPrice || 0);
         }
 
         // Gom theo mã món: món trùng trong thực đơn và món gọi làm topping cùng về một dòng
@@ -1134,7 +1146,7 @@ export function calculateProductReport(
           prodMap.set(key, {
             productId: pId,
             productCode: pCode,
-            productName: size ? `${part.name} (${size})` : part.name,
+            productName: reportNameWithSize(part.name, size),
             category,
             unit,
             basePrice,

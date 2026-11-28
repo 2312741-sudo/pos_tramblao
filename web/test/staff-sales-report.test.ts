@@ -67,3 +67,22 @@ describe("Khoảng ngày theo ngày kinh doanh", () => {
     expect(formatRangeLabel({ from: "2026-10-01", to: "2026-10-29" })).toBe("Từ 01/10/2026 đến 29/10/2026");
   });
 });
+
+describe("Món theo nhân viên: bánh tách theo size", () => {
+  it("cùng nhân viên, bánh Nhỏ / Lớn là 2 dòng; đồ uống có size cũ gộp 1 dòng", () => {
+    const bills = [
+      {
+        id: "z1", status: "PAID", closedAt: Date.UTC(2026, 10, 28, 3),
+        items: [
+          { productId: 9, name: "Bánh Lăn Nướng", price: 15000, quantity: 2, selectedSize: "Nhỏ", orderedBy: "nv1", orderedByName: "An" },
+          { productId: 9, name: "Bánh Lăn Nướng", price: 15000, quantity: 1, selectedSize: "Lớn", sizeExtraPrice: 5000, orderedBy: "nv1", orderedByName: "An" },
+          { productId: 5, name: "Sinh tố bơ", category: "Sinh Tố", price: 40000, quantity: 1, selectedSize: "M", orderedBy: "nv1", orderedByName: "An" },
+          { productId: 5, name: "Sinh tố bơ", category: "Sinh Tố", price: 40000, quantity: 1, selectedSize: "L", orderedBy: "nv1", orderedByName: "An" },
+        ],
+      },
+    ] as unknown as HistoryOrder[];
+    const { items } = staffItemSummary(soldItemRows(bills));
+    const by = Object.fromEntries(items.map((i) => [i.productName, i.quantity]));
+    expect(by).toEqual({ "Bánh Lăn Nướng (Nhỏ)": 2, "Bánh Lăn Nướng (Lớn)": 1, "Sinh tố bơ": 2 });
+  });
+});

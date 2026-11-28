@@ -33,7 +33,7 @@ import { useDashboardData } from "@/lib/data-context";
 import { buildToppingLookup, splitLineParts } from "@/lib/topping-split";
 import { parseOrderJson, summarizeOrderLines } from "@/lib/order-math";
 import { lineProductId } from "@/lib/product-code";
-import { isRevenueBill } from "@/lib/reports";
+import { isRevenueBill, reportNameWithSize, reportSizeOf } from "@/lib/reports";
 
 // Tooltip biểu đồ — khai báo ngoài component để không bị tạo lại mỗi lần render
 interface ChartTooltipProps {
@@ -121,9 +121,11 @@ export default function DashboardPage() {
       order.items.forEach((item) => {
         // Topping đếm riêng, không cộng vào món gốc
         for (const part of splitLineParts(item, toppingLookup)) {
-          const key = part.isTopping ? part.key : String(lineProductId(item.productId) ?? item.name);
+          // Bánh có size: mỗi size một dòng (giống báo cáo hàng hoá)
+          const size = part.isTopping ? "" : reportSizeOf(item);
+          const key = part.isTopping ? part.key : `${String(lineProductId(item.productId) ?? item.name)}${size ? `|size:${size.toLowerCase()}` : ""}`;
           if (!productCountMap[key]) {
-            productCountMap[key] = { name: part.name, count: 0, total: 0 };
+            productCountMap[key] = { name: part.isTopping ? part.name : reportNameWithSize(part.name, size), count: 0, total: 0 };
           }
           productCountMap[key].count += part.quantity;
           productCountMap[key].total += part.grossRevenue;

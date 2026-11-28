@@ -14,6 +14,8 @@ import {
   getBillTimestamp,
   getBusinessBillTimestamp,
   getUTC7Date,
+  reportNameWithSize,
+  reportSizeOf,
   type HistoryOrder,
   type OrderItem,
 } from "./reports";
@@ -174,7 +176,8 @@ export function soldItemRows(
         rows.push({
           ...base,
           productCode: part.isTopping ? part.code : resolveProductCode(it as unknown as CodeLine, productsMap),
-          productName: part.name,
+          // Bánh có size → "Tên (Size)" để báo cáo theo nhân viên tách theo size như báo cáo hàng hoá
+          productName: part.isTopping ? part.name : reportNameWithSize(part.name, reportSizeOf(it, (categoryOf ? categoryOf(it) : "") || it.category || "")),
           category: part.isTopping ? part.category : (categoryOf ? categoryOf(it) : "") || it.category || "Khác",
           options: part.isTopping ? `Topping (kèm ${part.parentName})` : itemOptions(it, false),
           note: part.isTopping ? "" : base.note,
@@ -214,7 +217,7 @@ export function staffItemSummary(rows: SoldItemRow[]): { items: StaffItemSummary
   const byKey = new Map<string, StaffItemSummaryRow & { bills: Set<string>; staffId: string }>();
   const byStaff = new Map<string, StaffTotalRow & { bills: Set<string> }>();
   for (const r of rows) {
-    const key = `${r.orderStaffId}\u0000${r.productCode || r.productName}`;
+    const key = `${r.orderStaffId}\u0000${r.productCode}\u0000${r.productName}`;
     let e = byKey.get(key);
     if (!e) {
       e = {

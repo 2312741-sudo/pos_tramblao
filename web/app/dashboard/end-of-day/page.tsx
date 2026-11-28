@@ -277,7 +277,7 @@ export default function EndOfDayReportPage() {
         ? isUnassignedRow(r.orderStaffName)
         : splitStaff(r.orderStaffName).some((n) => n.toLocaleLowerCase("vi") === want);
       if (!match) continue;
-      const key = r.productCode || r.productName;
+      const key = `${r.productCode}\u0000${r.productName}`; // tên đã kèm size (bánh Nhỏ / Lớn tách dòng)
       let e = map.get(key);
       if (!e) {
         const prod = productsMap[r.productName];
